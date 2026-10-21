@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "CashChase Orbyte SME Copilot (WhatsApp Web + LM Studio)",
+  "version": "2.0.0",
+  "description": "Orbyte Smart SME sidebar for WhatsApp Web — auto-detects chats, checks live stock, remembers client trust/tone, customizes quotes, and verifies receipts.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:1234/*",
+    "http://127.0.0.1:1234/*",
+    "https://web.whatsapp.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "css": ["sidebar.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

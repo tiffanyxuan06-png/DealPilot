@@ -1,0 +1,276 @@
+/* CashChase Chrome/Edge Extension Sidebar for WhatsApp Web */
+
+:root {
+  --cc-sidebar-width: 330px;
+}
+
+/* 1. Resize WhatsApp Web Container to prevent ANY overlapping of user messages or UI */
+html.cashchase-active {
+  width: calc(100vw - var(--cc-sidebar-width)) !important;
+  max-width: calc(100vw - var(--cc-sidebar-width)) !important;
+  margin-right: var(--cc-sidebar-width) !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+html.cashchase-active body {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-right: 0 !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+html.cashchase-active #app,
+html.cashchase-active div[id="app"],
+html.cashchase-active .app-wrapper-web,
+html.cashchase-active [role="application"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  right: var(--cc-sidebar-width) !important;
+  width: calc(100vw - var(--cc-sidebar-width)) !important;
+  max-width: calc(100vw - var(--cc-sidebar-width)) !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  transform: translate3d(0, 0, 0) !important;
+  transition: right 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html.cashchase-active #app > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Ensure WhatsApp chat pane & right-aligned outgoing messages do not clip */
+html.cashchase-active #main {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  width: auto !important;
+  padding-right: 6px !important;
+}
+
+html.cashchase-active #main footer,
+html.cashchase-active #main header {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+}
+
+html.cashchase-collapsed {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-right: 0 !important;
+}
+
+html.cashchase-collapsed body {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-right: 0 !important;
+}
+
+html.cashchase-collapsed #app,
+html.cashchase-collapsed div[id="app"],
+html.cashchase-collapsed .app-wrapper-web {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  right: 0px !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  transform: none !important;
+  transition: right 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Floating Reopen Pill Button (shown when minimized) */
+#cc-floating-reopen-btn {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  background: #0152FC;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 12px 10px;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -4px 4px 16px rgba(1, 82, 252, 0.4);
+  cursor: pointer;
+  z-index: 9999999;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.08em;
+  user-select: none;
+  transition: background 0.15s ease, transform 0.15s ease;
+  display: none;
+}
+#cc-floating-reopen-btn:hover {
+  background: #0141C9;
+  transform: translateY(-50%) scale(1.05);
+}
+
+#cashchase-wa-ext-root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--cc-sidebar-width, 330px);
+  height: 100vh;
+  z-index: 999999;
+  background: #FFFFFF;
+  border-left: 2px solid #D5DFEE;
+  box-shadow: -6px 0 24px rgba(4, 41, 112, 0.14);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #324564;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+#cashchase-wa-ext-root.cc-collapsed {
+  transform: translateX(100%);
+}
+
+.cc-header {
+  background: #042970;
+  color: #FFFFFF;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.cc-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.cc-sub {
+  font-size: 11px;
+  color: #8AB4F8;
+  margin-top: 2px;
+}
+
+.cc-badge {
+  background: rgba(1, 170, 252, 0.25);
+  color: #01E3FB;
+  border: 1px solid rgba(1, 227, 251, 0.4);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cc-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #EEF2F8;
+}
+
+.cc-card {
+  background: #FFFFFF;
+  border: 1px solid #D5DFEE;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.cc-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748B;
+  margin-bottom: 6px;
+}
+
+.cc-input, .cc-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #D5DFEE;
+  background: #F2F6FF;
+  color: #042970;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.cc-check-box {
+  background: #E3F6FF;
+  border: 1px solid rgba(1, 170, 252, 0.4);
+  color: #042970;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: pre-wrap;
+  margin: 8px 0;
+}
+
+.cc-big-btn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 13px 14px;
+  background: #0152FC;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(1, 82, 252, 0.25);
+  transition: background 0.15s ease;
+}
+
+.cc-big-btn:hover {
+  background: #0141C9;
+}
+
+.cc-sec-btn {
+  border: 1px solid #D5DFEE;
+  background: #F2F6FF;
+  color: #042970;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cc-sec-btn:hover {
+  background: #E6EEFF;
+}
+
+.cc-tab-pill {
+  flex: 1;
+  text-align: center;
+  padding: 6px 3px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #D5DFEE;
+  background: #F8FAFC;
+  color: #324564;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.cc-tab-pill:hover {
+  background: #E6EEFF;
+  color: #0152FC;
+}
+
+.cc-tab-active {
+  background: #0152FC !important;
+  color: #FFFFFF !important;
+  border-color: #0152FC !important;
+  box-shadow: 0 2px 6px rgba(1, 82, 252, 0.25);
+}
