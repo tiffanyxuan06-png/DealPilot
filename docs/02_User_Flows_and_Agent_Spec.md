@@ -190,6 +190,7 @@ MESSAGE_TEXT:
 - `EXPIRED_HOLD_FOLLOWUP` — follow-up on a quote whose 48h hold expired.
 - `CASUAL_CHAT` — no business action.
 - `CUSTOMER_DECLINED` — customer says no; reply politely, release stock.
+- `SAVE_LHDN_TIN` — customer sent their TIN / SSM no. (detected by code, never invented by the AI); one click saves it to the customer and their invoices.
 
 **Executable `extActionType` values (`POST /api/whatsapp/execute`, `backend/routes/whatsapp.py`):**
 - `REPLY_ONLY` — insert reply, no stock change.
@@ -215,4 +216,6 @@ Money is stored as whole RM integers (not sen). Tables are created and seeded by
 5. **`receipt_records`**: `id`, `invoice_id`, `customer`, `file_name`, `file_type`, `ref`, `amount`, `file_data`, `html_preview`, `created_at`
 6. **`audit_logs`**: `id`, `entry`, `created_at` (append-only by convention; not yet enforced in the database)
 
-There is no separate `customers` table yet: customer name/phone live on `invoices` and `client_memories`, and LHDN TIN status is the `invoices.lhdn` text field.
+7. **`customers`**: `name`, `phone`, `tin`, `ssm_brn`, `updated_at` (`backend/services/customers.py`). Invoices keep the customer name as text and are matched by the clean name; new quotes and invoices take their LHDN status from the customer record.
+
+Also: `role_permissions` and `approval_requests` (Team & Permissions, see PRD §5.3).

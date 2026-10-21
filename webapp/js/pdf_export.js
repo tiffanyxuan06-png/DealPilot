@@ -16,7 +16,7 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
           a.click();
           a.remove();
           URL.revokeObjectURL(url);
-          showToast(`📥 Downloaded real 4-sheet Excel workbook: ${targetFileName}!`);
+          showToast(`📥 Downloaded real 5-sheet Excel workbook: ${targetFileName}!`);
           return;
         }
       } catch (err) {

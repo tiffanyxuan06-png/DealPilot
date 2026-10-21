@@ -15,6 +15,7 @@ from backend.database import (
 )
 from backend.models.schemas import WhatsAppAnalyzeRequest, WhatsAppExecuteRequest
 from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
+from backend.services.customers import apply_tin, get_customer, lhdn_for, tin_request_text, upsert_customer
 from backend.services.memory import clean_customer_name, compute_client_memory_rating
 from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.prompts import (
@@ -142,6 +143,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         req.customer, req.phone or "", req.message, state, user_instruction=req.userInstruction or ""
     )
     fallback_result["clientMemory"] = client_memory_summary
+    _add_tin_request(conn, fallback_result, req.customer)
 
     try:
         llm_res = call_lmstudio_chat(lm_url, lm_model, system_prompt, user_prompt, api_key=lm_key)
@@ -162,8 +164,12 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         elif merged.get("intent") in ("BUYING_INQUIRY", "GENERAL_INQUIRY", "CASUAL_CHAT"):
             merged["extActionType"] = "REPLY_ONLY"
             merged["extBtnLabel"] = "💬 Insert Selected Reply (No Stock Hold)"
+        if fallback_result.get("intent") == "SAVE_LHDN_TIN":
+            for k in ("intent", "extActionType", "extBtnLabel", "tin", "ssmBrn", "extCheck"):
+                merged[k] = fallback_result.get(k)
         # Every RM amount in an AI reply must be one CashChase calculated; pressure wording is blocked.
         merged = check_ai_replies(merged, fallback_result, state, req.customer)
+        _add_tin_request(conn, merged, req.customer)
 
         conn.execute(
             """
@@ -234,6 +240,20 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         }
 
 
+def _add_tin_request(conn, analysis: Dict[str, Any], customer: str) -> None:
+    """If this customer has no LHDN TIN on file, offer a ready-made WhatsApp reply asking for it."""
+    if analysis.get("intent") == "SAVE_LHDN_TIN" or not isinstance(analysis.get("replyOptions"), list):
+        return
+    row = get_customer(conn, customer)
+    if row is not None and row["tin"]:
+        return
+    if any("LHDN TIN" in str(o.get("label", "")) for o in analysis["replyOptions"] if isinstance(o, dict)):
+        return
+    company = get_setting(conn, "company_name", "us")
+    analysis["replyOptions"].append({"label": "🧾 Ask for LHDN e-Invoice TIN", "text": tin_request_text(customer, company)})
+    analysis["tinMissing"] = True
+
+
 def _require_available(conn, items, why: str) -> None:
     """An expired quote no longer holds stock: it can only be confirmed if the units are still free."""
     for chk_sku, chk_qty in items:
@@ -274,6 +294,7 @@ def _find_invoice(conn, req: WhatsAppExecuteRequest, types, exclude_status=None,
 
 
 EXECUTE_ACTION_KEYS = {
+    "SAVE_LHDN_TIN": "invoice.set_tin",
     "CREATE_QUOTE_HOLD": "quote.create",
     "CONFIRM_DEPOSIT_DEDUCT": "deposit.confirm",
     "AFTERSALES_REPLACE": "aftersales.replace",
@@ -296,6 +317,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
             "CONFIRM_DEPOSIT_DEDUCT": f"Confirm RM {req.amount or 0:,} deposit from {req.customer} (deducts stock, adds cash)",
             "AFTERSALES_REPLACE": f"Send 1x replacement to {req.customer} (-1 stock)",
             "RELEASE_EXPIRED_HOLD": f"Release {req.customer}'s stock hold",
+            "SAVE_LHDN_TIN": f"Save LHDN TIN {req.tin or ''} for {req.customer}",
         }[action]
         gate = enforce(conn, role, key, handler="whatsapp_execute", payload={"body": req.model_dump()}, summary=summary)
         if gate:
@@ -306,6 +328,24 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         conn.commit()
         conn.close()
         return {"status": "ok", "action": "REPLY_ONLY", "state": build_state_payload()}
+
+    if action == "SAVE_LHDN_TIN":
+        from backend.services.customers import parse_ssm, parse_tin
+
+        tin = parse_tin(req.tin or "")
+        if not tin:
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"'{req.tin}' does not look like an LHDN TIN (e.g. C2588190021).")
+        ssm = parse_ssm(req.ssmBrn or "") or ""
+        updated = apply_tin(conn, req.customer, tin, ssm, ts)
+        add_log(
+            conn,
+            f"[{role}] Saved LHDN TIN {tin}" + (f" / SSM {ssm}" if ssm else "") + f" for {clean_customer_name(req.customer)} from WhatsApp"
+            + (f" → updated {', '.join('#' + i for i in updated)}." if updated else "."),
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "ok", "updated": updated, "state": build_state_payload()}
 
     if action in ("CREATE_QUOTE_HOLD", "CONFIRM_DEPOSIT_DEDUCT"):
         expire_holds(conn)
@@ -336,7 +376,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
             INSERT INTO invoices (
                 id, type, party, phone, hold_timer, hold_expires_at, chat_idx, items_text,
                 sku, qty, extra_sku, extra_qty, amount, status, lhdn, created_at
-            ) VALUES (?, 'QUOTE_HOLD', ?, ?, '⏳ 48h Left (Just Held)', ?, 0, ?, ?, ?, ?, ?, ?, 'ON_HOLD_48H', '🟢 LHDN Ready', ?)
+            ) VALUES (?, 'QUOTE_HOLD', ?, ?, '⏳ 48h Left (Just Held)', ?, 0, ?, ?, ?, ?, ?, ?, 'ON_HOLD_48H', ?, ?)
             """,
             (
                 quote_id,
@@ -349,9 +389,11 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
                 req.extraSku,
                 req.extraQty or 0,
                 req.amount or 0,
+                lhdn_for(conn, req.customer),
                 ts,
             ),
         )
+        upsert_customer(conn, req.customer, ts, phone=req.phone or "")
         recompute_stock_holds(conn)
         add_log(
             conn,
@@ -392,7 +434,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
             """
             INSERT INTO invoices (
                 id, type, party, phone, items_text, sku, qty, amount, status, lhdn, created_at
-            ) VALUES (?, 'PENDING', ?, ?, ?, ?, ?, ?, 'PENDING_PAYMENT', '🟢 LHDN Ready', ?)
+            ) VALUES (?, 'PENDING', ?, ?, ?, ?, ?, ?, 'PENDING_PAYMENT', ?, ?)
             """,
             (
                 inv_id,
@@ -402,6 +444,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
                 sku,
                 qty,
                 remaining,
+                lhdn_for(conn, req.customer),
                 ts,
             ),
         )

@@ -391,6 +391,17 @@
           }
         });
 
+        // Live profile: TIN comes from the customer record in the backend (shared with WhatsApp).
+        if (usesBackend() && Array.isArray(st.customers)) {
+          Object.values(partyMap).forEach(p => {
+            if (p.isSupplier) return;
+            const c = st.customers.find(x => x.name.toLowerCase() === cleanCustomerName(p.party).toLowerCase());
+            if (!c) return;
+            p.customer = c;
+            if (!(p.lhdn || '').includes('Consolidated')) p.lhdn = c.tin ? `🟢 LHDN TIN: ${c.tin}` : '🟡 Missing TIN';
+          });
+        }
+
         const parties = Object.values(partyMap).filter(p => {
           if (!searchQ) return true;
           return p.party.toLowerCase().includes(searchQ) || p.lhdn.toLowerCase().includes(searchQ);
@@ -411,6 +422,11 @@
             <td class="py-3 px-4 font-bold text-[#324564] whitespace-nowrap">${p.count} record(s)</td>
             <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">RM ${p.totalRM.toLocaleString()}</td>
             <td class="py-3 px-4 text-right whitespace-nowrap">
+              ${p.customer && !p.customer.tin && p.customer.phone ? `
+                <a href="https://wa.me/${p.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(p.customer.tinRequestText)}" target="_blank" rel="noopener"
+                  class="inline-block px-3.5 py-1.5 mr-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition whitespace-nowrap shadow-xs">
+                  📨 Ask TIN on WhatsApp
+                </a>` : ''}
               <button onclick="setInvoiceTin('${p.sampleId}')" class="px-3.5 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#0152FC] font-bold text-xs transition whitespace-nowrap cursor-pointer shadow-xs">
                 ✏️ Edit TIN / Consolidated
               </button>

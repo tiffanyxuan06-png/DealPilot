@@ -276,8 +276,10 @@ def build_state_payload() -> Dict[str, Any]:
     except Exception:
         receipts_list = []
 
+    from backend.services.customers import customers_payload
     from backend.services.permissions import approvals_payload, permissions_payload
 
+    customers = customers_payload(conn)
     permissions = permissions_payload(conn)
     approvals = approvals_payload(conn)
 
@@ -285,6 +287,7 @@ def build_state_payload() -> Dict[str, Any]:
     return {
         "permissions": permissions,
         "approvals": approvals,
+        "customers": customers,
         "company": {
             "name": company_name,
             "cashOnHand": cash_on_hand,
@@ -322,6 +325,7 @@ def init_db(force_reset: bool = False) -> None:
             DROP TABLE IF EXISTS receipt_records;
             DROP TABLE IF EXISTS role_permissions;
             DROP TABLE IF EXISTS approval_requests;
+            DROP TABLE IF EXISTS customers;
             """
         )
 
@@ -421,9 +425,20 @@ def init_db(force_reset: bool = False) -> None:
     if "receipt_payee" not in cols:
         conn.execute("ALTER TABLE invoices ADD COLUMN receipt_payee TEXT DEFAULT ''")
 
+    from backend.services.customers import ensure_customers_table
+
+    ensure_customers_table(conn)
+
     cur.execute("SELECT COUNT(*) AS cnt FROM settings")
     if cur.fetchone()["cnt"] == 0:
         seed_default_data(conn)
+
+    from backend.services.customers import sync_customers_from_invoices, upsert_customer
+
+    if conn.execute("SELECT COUNT(*) AS cnt FROM customers").fetchone()["cnt"] == 0:
+        sync_customers_from_invoices(conn, now_time_str())
+        # Demo customer who asks for a quote on WhatsApp (no invoice yet).
+        upsert_customer(conn, "Tan Bros Trading", now_time_str(), phone="+60 12-345 6789", tin="C2088391020")
 
     cur.execute("SELECT COUNT(*) AS cnt FROM receipt_records")
     if cur.fetchone()["cnt"] == 0:

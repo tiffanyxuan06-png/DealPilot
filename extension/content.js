@@ -1333,6 +1333,8 @@ async function executePrimaryAction() {
         extraSku: lastAnalysis.extraSku || null,
         extraQty: lastAnalysis.extraQty || 0,
         amount: lastAnalysis.amount || 6650,
+        tin: lastAnalysis.tin || null,
+        ssmBrn: lastAnalysis.ssmBrn || null,
         role: getCcRole()
       });
       if (btnEl) {

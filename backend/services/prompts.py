@@ -61,7 +61,7 @@ Adapt your recommended replies to match the customer's tone and client relations
 
 Return ONLY a valid JSON object with these keys:
 {{
-  "intent": "BUYING_INQUIRY" | "DEPOSIT_PAID" | "AFTERSALES_ISSUE" | "EXPIRED_HOLD_FOLLOWUP" | "CASUAL_CHAT" | "CUSTOMER_DECLINED",
+  "intent": "BUYING_INQUIRY" | "DEPOSIT_PAID" | "AFTERSALES_ISSUE" | "EXPIRED_HOLD_FOLLOWUP" | "CASUAL_CHAT" | "CUSTOMER_DECLINED" | "SAVE_LHDN_TIN",
   "badge": "Short 2-3 word label",
   "extTitle": "Action card title",
   "extCheck": "Multi-line summary of stock availability and RM calculation (Note: a quote places stock ON HOLD for 48h; physical stock is only deducted after the deposit is confirmed)",
@@ -149,6 +149,34 @@ def deterministic_fallback_analysis(
     primary_item = stock_items[0]
     secondary_item = stock_items[1] if len(stock_items) > 1 else primary_item
     company_name = state.get("company", {}).get("name", "our company")
+
+    # 0a. Customer sent their LHDN TIN / SSM number (code detects it; the AI never invents a TIN)
+    from backend.services.customers import parse_ssm, parse_tin
+
+    sent_tin = parse_tin(message_text)
+    if sent_tin:
+        sent_ssm = parse_ssm(message_text) or ""
+        opt1 = f"Thank you {clean_cust}! We have recorded your TIN {sent_tin} for LHDN e-Invoicing."
+        opt2 = f"Terima kasih {clean_cust}! TIN {sent_tin} telah direkodkan untuk e-Invois LHDN."
+        return {
+            "intent": "SAVE_LHDN_TIN",
+            "badge": "LHDN TIN Received",
+            "extTitle": f"🧾 Save LHDN TIN for {clean_cust}",
+            "extCheck": f"🧾 TIN: {sent_tin}" + (f"\n🏢 SSM BRN: {sent_ssm}" if sent_ssm else "") + "\n✅ Saved on the customer and their open invoices",
+            "extActionDesc": "Saves the TIN on the customer record and their invoices, then inserts the thank-you reply.",
+            "extDraft": opt1,
+            "replyOptions": [
+                {"label": "🧾 Option 1: Thank & Confirm TIN", "text": opt1},
+                {"label": "🇲🇾 Option 2: Bahasa Melayu", "text": opt2},
+            ],
+            "extBtnLabel": "🧾 Save TIN & Insert Reply",
+            "extActionType": "SAVE_LHDN_TIN",
+            "tin": sent_tin,
+            "ssmBrn": sent_ssm,
+            "sku": None,
+            "qty": 0,
+            "amount": 0,
+        }
 
     # 0. Customer Decline / Cancellation / Pass detection
     decline_tokens = ["no", "nope", "not now", "cancel", "tak", "takpe", "tak nak", "tak jadi", "batal", "no thanks", "next time", "pass"]

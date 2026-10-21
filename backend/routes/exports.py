@@ -168,7 +168,16 @@ def api_export_xlsx(role: Optional[str] = Query(None), x_cashchase_role: Optiona
     for entry in state["logs"]:
         ws4.append([entry])
 
-    for ws in (ws1, ws2, ws3, ws4):
+    # Sheet 5: Customers & LHDN e-Invoice readiness (for the bookkeeper)
+    ws5 = wb.create_sheet(title="5_Customers_LHDN")
+    ws5.append(["Customer", "Phone", "Buyer TIN", "SSM BRN", "LHDN Ready", "Open Records"])
+    for col in range(1, 7):
+        ws5.cell(row=1, column=col).fill = header_fill
+        ws5.cell(row=1, column=col).font = header_font
+    for cust in state.get("customers", []):
+        ws5.append([cust["name"], cust["phone"], cust["tin"], cust["ssmBrn"], "Yes" if cust["lhdnReady"] else "Missing TIN", cust["openRecords"]])
+
+    for ws in (ws1, ws2, ws3, ws4, ws5):
         for col in ws.columns:
             max_len = max((len(str(cell.value or "")) for cell in col), default=12)
             col_letter = col[0].column_letter

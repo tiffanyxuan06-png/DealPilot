@@ -620,6 +620,7 @@ let currentRole = 'OWNER';
       st.stock = data.stock;
       st.invoices = data.invoices;
       st.logs = data.logs;
+      st.customers = data.customers || [];
       backendPermissions = data.permissions || backendPermissions;
       backendApprovals = data.approvals || [];
       lastBackendSignature = backendSignature(data);

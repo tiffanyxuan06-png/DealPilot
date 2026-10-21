@@ -29,6 +29,8 @@ class WhatsAppExecuteRequest(BaseModel):
     amount: Optional[int] = 6650
     receiptRef: Optional[str] = None
     invoiceId: Optional[str] = None
+    tin: Optional[str] = None  # SAVE_LHDN_TIN
+    ssmBrn: Optional[str] = None
     role: Optional[str] = None  # missing role = Staff (least privilege)
 
 

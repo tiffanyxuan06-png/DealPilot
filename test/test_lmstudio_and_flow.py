@@ -192,7 +192,7 @@ def run_all_tests() -> None:
     r_xlsx = client.get("/api/export/xlsx?role=OWNER")
     assert r_xlsx.status_code == 200
     assert r_xlsx.content[:2] == b"PK"
-    print(f"  ✅ /api/export/xlsx generated valid 4-sheet OpenXML Excel (.xlsx) binary ({len(r_xlsx.content):,} bytes)")
+    print(f"  ✅ /api/export/xlsx generated valid 5-sheet OpenXML Excel (.xlsx) binary ({len(r_xlsx.content):,} bytes)")
 
     r_pdf = client.get("/api/invoices/QT-104/pdf")
     assert r_pdf.status_code == 200

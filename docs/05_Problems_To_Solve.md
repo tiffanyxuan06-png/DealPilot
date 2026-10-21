@@ -61,8 +61,8 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 |---|---|---|---|
 | 27 | Only the aircond profile is in the database; F&B / Software Studio are front-end only | 1–2 h | ⬜ |
 | 28 | 60-second onboarding (drop old Excel / bills → catalogue) not built | 2–3 h | ⬜ |
-| 29 | LHDN TIN request on WhatsApp not built (only `SET_TIN` row action) | 1 h | ⬜ |
-| 30 | No customers table; customer details spread across invoices and client memory | 1 h | ⬜ |
+| 29 | LHDN TIN request on WhatsApp. **Fixed:** customers without a TIN get an "Ask for LHDN e-Invoice TIN" reply option and a "📨 Ask TIN on WhatsApp" button in the directory; when a customer sends their TIN (and SSM no.), code detects it and one click saves it to the customer and their invoices | 1 h | ✅ |
+| 30 | No customers table. **Fixed:** `customers` table (name, phone, TIN, SSM BRN) built from invoices; new quotes/invoices take their LHDN status from it; Excel export has a Customers & LHDN sheet | 1 h | ✅ |
 | 31 | Operating expense bill (−cash) not saved to the backend | 30 min | ✅ |
 | 32 | Flow 6 (labour + extra piping on an invoice) not a backend action | 1–2 h | ✅ |
 | 33 | "Prototype — synthetic data" label not shown. **Fixed:** shown in the WebApp top bar and the extension sidebar | 10 min | ✅ |

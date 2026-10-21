@@ -32,6 +32,7 @@ from backend.models.schemas import (
     VerifyReceiptRequest,
     WalkInOrderRequest,
 )
+from backend.services.customers import apply_tin, lhdn_for, parse_tin, upsert_customer
 from backend.services.permissions import enforce, normalize_role, receipt_check_reasons, register_handler
 from backend.services.lmstudio import (
     call_lmstudio_chat,
@@ -86,6 +87,8 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
     if gate:
         return gate
 
+    if buyer_tin:
+        upsert_customer(conn, req.customerName, now_time_str(), tin=parse_tin(buyer_tin) or buyer_tin)
     count = conn.execute("SELECT COUNT(*) AS c FROM invoices").fetchone()["c"]
 
     if req.mode == "PAID_NOW":
@@ -117,7 +120,7 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
         )
     else:
         new_id = f"QT-{110 + count}"
-        lhdn_quote = f"🟢 LHDN TIN: {buyer_tin}" if buyer_tin else "🟡 Missing TIN"
+        lhdn_quote = f"🟢 LHDN TIN: {buyer_tin}" if buyer_tin else lhdn_for(conn, req.customerName)
         conn.execute(
             """
             INSERT INTO invoices (
@@ -339,7 +342,15 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
         tin_val = (req.tin or "").strip()
         new_lhdn = f"🟢 LHDN TIN: {tin_val}" if tin_val else "🔵 Consolidated e-Invoice"
         conn.execute("UPDATE invoices SET lhdn = ? WHERE id = ?", (new_lhdn, inv_id))
-        add_log(conn, f"[{role}] Updated LHDN e-Invoice status on #{inv_id} to {new_lhdn}.")
+        others = []
+        if tin_val:
+            # Remember the TIN on the customer and fill it in on their other invoices that still need one.
+            others = [i for i in apply_tin(conn, inv["party"], tin_val, "", now_time_str()) if i != inv_id]
+        add_log(
+            conn,
+            f"[{role}] Updated LHDN e-Invoice status on #{inv_id} to {new_lhdn}."
+            + (f" Also filled in on {', '.join('#' + i for i in others)}." if others else ""),
+        )
     elif act == "REPLACE_ONE":
         sku = req.sku or inv["sku"]
         item = conn.execute("SELECT name FROM stock WHERE sku = ?", (sku,)).fetchone()

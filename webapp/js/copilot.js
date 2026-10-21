@@ -63,7 +63,7 @@
       const extBody = document.getElementById('ext-panel-body');
       const needsOwner = activeChat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' || activeChat.extActionType === 'AFTERSALES_REPLACE';
       // Backend profile: follow the Owner's Team & Permissions settings; demo profiles keep the old Owner-only rule.
-      const execPermissionKey = { CREATE_QUOTE_HOLD: 'quote.create', CONFIRM_DEPOSIT_DEDUCT: 'deposit.confirm', AFTERSALES_REPLACE: 'aftersales.replace', RELEASE_EXPIRED_HOLD: 'quote.release' }[activeChat.extActionType];
+      const execPermissionKey = { SAVE_LHDN_TIN: 'invoice.set_tin', CREATE_QUOTE_HOLD: 'quote.create', CONFIRM_DEPOSIT_DEDUCT: 'deposit.confirm', AFTERSALES_REPLACE: 'aftersales.replace', RELEASE_EXPIRED_HOLD: 'quote.release' }[activeChat.extActionType];
       const roleMode = usesBackend() ? (execPermissionKey ? staffModeFor(execPermissionKey) : 'ALLOW') : (needsOwner && currentRole === 'STAFF' ? 'APPROVAL' : 'ALLOW');
       const blockedByRole = roleMode !== 'ALLOW';
       const replyOptions = getReplyOptionsForChat(activeChat);
@@ -396,6 +396,8 @@
               chat.extraQty = a.extraQty || 0;
             }
             if (a.amount) chat.amount = a.amount;
+            chat.tin = a.tin || null;
+            chat.ssmBrn = a.ssmBrn || null;
             chat.selectedReplyIdx = 0;
             if (a.clientMemory) {
               chat.memory = {
@@ -505,7 +507,8 @@
               CREATE_QUOTE_HOLD: `Quote created for ${chat.customer}! Stock placed ON HOLD for 48h & reply filled into WhatsApp!`,
               CONFIRM_DEPOSIT_DEDUCT: 'Deposit confirmed! Order confirmed & scheduled for delivery!',
               AFTERSALES_REPLACE: `1x replacement dispatched as Aftersales Resolution for ${chat.customer}!`,
-              RELEASE_EXPIRED_HOLD: `Released ${chat.customer}'s expired reservation back to Available Stock!`
+              RELEASE_EXPIRED_HOLD: `Released ${chat.customer}'s expired reservation back to Available Stock!`,
+              SAVE_LHDN_TIN: `Saved LHDN TIN ${chat.tin || ''} for ${chat.customer}!`
             };
             chat.done = true;
             const rebateChosen = chat.extActionType === 'AFTERSALES_REPLACE'
@@ -525,7 +528,9 @@
               qty: chat.qty || 1,
               extraSku: chat.extraSku || null,
               extraQty: chat.extraQty || 0,
-              amount: chat.amount || 0
+              amount: chat.amount || 0,
+              tin: chat.tin || null,
+              ssmBrn: chat.ssmBrn || null
             }, msgs[chat.extActionType]).then(d => { if (!d) chat.done = false; });
             return;
           }
