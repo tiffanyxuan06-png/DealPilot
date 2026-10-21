@@ -74,6 +74,8 @@
               const ex = ocrData.extracted;
               if (ex.kind) document.getElementById('ocr-kind-select').value = ex.kind;
               if (ex.party) document.getElementById('ocr-party-input').value = ex.party;
+              const payeeEl = document.getElementById('ocr-payee-input');
+              if (payeeEl && ex.payee) payeeEl.value = ex.payee;
               if (ex.ref) document.getElementById('ocr-ref-input').value = ex.ref;
               if (ex.amount) document.getElementById('ocr-amount-input').value = ex.amount;
               if (ex.qty) document.getElementById('ocr-qty-input').value = ex.qty;
@@ -158,6 +160,10 @@
             <input id="ocr-party-input" type="text" value="${defaultParty}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-semibold text-[#042970]" />
           </div>
           <div>
+            <label class="block font-bold text-[#042970] mb-1">Paid To (receipts only)</label>
+            <input id="ocr-payee-input" type="text" value="" placeholder="Name on the receipt, e.g. Sejuk Jaya Aircond Sdn Bhd" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-semibold text-[#042970]" />
+          </div>
+          <div>
             <label class="block font-bold text-[#042970] mb-1">3. Bill # / DuitNow Ref #</label>
             <input id="ocr-ref-input" type="text" value="${defaultRef}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-mono font-bold text-[#0152FC]" />
           </div>
@@ -236,6 +242,7 @@
                 body.sku = (st.stock[parseInt(skuSelVal || '0', 10)] || st.stock[0]).sku;
               }
             } else if (kind === 'customer') {
+              body.payee = (document.getElementById('ocr-payee-input')?.value || '').trim();
               const target = st.invoices.find(i => i.type === 'PENDING' && i.party.includes(party))
                 || st.invoices.find(i => i.id === 'INV-202' || i.type === 'PENDING');
               if (target) body.invoiceId = target.id;

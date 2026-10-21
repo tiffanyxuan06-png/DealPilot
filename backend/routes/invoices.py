@@ -393,10 +393,10 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
             """
             UPDATE invoices
             SET type = 'PENDING_VERIFY', status = 'PENDING_BANK_VERIFY', claimed_amount = ?, receipt_ref = ?,
-                items_text = items_text || ?
+                receipt_payee = ?, items_text = items_text || ?
             WHERE id = ?
             """,
-            (claimed, ref, f" (OCR Receipt Claimed RM {claimed:,} · Ref: {ref} · Waiting Bank Verify)", inv_id),
+            (claimed, ref, (req.payee or "").strip(), f" (OCR Receipt Claimed RM {claimed:,} · Ref: {ref} · Waiting Bank Verify)", inv_id),
         )
         add_log(conn, f"[{role}] OCR Customer Receipt ({ref}, RM {claimed:,}) staged for #{inv_id} in PENDING_VERIFY.")
     else:
@@ -527,10 +527,10 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
                 """
                 UPDATE invoices
                 SET type = 'PENDING_VERIFY', status = 'PENDING_BANK_VERIFY', claimed_amount = ?, receipt_ref = ?,
-                    items_text = items_text || ?
+                    receipt_payee = ?, items_text = items_text || ?
                 WHERE id = ?
                 """,
-                (amount, ref, f" (OCR Receipt Claimed RM {amount:,} · Ref: {ref} · Waiting Bank Verify)", target["id"]),
+                (amount, ref, (req.payee or "").strip(), f" (OCR Receipt Claimed RM {amount:,} · Ref: {ref} · Waiting Bank Verify)", target["id"]),
             )
             created = target["id"]
         else:
@@ -538,8 +538,8 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
             first_sku = conn.execute("SELECT sku FROM stock LIMIT 1").fetchone()
             conn.execute(
                 """
-                INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, claimed_amount, receipt_ref, status, lhdn, created_at)
-                VALUES (?, 'PENDING_VERIFY', ?, ?, ?, 1, ?, ?, ?, 'PENDING_BANK_VERIFY', '🟢 LHDN Ready', ?)
+                INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, claimed_amount, receipt_ref, receipt_payee, status, lhdn, created_at)
+                VALUES (?, 'PENDING_VERIFY', ?, ?, ?, 1, ?, ?, ?, ?, 'PENDING_BANK_VERIFY', '🟢 LHDN Ready', ?)
                 """,
                 (
                     created,
@@ -549,6 +549,7 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
                     amount,
                     amount,
                     ref,
+                    (req.payee or "").strip(),
                     ts,
                 ),
             )
@@ -626,7 +627,7 @@ def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
     lm_model = state["company"]["lmstudioModel"]
 
     fname = (req.fileName or "receipt.png").lower()
-    decoded_pdf_text = (req.extractedText or "").strip()
+    decoded_pdf_text = (req.extractedText or req.pdfText or "").strip()
 
     if req.imageBase64 and (
         req.imageBase64.startswith("data:application/pdf") or fname.endswith(".pdf")
@@ -654,7 +655,11 @@ def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
     ref_match = re.search(r"((?:DN|SUP|INV|EXP)-[\w-]+)", fname + " " + decoded_pdf_text, flags=re.I)
     parsed_ref = ref_match.group(1).upper() if ref_match else f"DN-{datetime.now().strftime('%Y%m%d')}-55190"
 
+    payee_match = re.search(
+        r"\bto\s+([A-Za-z][\w&.,'() -]{2,60}?)\s*(?:·|\||\n|Ref\b|$)", decoded_pdf_text, flags=re.I
+    )
     default_extracted = {
+        "payee": payee_match.group(1).strip() if payee_match else "",
         "kind": "supplier" if ("sup" in fname or "stock" in fname or "bill" in fname or "supplier" in decoded_pdf_text.lower()) else ("expense" if "exp" in fname else "customer"),
         "party": req.customer or "Restoran Selera Kampung (INV-202)",
         "ref": parsed_ref,
@@ -666,7 +671,7 @@ def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
         try:
             sys_p = (
                 "You are a fast PDF text & receipt parser for a Malaysian SME. "
-                "Extract JSON with keys: {\"kind\": \"customer\"|\"supplier\"|\"expense\", \"party\": \"...\", \"ref\": \"...\", \"qty\": 1, \"amount\": 2000}"
+                "Extract JSON with keys: {\"kind\": \"customer\"|\"supplier\"|\"expense\", \"party\": \"...\", \"payee\": \"who received the money\", \"ref\": \"...\", \"qty\": 1, \"amount\": 2000}"
             )
             usr_p = (
                 f"Customer: {req.customer or 'Unknown'}\n"
@@ -715,7 +720,7 @@ def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
                                 "type": "text",
                                 "text": (
                                     "Extract receipt or invoice fields from this image as JSON with keys: "
-                                    '{"kind": "customer"|"supplier"|"expense", "party": "...", "ref": "...", "qty": 1, "amount": 1650}'
+                                    '{"kind": "customer"|"supplier"|"expense", "party": "...", "payee": "who received the money", "ref": "...", "qty": 1, "amount": 1650}'
                                 ),
                             },
                             {"type": "image_url", "image_url": {"url": req.imageBase64}},

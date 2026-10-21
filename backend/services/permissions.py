@@ -179,6 +179,17 @@ def enforce(
     }
 
 
+def payee_matches_company(payee: str, company: str) -> bool:
+    """Lenient name match: the main words of the company name (not 'Sdn Bhd') must appear in the payee."""
+    import re
+
+    skip = {"sdn", "bhd", "enterprise", "trading", "plt", "the"}
+    words = [w for w in re.findall(r"[a-z0-9]+", company.lower()) if len(w) >= 3 and w not in skip]
+    payee_l = payee.lower()
+    hits = sum(1 for w in words if w in payee_l)
+    return hits >= min(2, len(words)) if words else True
+
+
 def receipt_check_reasons(conn: sqlite3.Connection, inv: sqlite3.Row, paid_rm: Optional[int]) -> List[str]:
     """Code-only receipt checks. Worded as 'needs checking', never as fraud."""
     reasons = []
@@ -189,6 +200,10 @@ def receipt_check_reasons(conn: sqlite3.Connection, inv: sqlite3.Row, paid_rm: O
         ).fetchone()
         if other:
             reasons.append(f"reference {ref} already used on #{other['id']}")
+    payee = (inv["receipt_payee"] or "").strip()
+    company = get_setting(conn, "company_name", "")
+    if payee and company and not payee_matches_company(payee, company):
+        reasons.append(f"paid to '{payee}', not {company}")
     seen = paid_rm if paid_rm is not None else inv["claimed_amount"]
     if seen is not None and seen != inv["amount"]:
         diff = inv["amount"] - seen

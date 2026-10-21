@@ -53,6 +53,7 @@ class InvoiceActionRequest(BaseModel):
     amount: Optional[int] = None  # DISCOUNT rebate, ATTACH_RECEIPT claimed amount
     ref: Optional[str] = ""  # ATTACH_RECEIPT reference
     sku: Optional[str] = None  # REPLACE_ONE / ADD_PIPE_LABOR item
+    payee: Optional[str] = None  # ATTACH_RECEIPT: who the receipt says was paid
     role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
@@ -84,6 +85,7 @@ class BillApplyRequest(BaseModel):
     newSkuName: Optional[str] = None  # supplier bill: create this SKU if `sku` does not exist
     newSellPrice: Optional[int] = None
     invoiceId: Optional[str] = None  # customer receipt: invoice to attach to
+    payee: Optional[str] = None  # customer receipt: who the receipt says was paid
     role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
@@ -92,6 +94,7 @@ class OcrExtractRequest(BaseModel):
     imageBase64: Optional[str] = None
     customer: Optional[str] = None
     extractedText: Optional[str] = None
+    pdfText: Optional[str] = None  # text the WebApp already decoded from the PDF
 
 
 class ReceiptSaveRequest(BaseModel):

@@ -183,6 +183,7 @@ def build_state_payload() -> Dict[str, Any]:
                 "amount": r["amount"],
                 "claimedAmount": r["claimed_amount"],
                 "receiptRef": r["receipt_ref"] or "",
+                "receiptPayee": r["receipt_payee"] or "",
                 "status": r["status"],
                 "lhdn": r["lhdn"],
                 "createdAt": r["created_at"],
@@ -354,6 +355,7 @@ def init_db(force_reset: bool = False) -> None:
             amount INTEGER NOT NULL,
             claimed_amount INTEGER DEFAULT NULL,
             receipt_ref TEXT DEFAULT '',
+            receipt_payee TEXT DEFAULT '',
             status TEXT NOT NULL,
             lhdn TEXT NOT NULL,
             created_at TEXT NOT NULL
@@ -413,6 +415,8 @@ def init_db(force_reset: bool = False) -> None:
     cols = [c["name"] for c in conn.execute("PRAGMA table_info(invoices)").fetchall()]
     if "hold_expires_at" not in cols:
         conn.execute("ALTER TABLE invoices ADD COLUMN hold_expires_at TEXT DEFAULT NULL")
+    if "receipt_payee" not in cols:
+        conn.execute("ALTER TABLE invoices ADD COLUMN receipt_payee TEXT DEFAULT ''")
 
     cur.execute("SELECT COUNT(*) AS cnt FROM settings")
     if cur.fetchone()["cnt"] == 0:
@@ -645,6 +649,8 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
     now = datetime.now()
     cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-101'", ((now - timedelta(hours=2)).strftime(HOLD_TIME_FORMAT),))
     cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-102'", ((now + timedelta(hours=41)).strftime(HOLD_TIME_FORMAT),))
+    # The seeded DuitNow receipt for INV-205 was paid to the company (it is RM 200 short, which is the check it fails).
+    cur.execute("UPDATE invoices SET receipt_payee = 'Sejuk Jaya Aircond Sdn Bhd' WHERE id = 'INV-205'")
 
     logs = [
         "10:45 AM · [System] QT-101 (Kedai Ah Seng): 48h Stock Hold expired with no deposit (3x Daikin released back to Available).",
