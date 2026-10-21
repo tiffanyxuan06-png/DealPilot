@@ -1,6 +1,11 @@
 async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeeper_Ledger.xlsx') {
       try {
-        const res = await fetch(`${BACKEND_API_BASE}/api/export/xlsx`);
+        const res = await fetch(`${BACKEND_API_BASE}/api/export/xlsx?role=${encodeURIComponent(currentRole)}`);
+        if (res.status === 403) {
+          const data = await res.json().catch(() => ({}));
+          showToast(`🔒 ${data.detail || 'Staff are not allowed to export Excel.'}`);
+          return;
+        }
         if (res.ok) {
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);

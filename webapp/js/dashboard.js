@@ -27,6 +27,7 @@
     }
 
     function openSettingsModal() {
+      renderTeamPermissions();
       document.getElementById('settings-modal').classList.remove('hidden');
     }
 

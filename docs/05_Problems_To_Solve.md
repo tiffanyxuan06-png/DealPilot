@@ -1,7 +1,7 @@
 # CashChase — Problems To Solve
 
 Checked against the code on `main` (FastAPI + SQLite backend, `webapp/`, `extension/`). Effort is a rough guess.
-Status key: ⬜ open · ✅ fixed · ⏭️ skipped (team decision).
+Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team decision).
 
 **How #1/#2 were fixed:** the aircond profile now loads from `GET /api/state`, every WebApp button calls its backend route, and the page re-checks the backend every 4 s so actions from the WhatsApp extension appear. The F&B and Software profiles are still front-end demo data (#27).
 
@@ -39,12 +39,12 @@ Status key: ⬜ open · ✅ fixed · ⏭️ skipped (team decision).
 
 | # | Problem | Where | Effort | Status |
 |---|---|---|---|---|
-| 15 | Owner / Staff not checked on the server; role comes from the browser, and the extension always sends `OWNER` | `backend/models/schemas.py`, `extension/content.js` | 1–2 h | ⬜ |
-| 16 | No Owner approval for bills over RM 1,000 | missing rule | 30 min | ⬜ |
+| 15 | Owner / Staff not checked on the server. **Fixed:** Owner-configurable permissions (Settings → Team & Permissions), enforced on the backend, with an Owner Approvals queue; the extension has a 👑/👤 role selector | `backend/services/permissions.py`, `backend/routes/team.py` | 1–2 h | ✅ |
+| 16 | No Owner approval for bills over RM 1,000. **Fixed:** mandatory threshold rule (Owner can change the amount) | `backend/services/permissions.py` | 30 min | ✅ |
 | 17 | 48h holds never really expire (no timestamp / timer; "expired" is fixed text) | `backend/database.py` | 1 h | ⬜ |
-| 18 | No fake-receipt check (payee, reused reference, amount vs balance) | `/verify-receipt` | 1 h | ⬜ |
+| 18 | No fake-receipt check. **Partly fixed:** reused reference and amount ≠ balance send the receipt to the Owner; the payee-name check still needs the OCR to store the payee | `/verify-receipt` | 1 h | ⚠️ |
 | 19 | Drafted replies not checked for correct amount / invoice no. / name | missing | 1 h | ⬜ |
-| 20 | Audit log can be edited / deleted | `audit_logs` | 20 min | ⬜ |
+| 20 | Audit log can be edited / deleted. **Fixed:** SQLite triggers block UPDATE / DELETE | `audit_logs` | 20 min | ✅ |
 
 ## P2 — setup and config
 

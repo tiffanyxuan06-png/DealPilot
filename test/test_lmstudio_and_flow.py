@@ -72,7 +72,7 @@ def run_all_tests() -> None:
 
     # 1. Reset DB to clean starting state
     print_banner("1. INITIALIZING CLEAN SQLITE DATABASE STATE (/api/reset)")
-    res = client.post("/api/reset")
+    res = client.post("/api/reset", json={"role": "OWNER"})
     assert res.status_code == 200
     state = res.json()["state"]
     print_stock_summary(state)
@@ -189,7 +189,7 @@ def run_all_tests() -> None:
     print_banner("8. TESTING REAL .XLSX EXPORT, REAL .PDF GENERATION & STAGE 1 DIRECT PDF TEXT DECODING")
     import base64
 
-    r_xlsx = client.get("/api/export/xlsx")
+    r_xlsx = client.get("/api/export/xlsx?role=OWNER")
     assert r_xlsx.status_code == 200
     assert r_xlsx.content[:2] == b"PK"
     print(f"  ✅ /api/export/xlsx generated valid 4-sheet OpenXML Excel (.xlsx) binary ({len(r_xlsx.content):,} bytes)")

@@ -79,20 +79,34 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 - **Full Adjusted Net Position (Including Pending Invoices):**
   $$\text{Full Net Position} = \text{Core Net Worth} + \text{Pending Customer Receivables} - \text{Pending Supplier/Cost Payables}$$
 
-### 5.3 Role-Based Permissions (Simulated Orbyte RBAC)
+### 5.3 Role-Based Permissions (Owner-Configurable, Enforced by the Backend)
 
-> **Current repo status:** the Owner/Staff switch (`toggleRole()` in `webapp/index.html`) is UI-only. API requests carry `role` in the request body (default `OWNER`), so the backend does not yet enforce this table. Server-side 403 checks are a TODO (see `03_Five_Day_Phased_Build_Plan.md`, Phase 4).
+**Model:** the **Owner** always has full access. **Staff** run the daily work (quotes, receipts, deposits, normal bills); the **Owner** decides discounts, large amounts and anything that looks wrong. In **Settings → Team & Permissions** the Owner sets each Staff action to **Allowed**, **Needs Owner approval** or **Off**. Requests that need approval go to the **Owner Approvals** card on the Dashboard; approving runs the action exactly as requested. Every check runs on the backend (`backend/services/permissions.py`), and every request, decision and permission change is written to the activity log.
 
-| Action | 👤 Sales / Admin Staff | 👑 Company Owner |
+**Default Staff permissions (the Owner can change these):**
+
+| Group | Staff action | Default |
 |---|---|---|
-| Read WhatsApp chat via Extension, generate Quote (`Stock On Hold`), insert reply | ✅ Allowed (1-Click) | ✅ Allowed |
-| Key in Phone Call Quote or upload draft Supplier/Cost/Customer Invoice | ✅ Allowed | ✅ Allowed |
-| Release an expired 48h Quote Stock Hold | ✅ Allowed | ✅ Allowed |
-| **Confirm Customer Deposit / Payment** (converts `On Hold` → `-Physical Stock` & `+Cash`) | 🔒 Submits for Owner Approval | ✅ Allowed |
-| **Approve Supplier Stock Bill / Operating Expense Payment** (`-Cash`) | 🔒 Submits if > RM 1,000 | ✅ Allowed |
-| **Approve Aftersales Stock Replacement (`-1 Stock`) or Discount (`-RM`)** | 🔒 Submits for Owner Approval | ✅ Allowed |
-| **Mark Aftersales Issue Resolved** (resumes payment follow-up) | 🔒 Owner Only | ✅ Allowed |
-| **Export Monthly Bookkeeper / LHDN Excel (`.xlsx`) & Switch SME Profile** | 🔒 Owner Only | ✅ Allowed |
+| Sales & Stock | Create quote & hold stock (48h) · Release a stock hold · Walk-in sale (paid now) · Add / restock stock | ✅ Allowed |
+| Money In | Upload customer receipt · Verify receipt against bank · Confirm deposit · Mark invoice fully paid | ✅ Allowed |
+| Money Out | Record supplier / expense bill · Pay supplier bill · Add extra piping & labor | ✅ Allowed (up to the threshold) |
+| Aftersales | Send replacement (-1 stock) · Mark aftersales resolved | ✅ Allowed |
+| Aftersales | **Give or change a discount / rebate** | 📨 Needs Owner approval (can only be Approval or Off) |
+| Records | Set customer LHDN TIN | ✅ Allowed |
+| Records | Export monthly Excel | ⛔ Off (can only be Allowed or Off) |
+
+**Owner only (not configurable):** change Team & Permissions · change business settings & AI rules · reset data · approve or reject requests.
+
+**Mandatory safety rules (always on, Settings cannot loosen them):**
+1. Only the Owner can change permissions, settings or the approval threshold, and reset data.
+2. Only the Owner can approve or reject a request; Staff cannot approve their own.
+3. Discounts and rebates are set by the Owner; Staff can only request them.
+4. Staff money-out above the approval threshold (default **RM 1,000**: bills, payments, paid restock) always needs approval.
+5. Receipts that fail checks (reference already used on another invoice, amount does not match the balance) always need the Owner. Worded "Receipt needs checking", never "fraud".
+6. Stock can never be held beyond what is available; physical stock is only deducted on a confirmed deposit, sale or replacement.
+7. The activity log is append-only (database triggers block edits and deletes).
+
+> **Prototype note:** the role is chosen with the role switcher (WebApp) or the 👑/👤 selector (WhatsApp extension) and sent with each request; a missing role is treated as Staff. A real deployment would take the role from Orbyte sign-in instead.
 
 ---
 

@@ -62,7 +62,10 @@
 
       const extBody = document.getElementById('ext-panel-body');
       const needsOwner = activeChat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' || activeChat.extActionType === 'AFTERSALES_REPLACE';
-      const blockedByRole = needsOwner && currentRole === 'STAFF';
+      // Backend profile: follow the Owner's Team & Permissions settings; demo profiles keep the old Owner-only rule.
+      const execPermissionKey = { CREATE_QUOTE_HOLD: 'quote.create', CONFIRM_DEPOSIT_DEDUCT: 'deposit.confirm', AFTERSALES_REPLACE: 'aftersales.replace', RELEASE_EXPIRED_HOLD: 'quote.release' }[activeChat.extActionType];
+      const roleMode = usesBackend() ? (execPermissionKey ? staffModeFor(execPermissionKey) : 'ALLOW') : (needsOwner && currentRole === 'STAFF' ? 'APPROVAL' : 'ALLOW');
+      const blockedByRole = roleMode !== 'ALLOW';
       const replyOptions = getReplyOptionsForChat(activeChat);
       const selectedIdx = typeof activeChat.selectedReplyIdx === 'number' ? activeChat.selectedReplyIdx : 0;
       const selectedOpt = replyOptions[selectedIdx] || replyOptions[0];
@@ -249,7 +252,9 @@
 
           ${blockedByRole ? `
             <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
-              🔒 <b>Owner Only:</b> Click the top-right <b>Role</b> button to switch to <b>Encik Hafiz (Owner)</b>, or press below to submit for approval.
+              ${roleMode === 'DENY'
+                ? '🔒 <b>Off for Staff:</b> the Owner turned this action off in Team & Permissions. Ask the Owner to do it.'
+                : '📨 <b>Needs Owner approval:</b> press below to send it to the Owner Approvals list, or switch the top-right Role to <b>Encik Hafiz (Owner)</b>.'}
             </div>
           ` : ''}
 
@@ -494,7 +499,7 @@
             chat.memory.timeline.unshift({ time: 'Just Now', note: `Released expired 48h hold without deposit. Trust Score adjusted.` });
           }
 
-          const staffDeposit = chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
+          const staffDeposit = !usesBackend() && chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
           if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
             const msgs = {
               CREATE_QUOTE_HOLD: `Quote created for ${chat.customer}! Stock placed ON HOLD for 48h & reply filled into WhatsApp!`,
@@ -503,6 +508,15 @@
               RELEASE_EXPIRED_HOLD: `Released ${chat.customer}'s expired reservation back to Available Stock!`
             };
             chat.done = true;
+            const rebateChosen = chat.extActionType === 'AFTERSALES_REPLACE'
+              && (chat.selectedReplyIdx === 1 || (getReplyOptionsForChat(chat)[chat.selectedReplyIdx] || {}).kind === 'REBATE');
+            const aftersalesInv = st.invoices.find(i => i.type === 'AFTERSALES' && i.party.includes(cleanCustomerName(chat.customer)));
+            if (rebateChosen && aftersalesInv) {
+              const rebate = typeof chat.rebateAmount === 'number' ? chat.rebateAmount : 180;
+              backendAction(`/api/invoices/${encodeURIComponent(aftersalesInv.id)}/action`, { action: 'DISCOUNT', amount: rebate },
+                `Applied RM ${rebate.toLocaleString()} credit rebate on ${aftersalesInv.id}!`).then(d => { if (!d) chat.done = false; });
+              return;
+            }
             backendAction('/api/whatsapp/execute', {
               customer: chat.customer,
               phone: (chat.phone || '').split(' · ')[0],
@@ -630,6 +644,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            role: currentRole,
             lmstudioUrl: lmUrl,
             lmstudioApiKey: lmKey,
             lmstudioModel: lmModel,

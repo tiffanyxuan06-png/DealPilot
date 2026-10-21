@@ -6,6 +6,23 @@
  */
 
 const BACKEND_URL = "http://127.0.0.1:8000";
+
+// Who is using the sidebar. The backend enforces what this role may do (Settings → Team & Permissions).
+function getCcRole() {
+  try {
+    return localStorage.getItem("cashchase_role") === "STAFF" ? "STAFF" : "OWNER";
+  } catch (e) {
+    return "OWNER";
+  }
+}
+
+function setCcRole(role) {
+  try {
+    localStorage.setItem("cashchase_role", role);
+  } catch (e) {
+    // storage blocked: the selection lasts for this page only
+  }
+}
 let lastAnalysis = null;
 let currentActiveChat = "";
 let lastProcessedActiveMsg = "";
@@ -881,6 +898,10 @@ function createSidebar() {
         </div>
       </div>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+        <select id="cc-role-select" title="Acting as (permissions are checked by the backend)" style="font-size:10px; font-weight:700; border-radius:6px; border:1px solid rgba(255,255,255,0.35); background:rgba(255,255,255,0.15); color:#fff; padding:1px 4px; cursor:pointer;">
+          <option value="OWNER" style="color:#042970;">👑 Owner</option>
+          <option value="STAFF" style="color:#042970;">👤 Staff</option>
+        </select>
         <span class="cc-badge" id="cc-intent-badge">Ready</span>
         <span style="font-size:10px; color:#8AB4F8;" id="cc-cache-pill">⚡ 0 Pre-Cached</span>
       </div>
@@ -973,6 +994,12 @@ function createSidebar() {
     reopenBtn.innerHTML = "⚡ CashChase";
     reopenBtn.style.display = "none";
     document.body.appendChild(reopenBtn);
+  }
+
+  const roleSelect = document.getElementById("cc-role-select");
+  if (roleSelect) {
+    roleSelect.value = getCcRole();
+    roleSelect.addEventListener("change", () => setCcRole(roleSelect.value));
   }
 
   const collapseBtn = document.getElementById("cc-collapse-btn");
@@ -1256,7 +1283,7 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
       message,
       userInstruction,
       recentMessages,
-      role: "OWNER",
+      role: getCcRole(),
       lastSender: meta.lastSender || "CLIENT",
       lastClientMessage: meta.lastClientMessage || message,
       lastMyMessage: meta.lastMyMessage || ""
@@ -1297,7 +1324,7 @@ async function executePrimaryAction() {
 
   if (lastAnalysis && lastAnalysis.extActionType && lastAnalysis.extActionType !== "NO_ACTION") {
     try {
-      await ccApiRequest("/api/whatsapp/execute", "POST", {
+      const result = await ccApiRequest("/api/whatsapp/execute", "POST", {
         customer,
         actionType: lastAnalysis.extActionType || "CREATE_QUOTE_HOLD",
         sku: lastAnalysis.sku || "ACN-DAI-15",
@@ -1305,14 +1332,19 @@ async function executePrimaryAction() {
         extraSku: lastAnalysis.extraSku || null,
         extraQty: lastAnalysis.extraQty || 0,
         amount: lastAnalysis.amount || 6650,
-        role: "OWNER"
+        role: getCcRole()
       });
-      if (btnEl) btnEl.textContent = "✓ Synced & Reply Inserted!";
+      if (btnEl) {
+        btnEl.textContent = result && result.status === "pending_approval"
+          ? "📨 Reply Inserted · Sent to Owner for Approval"
+          : "✓ Synced & Reply Inserted!";
+      }
       setTimeout(() => { if (btnEl) btnEl.textContent = originalBtnText; }, 2500);
       refreshStateFromBackend();
     } catch (err) {
-      if (btnEl) btnEl.textContent = "✓ Reply Inserted into WhatsApp!";
-      setTimeout(() => { if (btnEl) btnEl.textContent = originalBtnText; }, 2500);
+      const denied = String(err && err.message).includes("403");
+      if (btnEl) btnEl.textContent = denied ? "🔒 Reply Inserted · Staff not allowed (ask Owner)" : "✓ Reply Inserted into WhatsApp!";
+      setTimeout(() => { if (btnEl) btnEl.textContent = originalBtnText; }, denied ? 3500 : 2500);
     }
   } else {
     if (btnEl) btnEl.textContent = "✓ Reply Inserted into WhatsApp!";

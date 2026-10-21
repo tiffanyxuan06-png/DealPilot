@@ -758,7 +758,7 @@
     }
 
     function approveVerifiedReceipt(decision) {
-      if (currentRole === 'STAFF') {
+      if (!usesBackend() && currentRole === 'STAFF') {
         showToast('🔒 Only the Owner (Encik Hafiz) can verify bank statement receipts! Click the top-right Role button to switch.');
         return;
       }

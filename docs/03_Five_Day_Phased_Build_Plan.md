@@ -99,7 +99,7 @@ Connect **LM Studio** (with a deterministic fallback so the demo never fails) an
 ### Tasks
 1. ✅ **Bookkeeper Excel export (`GET /api/export/xlsx`)** and **invoice/quote PDF (`GET /api/invoices/{id}/pdf`)**.
 2. ✅ **Company Q&A agent (`POST /api/agent/ask`)** and the Agent Prompt Inspector (`webapp/js/inspector.js`).
-3. ❌ **Server-side role guardrails:** the role switcher is UI-only; requests send `role` in the body (default `OWNER`, and the extension always sends `OWNER`). Add a server-checked session and return **403** for Staff on: Confirm Deposit/Payment, Aftersales Replace / Discount, Mark Resolved, Pay Supplier > RM 1,000, Excel export, Settings, Reset.
+3. ✅ **Owner-configurable permissions:** Settings → Team & Permissions (Allowed / Needs Owner approval / Off per Staff action), backend enforcement in `backend/services/permissions.py`, Owner Approvals card on the Dashboard, mandatory safety rules, append-only activity log. See PRD §5.3.
 4. ❌ **Security fixes before any shared demo:**
    - `GET /api/receipts/file/{name}` serves any file from the repo root (including `.env`); restrict to a receipts folder and to `.pdf/.png/.jpg`.
    - `run_server.py` binds `0.0.0.0`; use `127.0.0.1`.

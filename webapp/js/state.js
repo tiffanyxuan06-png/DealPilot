@@ -620,7 +620,24 @@ let currentRole = 'OWNER';
       st.stock = data.stock;
       st.invoices = data.invoices;
       st.logs = data.logs;
-      lastBackendSignature = JSON.stringify([data.company, data.stock, data.invoices, data.logs]);
+      backendPermissions = data.permissions || backendPermissions;
+      backendApprovals = data.approvals || [];
+      lastBackendSignature = backendSignature(data);
+    }
+
+    function backendSignature(data) {
+      return JSON.stringify([data.company, data.stock, data.invoices, data.logs, data.permissions, data.approvals]);
+    }
+
+    // Permissions set by the Owner in Settings → Team & Permissions (enforced by the backend).
+    let backendPermissions = null;
+    let backendApprovals = [];
+
+    // Staff mode for one action key: ALLOW | APPROVAL | DENY. The Owner always has ALLOW.
+    function staffModeFor(key) {
+      if (currentRole === 'OWNER' || !usesBackend() || !backendPermissions) return 'ALLOW';
+      const a = backendPermissions.actions.find(x => x.key === key);
+      return a ? a.mode : 'ALLOW';
     }
 
     async function syncFromBackend() {
@@ -629,7 +646,7 @@ let currentRole = 'OWNER';
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         backendOnline = true;
-        const signature = JSON.stringify([data.company, data.stock, data.invoices, data.logs]);
+        const signature = backendSignature(data);
         if (signature === lastBackendSignature) return;
         applyBackendState(data);
         if (currentSME === 'aircond') renderAll();
@@ -643,17 +660,21 @@ let currentRole = 'OWNER';
       try {
         const res = await fetch(`${BACKEND_API_BASE}${path}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CashChase-Role': currentRole },
           body: JSON.stringify({ role: currentRole, ...body })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          showToast(`⚠️ ${data.detail || `Backend error (HTTP ${res.status})`}`);
+          showToast(res.status === 403 ? `🔒 ${data.detail}` : `⚠️ ${data.detail || `Backend error (HTTP ${res.status})`}`);
           return null;
         }
         applyBackendState(data.state);
         renderAll();
-        if (successMsg) showToast(typeof successMsg === 'function' ? successMsg(data) : successMsg);
+        if (data.status === 'pending_approval') {
+          showToast(`📨 Sent to Owner for approval (${data.reason}). See "Owner Approvals" on the Dashboard.`);
+        } else if (successMsg) {
+          showToast(typeof successMsg === 'function' ? successMsg(data) : successMsg);
+        }
         return data;
       } catch (err) {
         showToast('⚠️ Backend offline — start it with python run_server.py');
@@ -665,7 +686,8 @@ let currentRole = 'OWNER';
     setInterval(() => {
       const el = document.activeElement;
       const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-      const modalOpen = !document.getElementById('universal-confirm-modal')?.classList.contains('hidden');
+      const modalOpen = !document.getElementById('universal-confirm-modal')?.classList.contains('hidden')
+        || !document.getElementById('settings-modal')?.classList.contains('hidden');
       if (currentSME === 'aircond' && !typing && !modalOpen) syncFromBackend();
     }, 4000);
 
