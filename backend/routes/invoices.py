@@ -26,9 +26,11 @@ from backend.models.schemas import (
     InvoiceActionRequest,
     OcrExtractRequest,
     ReceiptSaveRequest,
+    RoleRequest,
     VerifyReceiptRequest,
     WalkInOrderRequest,
 )
+from backend.services.permissions import enforce, normalize_role, receipt_check_reasons, register_handler
 from backend.services.lmstudio import (
     call_lmstudio_chat,
     check_lmstudio_health,
@@ -58,6 +60,28 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
         else "🔵 Consolidated e-Invoice (EI00000000010)"
     )
 
+    role = normalize_role(req.role)
+    if req.mode != "PAID_NOW" and qty > s["on_hand"] - s["on_hold"]:
+        conn.close()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only {max(0, s['on_hand'] - s['on_hold'])}x {req.sku} available to hold; requested {qty}.",
+        )
+    gate = enforce(
+        conn,
+        role,
+        "order.walkin_paid" if req.mode == "PAID_NOW" else "quote.create",
+        handler="walkin",
+        payload={"body": req.model_dump()},
+        summary=(
+            f"Walk-in sale {qty}x {s['name']} to {req.customerName} (RM {total_amount:,})"
+            if req.mode == "PAID_NOW"
+            else f"Phone quote {qty}x {s['name']} for {req.customerName} (hold 48h)"
+        ),
+    )
+    if gate:
+        return gate
+
     count = conn.execute("SELECT COUNT(*) AS c FROM invoices").fetchone()["c"]
 
     if req.mode == "PAID_NOW":
@@ -85,7 +109,7 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
         )
         add_log(
             conn,
-            f"[OWNER] Walk-In Sale #{new_id} ({req.customerName}) → Deducted {qty}x {s['name']} from Stock, Cash +RM {total_amount:,} ({lhdn_status}).",
+            f"[{role}] Walk-In Sale #{new_id} ({req.customerName}) → Deducted {qty}x {s['name']} from Stock, Cash +RM {total_amount:,} ({lhdn_status}).",
         )
     else:
         new_id = f"QT-{110 + count}"
@@ -110,7 +134,7 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
         recompute_stock_holds(conn)
         add_log(
             conn,
-            f"[OWNER] Phone Quote #{new_id} ({req.customerName}) → Placed {qty}x {s['name']} ON HOLD for 48h.",
+            f"[{role}] Phone Quote #{new_id} ({req.customerName}) → Placed {qty}x {s['name']} ON HOLD for 48h.",
         )
 
     conn.commit()
@@ -125,6 +149,25 @@ def api_verify_receipt(inv_id: str, req: VerifyReceiptRequest) -> Dict[str, Any]
     if not inv:
         conn.close()
         raise HTTPException(status_code=404, detail=f"Invoice {inv_id} not found")
+
+    role = normalize_role(req.role)
+    rejecting = req.decision.upper() == "REJECT"
+    checks = [] if rejecting else receipt_check_reasons(conn, inv, req.paidAmount)
+    gate = enforce(
+        conn,
+        role,
+        "receipt.verify",
+        handler="verify_receipt",
+        payload={"path": {"inv_id": inv_id}, "body": req.model_dump()},
+        summary=(
+            f"{'Reject' if rejecting else 'Confirm'} receipt on #{inv_id} ({inv['party']}"
+            + (f", RM {req.paidAmount:,} seen in bank" if req.paidAmount is not None and not rejecting else "")
+            + ")"
+        ),
+        mandatory_reason=("Receipt needs checking: " + "; ".join(checks)) if checks else None,
+    )
+    if gate:
+        return gate
 
     amount = inv["amount"]
     claimed = inv["claimed_amount"] or amount
@@ -149,7 +192,7 @@ def api_verify_receipt(inv_id: str, req: VerifyReceiptRequest) -> Dict[str, Any]
         )
         add_log(
             conn,
-            f"[OWNER] Verified Bank Statement for #{inv_id} (Ref: {inv['receipt_ref'] or 'DN-Check'}) → Approved Full Payment (+RM {amount:,} Cash on Hand).",
+            f"[{role}] Verified Bank Statement for #{inv_id} (Ref: {inv['receipt_ref'] or 'DN-Check'}) → Approved Full Payment (+RM {amount:,} Cash on Hand).",
         )
     elif decision == "PARTIAL":
         paid_now = claimed if claimed < amount else int(amount * 0.5)
@@ -171,7 +214,7 @@ def api_verify_receipt(inv_id: str, req: VerifyReceiptRequest) -> Dict[str, Any]
         )
         add_log(
             conn,
-            f"[OWNER] Verified Partial Bank Receipt of RM {paid_now:,} on #{inv_id} → Cash +RM {paid_now:,}, Remaining Balance RM {remaining:,}.",
+            f"[{role}] Verified Partial Bank Receipt of RM {paid_now:,} on #{inv_id} → Cash +RM {paid_now:,}, Remaining Balance RM {remaining:,}.",
         )
     else:
         conn.execute(
@@ -183,11 +226,41 @@ def api_verify_receipt(inv_id: str, req: VerifyReceiptRequest) -> Dict[str, Any]
             """,
             (inv_id,),
         )
-        add_log(conn, f"[OWNER] Rejected unverified receipt on #{inv_id} (Not found in Bank Statement). Cash unchanged.")
+        add_log(conn, f"[{role}] Rejected unverified receipt on #{inv_id} (Not found in Bank Statement). Cash unchanged.")
 
     conn.commit()
     conn.close()
     return {"status": "ok", "state": build_state_payload()}
+
+
+INVOICE_ACTION_KEYS = {
+    "RELEASE_QUOTE": "quote.release",
+    "CONFIRM_QUOTE": "deposit.confirm",
+    "MARK_PAID": "invoice.mark_paid",
+    "PAY_SUPPLIER": "bill.pay",
+    "SET_TIN": "invoice.set_tin",
+    "REPLACE_ONE": "aftersales.replace",
+    "DISCOUNT": "discount.apply",
+    "MARK_RESOLVED": "aftersales.resolve",
+    "ADD_PIPE_LABOR": "labor.add",
+    "ATTACH_RECEIPT": "receipt.stage",
+}
+
+
+def _invoice_action_summary(act: str, inv, req: InvoiceActionRequest) -> str:
+    who = f"#{inv['id']} ({inv['party']})"
+    return {
+        "RELEASE_QUOTE": f"Release stock hold on {who}",
+        "CONFIRM_QUOTE": f"Confirm 40% deposit RM {int(round(inv['amount'] * 0.4)):,} on {who}",
+        "MARK_PAID": f"Mark {who} fully paid (RM {inv['amount']:,})",
+        "PAY_SUPPLIER": f"Pay supplier bill {who} (RM {inv['amount']:,})",
+        "SET_TIN": f"Set LHDN TIN on {who}",
+        "REPLACE_ONE": f"Send 1x replacement {req.sku or inv['sku']} on {who}",
+        "DISCOUNT": f"Discount RM {req.amount or 0:,} on {who}",
+        "MARK_RESOLVED": f"Mark aftersales resolved on {who}",
+        "ADD_PIPE_LABOR": f"Add extra piping & labor to {who}",
+        "ATTACH_RECEIPT": f"Attach receipt RM {req.amount or 0:,} to {who}",
+    }.get(act, f"{act} on {who}")
 
 
 @router.post("/api/invoices/{inv_id}/action")
@@ -199,10 +272,25 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
         raise HTTPException(status_code=404, detail=f"Invoice {inv_id} not found")
 
     act = req.action.upper()
+    role = normalize_role(req.role)
+    key = INVOICE_ACTION_KEYS.get(act)
+    if key:
+        gate = enforce(
+            conn,
+            role,
+            key,
+            handler="invoice_action",
+            payload={"path": {"inv_id": inv_id}, "body": req.model_dump()},
+            summary=_invoice_action_summary(act, inv, req),
+            money_out_rm=inv["amount"] if act == "PAY_SUPPLIER" else None,
+        )
+        if gate:
+            return gate
+
     if act == "RELEASE_QUOTE":
         conn.execute("UPDATE invoices SET status = 'HOLD_RELEASED', type = 'PAID_DONE' WHERE id = ?", (inv_id,))
         recompute_stock_holds(conn)
-        add_log(conn, f"[{req.role}] Released Quote Hold #{inv_id} (+{inv['qty']}x {inv['sku']} returned to Available Stock).")
+        add_log(conn, f"[{role}] Released Quote Hold #{inv_id} (+{inv['qty']}x {inv['sku']} returned to Available Stock).")
     elif act == "CONFIRM_QUOTE":
         conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - ?) WHERE sku = ?", (inv["qty"], inv["sku"]))
         if inv["extra_sku"] and (inv["extra_qty"] or 0) > 0:
@@ -221,22 +309,22 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
             (remaining, f"{inv['qty']}x {inv['sku']} (STOCK DEDUCTED · Deposit RM {deposit:,} Paid)", inv_id),
         )
         recompute_stock_holds(conn)
-        add_log(conn, f"[OWNER] Confirmed Deposit RM {deposit:,} on #{inv_id} → Deducted {inv['qty']}x {inv['sku']} from Physical Stock.")
+        add_log(conn, f"[{role}] Confirmed Deposit RM {deposit:,} on #{inv_id} → Deducted {inv['qty']}x {inv['sku']} from Physical Stock.")
     elif act == "MARK_PAID":
         cash = int(get_setting(conn, "cash_on_hand", "9800")) + inv["amount"]
         set_setting(conn, "cash_on_hand", str(cash))
         conn.execute("UPDATE invoices SET type = 'PAID_DONE', status = 'PAID' WHERE id = ?", (inv_id,))
-        add_log(conn, f"[OWNER] Confirmed full payment of RM {inv['amount']:,} on #{inv_id} (+Cash on Hand).")
+        add_log(conn, f"[{role}] Confirmed full payment of RM {inv['amount']:,} on #{inv_id} (+Cash on Hand).")
     elif act == "PAY_SUPPLIER":
         cash = int(get_setting(conn, "cash_on_hand", "9800")) - inv["amount"]
         set_setting(conn, "cash_on_hand", str(cash))
         conn.execute("UPDATE invoices SET type = 'PAID_DONE', status = 'PAID_SUPPLIER' WHERE id = ?", (inv_id,))
-        add_log(conn, f"[OWNER] Paid Supplier Bill #{inv_id} (-RM {inv['amount']:,} Cash).")
+        add_log(conn, f"[{role}] Paid Supplier Bill #{inv_id} (-RM {inv['amount']:,} Cash).")
     elif act == "SET_TIN":
         tin_val = (req.tin or "").strip()
         new_lhdn = f"🟢 LHDN TIN: {tin_val}" if tin_val else "🔵 Consolidated e-Invoice"
         conn.execute("UPDATE invoices SET lhdn = ? WHERE id = ?", (new_lhdn, inv_id))
-        add_log(conn, f"[{req.role}] Updated LHDN e-Invoice status on #{inv_id} to {new_lhdn}.")
+        add_log(conn, f"[{role}] Updated LHDN e-Invoice status on #{inv_id} to {new_lhdn}.")
     elif act == "REPLACE_ONE":
         sku = req.sku or inv["sku"]
         item = conn.execute("SELECT name FROM stock WHERE sku = ?", (sku,)).fetchone()
@@ -246,7 +334,7 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
             "UPDATE invoices SET status = 'REPLACEMENT_SENT', items_text = items_text || ? WHERE id = ?",
             (f" (1x Replacement {item_name} Sent — Ready to Mark Resolved)", inv_id),
         )
-        add_log(conn, f"[{req.role}] Sent 1x Replacement {item_name} for #{inv_id} (-1 Physical Stock).")
+        add_log(conn, f"[{role}] Sent 1x Replacement {item_name} for #{inv_id} (-1 Physical Stock).")
     elif act == "DISCOUNT":
         rebate = max(0, req.amount or 0)
         new_amount = max(0, inv["amount"] - rebate)
@@ -254,10 +342,10 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
             "UPDATE invoices SET amount = ?, status = 'DISCOUNT_APPLIED', items_text = items_text || ? WHERE id = ?",
             (new_amount, f" (RM {rebate:,} Credit Rebate Applied — Ready to Mark Resolved)", inv_id),
         )
-        add_log(conn, f"[{req.role}] Applied RM {rebate:,} Aftersales Credit Rebate on #{inv_id} (Balance RM {new_amount:,}).")
+        add_log(conn, f"[{role}] Applied RM {rebate:,} Aftersales Credit Rebate on #{inv_id} (Balance RM {new_amount:,}).")
     elif act == "MARK_RESOLVED":
         conn.execute("UPDATE invoices SET type = 'PENDING', status = 'PENDING_PAYMENT' WHERE id = ?", (inv_id,))
-        add_log(conn, f"[{req.role}] Marked Aftersales Issue on #{inv_id} RESOLVED → Resumed normal Pending Invoice status.")
+        add_log(conn, f"[{role}] Marked Aftersales Issue on #{inv_id} RESOLVED → Resumed normal Pending Invoice status.")
     elif act == "ADD_PIPE_LABOR":
         # Flow 6: extra copper piping (deducts stock) + installation labor (customer charge vs installer cost).
         pipe_sku = req.sku or "PIP-COP-3M"
@@ -281,7 +369,7 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
         set_setting(conn, "cash_on_hand", str(cash))
         add_log(
             conn,
-            f"[{req.role}] Added Extra Piping (-{pipe_qty} Stock, +RM {pipe_charge:,}) & Labor (+RM {labor_charge:,}, -RM {installer_cost:,} Installer Cost) on #{inv_id}.",
+            f"[{role}] Added Extra Piping (-{pipe_qty} Stock, +RM {pipe_charge:,}) & Labor (+RM {labor_charge:,}, -RM {installer_cost:,} Installer Cost) on #{inv_id}.",
         )
     elif act == "ATTACH_RECEIPT":
         claimed = max(0, req.amount or 0)
@@ -295,7 +383,7 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
             """,
             (claimed, ref, f" (OCR Receipt Claimed RM {claimed:,} · Ref: {ref} · Waiting Bank Verify)", inv_id),
         )
-        add_log(conn, f"[{req.role}] OCR Customer Receipt ({ref}, RM {claimed:,}) staged for #{inv_id} in PENDING_VERIFY.")
+        add_log(conn, f"[{role}] OCR Customer Receipt ({ref}, RM {claimed:,}) staged for #{inv_id} in PENDING_VERIFY.")
     else:
         conn.close()
         raise HTTPException(status_code=400, detail=f"Unknown invoice action {req.action}")
@@ -316,9 +404,20 @@ def _unique_id(conn, prefix: str, preferred: str = "") -> str:
 
 
 @router.post("/api/stock/{sku}/release")
-def api_release_sku_holds(sku: str, role: str = "OWNER") -> Dict[str, Any]:
+def api_release_sku_holds(sku: str, req: Optional[RoleRequest] = None) -> Dict[str, Any]:
     """Releases every active quote hold on one SKU back to Available."""
     conn = get_db()
+    role = normalize_role(req.role if req else None)
+    gate = enforce(
+        conn,
+        role,
+        "quote.release",
+        handler="release_sku",
+        payload={"path": {"sku": sku}, "body": {"role": role}},
+        summary=f"Release all stock holds on {sku}",
+    )
+    if gate:
+        return gate
     rows = conn.execute(
         "SELECT * FROM invoices WHERE type = 'QUOTE_HOLD' AND status != 'HOLD_RELEASED' AND (sku = ? OR extra_sku = ?)",
         (sku, sku),
@@ -344,6 +443,19 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
     ref = (req.ref or "").strip()
     amount = max(0, req.amount)
     qty = max(1, req.qty)
+    role = normalize_role(req.role)
+    money_out = kind in ("supplier", "expense")
+    gate = enforce(
+        conn,
+        role,
+        "bill.record" if money_out else "receipt.stage",
+        handler="apply_bill",
+        payload={"body": req.model_dump()},
+        summary=f"Record {kind} {'bill' if money_out else 'receipt'} {ref} from {req.party} (RM {amount:,})",
+        money_out_rm=amount if money_out else None,
+    )
+    if gate:
+        return gate
 
     if kind == "supplier":
         sku = (req.sku or "").strip().upper()
@@ -371,7 +483,7 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
             """,
             (bill_id, req.party, f"+{qty}x {item_name} Added to Physical Stock (OCR Bill {ref})", sku, qty, amount, ts),
         )
-        add_log(conn, f"[{req.role}] OCR Supplier Bill {ref} ({req.party}) → +{qty}x {item_name} added to Stock, Cash -RM {amount:,}.")
+        add_log(conn, f"[{role}] OCR Supplier Bill {ref} ({req.party}) → +{qty}x {item_name} added to Stock, Cash -RM {amount:,}.")
         created = bill_id
     elif kind == "expense":
         cash = int(get_setting(conn, "cash_on_hand", "9800")) - amount
@@ -384,7 +496,7 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
             """,
             (exp_id, req.party, f"Operating Expense ({ref})", amount, ts),
         )
-        add_log(conn, f"[{req.role}] OCR Operating Expense {ref} ({req.party}) → Cash -RM {amount:,}.")
+        add_log(conn, f"[{role}] OCR Operating Expense {ref} ({req.party}) → Cash -RM {amount:,}.")
         created = exp_id
     elif kind == "customer":
         target = None
@@ -425,7 +537,7 @@ def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
                     ts,
                 ),
             )
-        add_log(conn, f"[{req.role}] OCR Customer Receipt ({ref}, RM {amount:,}) staged on #{created} in PENDING_VERIFY.")
+        add_log(conn, f"[{role}] OCR Customer Receipt ({ref}, RM {amount:,}) staged on #{created} in PENDING_VERIFY.")
     else:
         conn.close()
         raise HTTPException(status_code=400, detail=f"Unknown bill kind {req.kind}")
@@ -441,6 +553,18 @@ def api_add_or_restock(req: AddStockRequest) -> Dict[str, Any]:
     sku = req.sku.strip().upper()
     existing = conn.execute("SELECT * FROM stock WHERE UPPER(sku) = ?", (sku,)).fetchone()
     qty = max(1, req.qty)
+    role = normalize_role(req.role)
+    gate = enforce(
+        conn,
+        role,
+        "stock.add",
+        handler="add_stock",
+        payload={"body": req.model_dump()},
+        summary=f"Add +{qty}x {req.name} ({sku})" + (f", paid RM {qty * req.unitCost:,} cash" if req.payWithCash else ""),
+        money_out_rm=qty * req.unitCost if req.payWithCash else None,
+    )
+    if gate:
+        return gate
 
     if existing:
         conn.execute(
@@ -469,10 +593,10 @@ def api_add_or_restock(req: AddStockRequest) -> Dict[str, Any]:
         )
         add_log(
             conn,
-            f"[{req.role}] Purchased & Restocked +{qty}x {req.name} ({sku}) → Cash -RM {total_cost:,}.",
+            f"[{role}] Purchased & Restocked +{qty}x {req.name} ({sku}) → Cash -RM {total_cost:,}.",
         )
     else:
-        add_log(conn, f"[{req.role}] Added +{qty}x {req.name} ({sku}) to Warehouse Stock (Stock Value +RM {total_cost:,}).")
+        add_log(conn, f"[{role}] Added +{qty}x {req.name} ({sku}) to Warehouse Stock (Stock Value +RM {total_cost:,}).")
 
     conn.commit()
     conn.close()
@@ -723,3 +847,11 @@ def get_receipt_file(file_name: str):
         media_type = "application/pdf" if safe_name.endswith(".pdf") else "image/png"
         return FileResponse(file_path, media_type=media_type, filename=safe_name)
     raise HTTPException(status_code=404, detail=f"Receipt file '{safe_name}' not found on server")
+
+
+register_handler("walkin", api_create_walkin_order, WalkInOrderRequest)
+register_handler("verify_receipt", api_verify_receipt, VerifyReceiptRequest, ["inv_id"])
+register_handler("invoice_action", api_invoice_action, InvoiceActionRequest, ["inv_id"])
+register_handler("release_sku", api_release_sku_holds, RoleRequest, ["sku"])
+register_handler("apply_bill", api_apply_bill, BillApplyRequest)
+register_handler("add_stock", api_add_or_restock, AddStockRequest)

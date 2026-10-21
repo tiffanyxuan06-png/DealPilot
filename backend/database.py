@@ -221,8 +221,15 @@ def build_state_payload() -> Dict[str, Any]:
     except Exception:
         receipts_list = []
 
+    from backend.services.permissions import approvals_payload, permissions_payload
+
+    permissions = permissions_payload(conn)
+    approvals = approvals_payload(conn)
+
     conn.close()
     return {
+        "permissions": permissions,
+        "approvals": approvals,
         "company": {
             "name": company_name,
             "cashOnHand": cash_on_hand,
@@ -258,6 +265,8 @@ def init_db(force_reset: bool = False) -> None:
             DROP TABLE IF EXISTS audit_logs;
             DROP TABLE IF EXISTS client_memories;
             DROP TABLE IF EXISTS receipt_records;
+            DROP TABLE IF EXISTS role_permissions;
+            DROP TABLE IF EXISTS approval_requests;
             """
         )
 
@@ -333,6 +342,20 @@ def init_db(force_reset: bool = False) -> None:
         );
         """
     )
+
+    # Mandatory rule: the activity log is append-only (reset drops and recreates the whole table).
+    cur.executescript(
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_logs_no_update BEFORE UPDATE ON audit_logs
+        BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
+        CREATE TRIGGER IF NOT EXISTS audit_logs_no_delete BEFORE DELETE ON audit_logs
+        BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
+        """
+    )
+
+    from backend.services.permissions import ensure_tables
+
+    ensure_tables(conn)
 
     cur.execute("SELECT COUNT(*) AS cnt FROM settings")
     if cur.fetchone()["cnt"] == 0:
@@ -415,6 +438,7 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
         "lmstudio_url": DEFAULT_LMSTUDIO_URL,
         "lmstudio_api_key": DEFAULT_LMSTUDIO_API_KEY,
         "lmstudio_model": DEFAULT_LMSTUDIO_MODEL,
+        "owner_approval_threshold": "1000",
     }
     for k, v in default_settings.items():
         cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))

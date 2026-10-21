@@ -2,8 +2,11 @@ import io
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Response
-from backend.database import build_state_payload, now_time_str
+from typing import Optional
+
+from fastapi import APIRouter, Header, HTTPException, Query, Response
+from backend.database import build_state_payload, get_db, now_time_str
+from backend.services.permissions import DENY, normalize_role, staff_mode
 
 router = APIRouter(tags=["Exports"])
 
@@ -56,12 +59,18 @@ def build_valid_pdf_bytes(lines: List[str]) -> bytes:
 
 
 @router.get("/api/export/xlsx")
-def api_export_xlsx() -> Response:
+def api_export_xlsx(role: Optional[str] = Query(None), x_cashchase_role: Optional[str] = Header(None)) -> Response:
     """
     Generates a real multi-sheet Microsoft Excel (.xlsx) workbook using openpyxl
     with all live SQLite data: Financial Summary, Warehouse Stock, Invoices & Holds,
     Client Memories, and Audit Logs.
     """
+    if normalize_role(role or x_cashchase_role) != "OWNER":
+        conn = get_db()
+        mode = staff_mode(conn, "export.excel")
+        conn.close()
+        if mode == DENY:
+            raise HTTPException(status_code=403, detail="Staff are not allowed to: Export monthly Excel. Ask the Owner.")
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 

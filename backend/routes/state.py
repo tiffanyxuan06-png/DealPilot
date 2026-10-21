@@ -1,5 +1,5 @@
-from typing import Any, Dict
-from fastapi import APIRouter
+from typing import Any, Dict, Optional
+from fastapi import APIRouter, Header
 from backend.database import (
     DB_PATH,
     DEFAULT_LMSTUDIO_API_KEY,
@@ -11,7 +11,8 @@ from backend.database import (
     init_db,
     set_setting,
 )
-from backend.models.schemas import SettingsUpdateRequest
+from backend.models.schemas import RoleRequest, SettingsUpdateRequest
+from backend.services.permissions import require_owner
 from backend.services.lmstudio import check_lmstudio_health
 
 router = APIRouter(tags=["State & Settings"])
@@ -37,7 +38,10 @@ def api_get_state() -> Dict[str, Any]:
 
 
 @router.post("/api/reset")
-def api_reset_db() -> Dict[str, Any]:
+def api_reset_db(
+    req: Optional[RoleRequest] = None, x_cashchase_role: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    require_owner((req.role if req else None) or x_cashchase_role, "data.reset")
     init_db(force_reset=True)
     return {"status": "reset_complete", "state": build_state_payload()}
 
@@ -45,6 +49,7 @@ def api_reset_db() -> Dict[str, Any]:
 @router.post("/api/settings")
 def api_update_settings(req: SettingsUpdateRequest) -> Dict[str, Any]:
     conn = get_db()
+    require_owner(req.role, "settings.change", conn)
     if req.framework is not None:
         set_setting(conn, "framework", req.framework)
         add_log(conn, "[OWNER] Updated AI Custom Labor & Pricing Framework.")

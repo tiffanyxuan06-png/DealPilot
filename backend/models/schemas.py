@@ -8,7 +8,7 @@ class WhatsAppAnalyzeRequest(BaseModel):
     message: str
     userInstruction: Optional[str] = ""
     recentMessages: Optional[List[Dict[str, Any]]] = None
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
     lastSender: Optional[str] = "Them"
     lastClientMessage: Optional[str] = ""
     lastMyMessage: Optional[str] = ""
@@ -29,7 +29,7 @@ class WhatsAppExecuteRequest(BaseModel):
     amount: Optional[int] = 6650
     receiptRef: Optional[str] = None
     invoiceId: Optional[str] = None
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
 class WalkInOrderRequest(BaseModel):
@@ -38,12 +38,13 @@ class WalkInOrderRequest(BaseModel):
     sku: str
     qty: int = 1
     mode: str = "PAID_NOW"  # PAID_NOW or QUOTE_HOLD
+    role: Optional[str] = None
 
 
 class VerifyReceiptRequest(BaseModel):
     decision: str  # FULL, PARTIAL, CONFIRM, REJECT
     paidAmount: Optional[int] = None  # amount actually seen in the bank; defaults to the claimed amount
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
 class InvoiceActionRequest(BaseModel):
@@ -52,7 +53,7 @@ class InvoiceActionRequest(BaseModel):
     amount: Optional[int] = None  # DISCOUNT rebate, ATTACH_RECEIPT claimed amount
     ref: Optional[str] = ""  # ATTACH_RECEIPT reference
     sku: Optional[str] = None  # REPLACE_ONE / ADD_PIPE_LABOR item
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -60,6 +61,7 @@ class SettingsUpdateRequest(BaseModel):
     lmstudioUrl: Optional[str] = None
     lmstudioApiKey: Optional[str] = None
     lmstudioModel: Optional[str] = None
+    role: Optional[str] = None
 
 
 class AddStockRequest(BaseModel):
@@ -69,7 +71,7 @@ class AddStockRequest(BaseModel):
     unitCost: int = 100
     sellPrice: int = 150
     payWithCash: bool = True  # False = opening stock / already paid, no cash change
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
 class BillApplyRequest(BaseModel):
@@ -82,7 +84,7 @@ class BillApplyRequest(BaseModel):
     newSkuName: Optional[str] = None  # supplier bill: create this SKU if `sku` does not exist
     newSellPrice: Optional[int] = None
     invoiceId: Optional[str] = None  # customer receipt: invoice to attach to
-    role: Optional[str] = "OWNER"
+    role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
 class OcrExtractRequest(BaseModel):
@@ -106,3 +108,19 @@ class ReceiptSaveRequest(BaseModel):
 class CompanyAgentAskRequest(BaseModel):
     question: str
     state: Optional[Dict[str, Any]] = None
+
+
+class RoleRequest(BaseModel):
+    role: Optional[str] = None
+
+
+class PermissionsUpdateRequest(BaseModel):
+    role: Optional[str] = None
+    staffModes: Optional[Dict[str, str]] = None  # action key -> ALLOW | APPROVAL | DENY
+    threshold: Optional[int] = None  # Owner approval threshold for Staff money-out (RM)
+
+
+class ApprovalDecisionRequest(BaseModel):
+    role: Optional[str] = None
+    decision: str  # APPROVE | REJECT
+    note: Optional[str] = ""

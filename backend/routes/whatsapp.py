@@ -14,6 +14,7 @@ from backend.database import (
 from backend.models.schemas import WhatsAppAnalyzeRequest, WhatsAppExecuteRequest
 from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
 from backend.services.memory import clean_customer_name, compute_client_memory_rating
+from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.prompts import (
     build_whatsapp_copilot_system_prompt,
     build_whatsapp_copilot_user_prompt,
@@ -249,12 +250,33 @@ def _find_invoice(conn, req: WhatsAppExecuteRequest, types, exclude_status=None,
     ).fetchone()
 
 
+EXECUTE_ACTION_KEYS = {
+    "CREATE_QUOTE_HOLD": "quote.create",
+    "CONFIRM_DEPOSIT_DEDUCT": "deposit.confirm",
+    "AFTERSALES_REPLACE": "aftersales.replace",
+    "RELEASE_EXPIRED_HOLD": "quote.release",
+}
+
+
 @router.post("/api/whatsapp/execute")
 def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
     conn = get_db()
     ts = now_time_str()
-    role = req.role or "OWNER"
+    role = normalize_role(req.role)
     action = req.actionType
+
+    key = EXECUTE_ACTION_KEYS.get(action)
+    if key:
+        items = f"{req.qty}x {req.sku}" + (f" + {req.extraQty}x {req.extraSku}" if req.extraSku and req.extraQty else "")
+        summary = {
+            "CREATE_QUOTE_HOLD": f"Quote {items} for {req.customer} (hold 48h, RM {req.amount or 0:,})",
+            "CONFIRM_DEPOSIT_DEDUCT": f"Confirm RM {req.amount or 0:,} deposit from {req.customer} (deducts stock, adds cash)",
+            "AFTERSALES_REPLACE": f"Send 1x replacement to {req.customer} (-1 stock)",
+            "RELEASE_EXPIRED_HOLD": f"Release {req.customer}'s stock hold",
+        }[action]
+        gate = enforce(conn, role, key, handler="whatsapp_execute", payload={"body": req.model_dump()}, summary=summary)
+        if gate:
+            return gate
 
     if action in ("REPLY_ONLY", "NO_ACTION"):
         add_log(conn, f"[{role}] Sent WhatsApp message to {req.customer} (Informational reply · Zero stock hold).")
@@ -404,3 +426,6 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
 
     conn.close()
     return {"status": "unknown_action", "state": build_state_payload()}
+
+
+register_handler("whatsapp_execute", api_whatsapp_execute, WhatsAppExecuteRequest)
