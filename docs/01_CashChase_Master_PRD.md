@@ -3,7 +3,7 @@
 **Event:** SDC Hackathon 2026 · Domain 2: Orbyte Smart SME Challenge ("Less Busywork, Better Business")  
 **Sponsor:** Alpha Red Solutions Sdn Bhd  
 **Target Users:** Owners and Sales/Admin staff at Malaysian micro & small businesses (3–20 staff)  
-**Architecture:** 1 Chrome Extension Sidebar on `web.whatsapp.com` + 1 Clean 4-Tab Sidebar WebApp (`localhost:3000`: *Overview & Net Worth*, *Invoices/Quotes & Upload Hub*, *Stock & 48h Hold Tracker*, *SME Setup & AI Framework*)
+**Architecture:** 1 Chrome Extension Sidebar on `web.whatsapp.com` + 1 Single-Page WebApp (`localhost:3000`)
 
 ---
 
