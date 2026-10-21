@@ -41,9 +41,9 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 |---|---|---|---|---|
 | 15 | Owner / Staff not checked on the server. **Fixed:** Owner-configurable permissions (Settings → Team & Permissions), enforced on the backend, with an Owner Approvals queue; the extension has a 👑/👤 role selector | `backend/services/permissions.py`, `backend/routes/team.py` | 1–2 h | ✅ |
 | 16 | No Owner approval for bills over RM 1,000. **Fixed:** mandatory threshold rule (Owner can change the amount) | `backend/services/permissions.py` | 30 min | ✅ |
-| 17 | 48h holds never really expire (no timestamp / timer; "expired" is fixed text) | `backend/database.py` | 1 h | ⬜ |
-| 18 | No fake-receipt check. **Partly fixed:** reused reference and amount ≠ balance send the receipt to the Owner; the payee-name check still needs the OCR to store the payee | `/verify-receipt` | 1 h | ⚠️ |
-| 19 | Drafted replies not checked for correct amount / invoice no. / name | missing | 1 h | ⬜ |
+| 17 | 48h holds never really expire. **Fixed:** real expiry time per quote; expired quotes release their stock automatically (quote kept for follow-up, logged); live countdown; Owner sets the hold length; Owner-only demo clock (+24h / +48h) | `backend/database.py`, `backend/routes/team.py` | 1 h | ✅ |
+| 18 | No fake-receipt check. **Fixed:** payee ≠ company, reference already used, or amount ≠ balance → "Receipt needs checking", always sent to the Owner | `backend/services/permissions.py`, `/api/ocr/extract` | 1 h | ✅ |
+| 19 | AI replies not checked. **Fixed:** every RM amount in an AI reply must be one CashChase calculated, and pressure / threat wording is blocked; a failing reply is swapped for the code-built one and labelled "corrected by CashChase". Quote items and amount come from code | `backend/services/prompts.py` (`check_ai_replies`) | 1 h | ✅ |
 | 20 | Audit log can be edited / deleted. **Fixed:** SQLite triggers block UPDATE / DELETE | `audit_logs` | 20 min | ✅ |
 
 ## P2 — setup and config

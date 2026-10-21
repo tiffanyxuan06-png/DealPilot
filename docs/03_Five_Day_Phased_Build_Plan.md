@@ -107,7 +107,8 @@ Connect **LM Studio** (with a deterministic fallback so the demo never fails) an
    - `POST /api/reset` and `POST /api/settings` (can change the LM Studio URL) have no protection; make them Owner-only.
    - `webapp/js/company_ai.js` and `webapp/js/copilot.js` put AI / chat text into `innerHTML` unescaped; escape it.
    - Uploaded `file_data` has no size or type limit.
-5. ❌ **Receipt and draft checks:** payee ≠ business, reused reference, amount ≠ balance ("Receipt needs checking"); drafts must match amount, invoice number and customer name.
+5. ✅ **Receipt and reply checks:** receipts with payee ≠ company, a reused reference or amount ≠ balance go to the Owner ("Receipt needs checking"); every RM amount in an AI reply must match a code-calculated amount and threat wording is blocked (`check_ai_replies`).
+6. ✅ **Real 48h expiry:** `hold_expires_at` per quote, automatic release on expiry, live countdown, Owner-set hold length, Owner-only demo clock (`POST /api/demo/fast-forward`).
 6. ⚠️ **60-second onboarding:** preset frameworks exist in Settings; "drop old Excel / supplier bills to build the catalogue" is not built.
 
 ### Phase 4 Done Check

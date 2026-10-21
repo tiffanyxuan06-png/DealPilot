@@ -462,3 +462,82 @@ def deterministic_fallback_analysis(
         "extraQty": extra_matched["qty"] if extra_matched else 0,
         "amount": total_rm,
     }
+
+
+# --- Reply check: the AI may word a reply, but every RM amount must come from code ---
+RM_AMOUNT = re.compile(r"\bRM\s?([\d,]+(?:\.\d{1,2})?)", re.I)
+PRESSURE_WORDS = [
+    "legal action", "lawyer", "court", "saman", "mahkamah", "peguam", "last warning",
+    "final warning", "amaran terakhir", "blacklist", "senarai hitam", "police", "polis",
+]
+
+
+def _rm_values(text: str) -> List[int]:
+    vals = []
+    for m in RM_AMOUNT.finditer(text or ""):
+        try:
+            vals.append(int(round(float(m.group(1).replace(",", "")))))
+        except ValueError:
+            pass
+    return vals
+
+
+def allowed_reply_amounts(fallback: Dict[str, Any], state: Dict[str, Any], customer: str) -> set:
+    """Every amount code calculated for this chat: the code-built quote/replies, sell prices, and this customer's invoices."""
+    allowed = set()
+    texts = [fallback.get("extDraft", ""), fallback.get("extCheck", "")]
+    texts += [o.get("text", "") for o in fallback.get("replyOptions", []) if isinstance(o, dict)]
+    for t in texts:
+        allowed.update(_rm_values(t))
+    for key in ("amount",):
+        if isinstance(fallback.get(key), (int, float)):
+            allowed.add(int(fallback[key]))
+    for s in state.get("stock", []):
+        allowed.add(int(s.get("sellPrice", s.get("sell_price", 0)) or 0))
+    name = clean_customer_name(customer).lower()
+    for inv in state.get("invoices", []):
+        if name and name in (inv.get("party") or "").lower():
+            for v in (inv.get("amount"), inv.get("claimedAmount")):
+                if isinstance(v, (int, float)) and v:
+                    allowed.update({int(v), int(round(v * 0.4)), int(round(v * 0.5)), int(round(v * 0.6))})
+            if isinstance(inv.get("amount"), (int, float)) and isinstance(inv.get("claimedAmount"), (int, float)):
+                allowed.add(abs(int(inv["amount"]) - int(inv["claimedAmount"])))
+    allowed.discard(0)
+    return allowed
+
+
+def reply_problem(text: str, allowed: set) -> Optional[str]:
+    low = (text or "").lower()
+    for w in PRESSURE_WORDS:
+        if re.search(rf"\b{re.escape(w)}\b", low):
+            return f"pressure wording '{w}'"
+    for v in _rm_values(text):
+        if not any(abs(v - a) <= 1 for a in allowed):
+            return f"RM {v:,} is not an amount CashChase calculated"
+    return None
+
+
+def check_ai_replies(merged: Dict[str, Any], fallback: Dict[str, Any], state: Dict[str, Any], customer: str) -> Dict[str, Any]:
+    """Replaces any AI reply with a wrong amount or pressure wording by the code-built reply, and records what changed."""
+    allowed = allowed_reply_amounts(fallback, state, customer)
+    fixed = []
+    fb_options = [o for o in fallback.get("replyOptions", []) if isinstance(o, dict)]
+    options = merged.get("replyOptions")
+    if isinstance(options, list):
+        new_options = []
+        for i, opt in enumerate(options):
+            if not isinstance(opt, dict):
+                continue
+            problem = reply_problem(opt.get("text", ""), allowed)
+            if problem:
+                replacement = fb_options[i] if i < len(fb_options) else {"label": opt.get("label", ""), "text": fallback.get("extDraft", "")}
+                fixed.append({"field": f"replyOptions[{i}]", "reason": problem})
+                opt = {**opt, "text": replacement.get("text", ""), "label": "✏️ " + str(opt.get("label", "")) + " (corrected by CashChase)"}
+            new_options.append(opt)
+        merged["replyOptions"] = new_options
+    problem = reply_problem(merged.get("extDraft", ""), allowed)
+    if problem:
+        fixed.append({"field": "extDraft", "reason": problem})
+        merged["extDraft"] = fallback.get("extDraft", "")
+    merged["replyCheck"] = {"checked": True, "fixed": fixed}
+    return merged

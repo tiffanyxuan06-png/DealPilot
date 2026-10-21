@@ -102,7 +102,9 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 2. Only the Owner can approve or reject a request; Staff cannot approve their own.
 3. Discounts and rebates are set by the Owner; Staff can only request them.
 4. Staff money-out above the approval threshold (default **RM 1,000**: bills, payments, paid restock) always needs approval.
-5. Receipts that fail checks (reference already used on another invoice, amount does not match the balance) always need the Owner. Worded "Receipt needs checking", never "fraud".
+5. Receipts that fail checks (paid to someone other than the company, reference already used on another invoice, amount does not match the balance) always need the Owner. Worded "Receipt needs checking", never "fraud".
+8. AI replies are checked by code before they reach WhatsApp: every RM amount must be one CashChase calculated and threat wording is blocked; a failing reply is replaced by the code-built reply.
+9. A quote holds stock for the Owner-set time (default 48h). When it runs out, the stock goes back to Available automatically; a late deposit only goes through if the units are still free.
 6. Stock can never be held beyond what is available; physical stock is only deducted on a confirmed deposit, sale or replacement.
 7. The activity log is append-only (database triggers block edits and deletes).
 

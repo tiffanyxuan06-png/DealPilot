@@ -18,6 +18,7 @@ from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
 from backend.services.memory import clean_customer_name, compute_client_memory_rating
 from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.prompts import (
+    check_ai_replies,
     build_whatsapp_copilot_system_prompt,
     build_whatsapp_copilot_user_prompt,
     deterministic_fallback_analysis,
@@ -155,9 +156,14 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         if merged.get("intent") == "BUYING_INQUIRY" and fallback_result.get("intent") == "BUYING_INQUIRY":
             merged["extActionType"] = fallback_result["extActionType"]
             merged["extBtnLabel"] = fallback_result["extBtnLabel"]
+            # The quote that gets held is priced by code, not by the AI.
+            for k in ("sku", "qty", "extraSku", "extraQty", "amount"):
+                merged[k] = fallback_result.get(k)
         elif merged.get("intent") in ("BUYING_INQUIRY", "GENERAL_INQUIRY", "CASUAL_CHAT"):
             merged["extActionType"] = "REPLY_ONLY"
             merged["extBtnLabel"] = "💬 Insert Selected Reply (No Stock Hold)"
+        # Every RM amount in an AI reply must be one CashChase calculated; pressure wording is blocked.
+        merged = check_ai_replies(merged, fallback_result, state, req.customer)
 
         conn.execute(
             """
