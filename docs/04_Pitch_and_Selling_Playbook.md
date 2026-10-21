@@ -8,7 +8,7 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 
 > *"In Malaysia, 80% of micro and small businesses run their sales on WhatsApp and track their stock and invoices in messy spreadsheets. Accounting software like AutoCount is blind to WhatsApp chats, while WhatsApp chatbots are blind to warehouse stock and unpaid invoices.*
 >
-> *We built **CashChase for Orbyte**: a **WhatsApp Web Extension Sidebar** connected to a **Single-Page Stock & CashFlow Hub**. When a customer asks for stock on WhatsApp, CashChase checks live inventory, drafts the quote, and locks those units **On Hold for 48 hours**—only deducting physical stock once the deposit is confirmed. And when staff drop in a supplier bill or customer receipt, CashChase automatically updates **Company Net Worth (`Cash + Stock Value`)** in one click with zero manual data entry."*
+> *We built **CashChase for Orbyte**: a **WhatsApp Web Extension Sidebar** connected to an **All-in-One Stock & CashFlow Hub**. When a customer asks for stock on WhatsApp, CashChase checks live inventory, drafts the quote, and locks those units **On Hold for 48 hours**—only deducting physical stock once the deposit is confirmed. And when staff drop in a supplier bill or customer receipt, CashChase automatically updates **Company Net Worth (`Cash + Stock Value`)** in one click with zero manual data entry."*
 
 ---
 
@@ -24,7 +24,7 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 - **The Pain:** Admin and sales staff hate switching tabs and typing invoice rows into forms.
 - **How CashChase Solves It:**
   - **On WhatsApp Web:** Our Chrome Extension Sidebar lives right inside `web.whatsapp.com`. One click reads the chat, checks stock, holds inventory, and inserts the reply into the WhatsApp message box.
-  - **On the Single-Page WebApp:** Staff just drag-and-drop any **Supplier Stock Bill PDF** (`+Stock, -Cash`), **Operating Expense Bill** (`-Cash`), or **Customer Receipt** (`+Cash`)—or type a 1-line note when a customer calls on the phone.
+  - **On the WebApp:** Staff just drag-and-drop any **Supplier Stock Bill PDF** (`+Stock, -Cash`), **Operating Expense Bill** (`-Cash`), or **Customer Receipt** (`+Cash`)—or type a 1-line note when a customer calls on the phone.
 
 ### Selling Point #3: Money-First Aftersales Guardrail (Right on the Invoice)
 - **The Pain:** A customer texts in Manglish: *"Boss, 1 bottle R32 leaking la, I hold the RM 4,800 balance until you replace it."* In normal SMEs, nobody updates the spreadsheet, and an admin embarrassingly sends them a payment reminder the next day.
@@ -34,7 +34,7 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 
 ### Selling Point #4: Plain-English Live Company Net Worth (`Cash + Stock`)
 - **The Pain:** Micro-SME owners don't understand accounting Debit/Credit balance sheets. They wake up asking: *"How much Cash and Stock do I actually have today?"*
-- **How CashChase Solves It:** The top banner of our Single-Page WebApp translates every WhatsApp order and uploaded bill into two crystal-clear numbers:
+- **How CashChase Solves It:** The Net Worth figures on our WebApp translates every WhatsApp order and uploaded bill into two crystal-clear numbers:
   - **Core Net Worth** = `Cash on Hand + Physical Stock Value`
   - **Full Net Position** = `Core Net Worth + Pending Customer Invoices − Pending Supplier Bills`
 
@@ -52,11 +52,11 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 > **Answer:** *"Orbyte manages **internal HR and team operations** (`eLeave`, `eClaim`, `Attendance`). Orbyte does not have a customer-facing WhatsApp sales, stock-hold, and cashflow engine. CashChase plugs into Orbyte as the **Commercial & Stock Module**, reusing Orbyte's Role Permissions (`Owner` vs. `Sales/Admin`) and Immutable Activity Log."*
 
 ### Q4: "Where do you use AI vs. Rules, and how do people stay in control?"
-> **Answer:** *"We follow a strict rule: **AI reads and drafts; deterministic code does all the math; humans approve every action.** Our Local LLM (`Qwen 2.5` via Ollama/RunPod) only extracts structured JSON from messy Malay/Manglish WhatsApp chats and uploaded invoice PDFs. Deterministic TypeScript code calculates stock availability, 48-hour hold timers, and Company Net Worth. Nothing is ever sent or deducted without a human click—and high-impact actions like confirming payments or deducting warranty stock require the **Owner** role."*
+> **Answer:** *"We follow a strict rule: **AI reads and drafts; deterministic code does all the math; humans approve every action.** Our Local LLM (`Qwen3` via LM Studio on the laptop, with a built-in fallback when it is offline) only extracts structured JSON from messy Malay/Manglish WhatsApp chats and uploaded invoice PDFs. Deterministic TypeScript code calculates stock availability, 48-hour hold timers, and Company Net Worth. Nothing is ever sent or deducted without a human click—and high-impact actions like confirming payments or deducting warranty stock require the **Owner** role."*
 
 ### Q5: "How would Orbyte monetize CashChase as a startup product?"
 > **Answer:**
-> - **Freemium (Included in Orbyte Core):** Single-Page Stock & Net Worth Tracker + Manual Phone Order Key-In + 30 AI WhatsApp/Invoice scans per month.
+> - **Freemium (Included in Orbyte Core):** Stock & Net Worth Tracker WebApp + Manual Phone Order Key-In + 30 AI WhatsApp/Invoice scans per month.
 > - **CashChase Pro Module (RM 49 / month per SME):** Unlimited WhatsApp Extension Sidebar AI scans, Unlimited 1-Drop Invoice OCR Uploads, 48h Auto-Release Stock Holds, and 1-Click Bookkeeper/LHDN Excel Exports.
 
 ---
@@ -65,9 +65,9 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 
 | Minute | What You Show on Screen | What You Say to Judges |
 |---|---|---|
-| **0:00 – 0:45** | **Problem & Top Net Worth Banner** | Introduce *Sejuk Jaya Aircond Sdn Bhd*. Point to the top banner: **Cash on Hand (`RM 9,800`) + Physical Stock Value (`RM 10,200`) = `RM 20,000` Core Net Worth**. |
+| **0:00 – 0:45** | **Problem & Top Net Worth Banner** | Introduce *Sejuk Jaya Aircond Sdn Bhd*. Point to the Net Worth figures: **Cash on Hand (`RM 9,800`) + Physical Stock Value (`RM 10,190`) = `RM 19,990` Core Net Worth** (fresh seed; run `POST /api/reset` before the demo). |
 | **0:45 – 1:45** | **Flow 1: WhatsApp Inquiry → 48h Stock Hold** | Click **Tan Bros Trading** inquiry (*"Need 5x Daikin 1.5HP & 5x R32 Gas"*). In the **Chrome Extension Sidebar**, click **`1-Click Hold Stock (48h) & Insert Quote`**. Show the reply inserted into WhatsApp, and show `5 units` move to **`On Hold (48h)`**—while physical stock is **not** deducted yet! |
 | **1:45 – 2:30** | **Flow 2: Role Guardrail + Owner Deposit Confirmation** | Switch to **Deposit Paid** chat. Switch role to **Sales/Admin (`Aina`)** first to show that staff cannot confirm money (`Owner Approval Required`). Switch back to **Owner (`Hafiz`)** and click **`Confirm Deposit & Deduct Physical Stock`**. Watch `On Hold` convert to **`Deducted`**, `Cash` jump by `+RM 2,000`, and `INV-204` appear! |
-| **2:30 – 3:30** | **Flow 3: Aftersales Faulty Item on Unpaid Invoice** | Click **Klinik Dr. Lim** chat (*"1 bottle R32 leaking, I hold RM 4,800 payment"*). Point out that payment reminders on `INV-201` were **auto-paused**. Click **`Replace -1x R32 from Stock`**, then switch to the **Single-Page WebApp** and click **`✓ Mark Resolved`** on `INV-201`. |
-| **3:30 – 4:30** | **Flow 4: 1-Drop Supplier Invoice OCR & Phone Call Bar** | On the **Single-Page WebApp**, click **Supplier Stock Bill (`+20x R32 Gas, RM 2,600`)** → Click **Confirm**. Watch Physical Stock jump by `+20 units` and Net Worth update live. Then click **`+ Create Quote`** on the **Phone Call Bar** to show how phone orders work just as fast. |
-| **4:30 – 5:00** | **Flow 5: 60s Multi-SME Switch, Prompt View & Excel Export** | Switch the top dropdown from **Sejuk Jaya Aircond** to **Kopi & Bakery Wholesale** to prove any SME can onboard in 60 seconds. Show the **Formatted Agent Prompt & JSON** tab and click **`Export Monthly Excel (.xlsx)`**. |
+| **2:30 – 3:30** | **Flow 3: Aftersales Faulty Item on Unpaid Invoice** | Click **Klinik Dr. Lim** chat (*"1 bottle R32 leaking, I hold RM 4,800 payment"*). Point out that payment reminders on `INV-201` were **auto-paused**. Click **`Replace -1x R32 from Stock`**, then switch to the **WebApp** (*Invoices & Quotes* page) and click **`✓ Mark Resolved`** on `INV-201`. |
+| **3:30 – 4:30** | **Flow 4: 1-Drop Supplier Invoice OCR & Phone Call Bar** | On the WebApp *Invoices & Quotes* page, click **Supplier Stock Bill (`+20x R32 Gas, RM 2,600`)** → Click **Confirm**. Watch Physical Stock jump by `+20 units` and Net Worth update live. Then click **`+ Create Quote`** on the **Phone Call Bar** to show how phone orders work just as fast. |
+| **4:30 – 5:00** | **Flow 5: 60s Multi-SME Switch, Prompt View & Excel Export** | In **SME Business Profile** settings, switch from **Sejuk Jaya Aircond** to **Kopi & Bakery Wholesale** to prove any SME can onboard in 60 seconds. Show the **Agent Prompt Inspector** (formatted prompt & JSON) and click **`Export Monthly Excel (.xlsx)`** (`GET /api/export/xlsx`). |

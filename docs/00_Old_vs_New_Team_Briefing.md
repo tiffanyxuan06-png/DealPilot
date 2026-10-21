@@ -26,13 +26,13 @@ When we reviewed the official **Domain 2 Rubric (`Copy of Domain 2 (1).pdf`)**, 
 | **One-Sentence Pitch** | *"Collect · Care · Stock · Ledger — 4 agents checked by Guard for service jobs"* | **"WhatsApp Extension + 1-Page Stock & Invoice Hub that tracks Stock Holds, CashFlow, and Company Net Worth (`Cash + Stock`) in 1 click."** | Anyone can explain it back in 10 seconds. |
 | **Target User** | Admin + Owner + Service Technicians | **Owner + Sales/Admin Staff** at 3–20 person micro-SMEs (currently using WhatsApp + Excel). | Focused user persona; zero HR/technician overlap with Orbyte. |
 | **WhatsApp Integration** | Meta WhatsApp Cloud API + Webhooks + 24h Window + Meta Template Approvals | **Chrome Extension Sidebar on `web.whatsapp.com`** (reads active chat, checks stock, inserts reply/quote in 1 click). | Zero Meta API approval delays, no 24h window blocks, naturally Human-in-the-Loop. |
-| **WebApp Layout** | **8 separate routes** (`/login`, `/dashboard`, `/collect`, `/care`, `/stock`, `/ledger`, `/guard`, `/ask`) | **ONE Single-Page WebApp** containing Net Worth Banner, Invoice Upload/Phone Key-In, Stock Count Table, and Unified Invoices Table. | 70% less UI code to build in 5 days; zero tab-switching friction for staff. |
+| **WebApp Layout** | **8 separate routes** (`/login`, `/dashboard`, `/collect`, `/care`, `/stock`, `/ledger`, `/guard`, `/ask`) | **ONE WebApp (`webapp/index.html`, `localhost:8000`)** with a left sidebar: Overview & Net Worth, Invoices & Quotes (upload + phone key-in), Stock & 48h Holds, Ledger, WhatsApp Simulator. | Far less UI code than 8 routes; everything one click away for staff. |
 | **Stock Count Logic** | Only checked stock when a complaint ticket needed repair parts; generated split supplier POs. | **Live Stock Count (`On Hand` vs. `On Hold`):** Quotes lock stock **`On Hold for 48h`** (auto-releases if customer ghosts); physical stock **only deducts** when order + deposit is confirmed! | Solves a huge real-world SME pain point: overselling stock vs. ghosted quotations. |
 | **Invoice Upload & Key-In** | Only uploaded customer DuitNow payment screenshots. | **1-Drop AI OCR Upload** for **Supplier Stock Bills** (`+Stock, -Cash`), **Cost/Expense Bills** (`-Cash`), & **Customer Receipts** (`+Cash`), plus a **1-Line Phone Call Bar** for phone orders. | Zero manual typing whether a supplier sends a PDF bill or a customer calls on the phone. |
 | **Company Financial View** | Complex `Cash Health` formula (`0.8 / 0.6 / 0.4` risk weights + 30% PO split rule). | **Plain-English Company Net Worth:**<br>• **Core Net Worth** = `Cash on Hand + Physical Stock Value`<br>• **Full Net Position** = `Core + Pending Receivables − Pending Payables` | Micro-SME owners immediately understand *"How much Cash + Stock do I have right now?"* |
 | **Aftersales / Customer Care** | Separate `/care` module with ticket states, technician availability, and repair scheduling. | **Money-First Aftersales right on the Invoice Row:**<br>1. Auto-pauses payment reminders<br>2. **1-Click Replace Stock (`-1 Stock`)** or **Discount (`-RM`)**<br>3. **1-Click Owner `Mark Resolved ✓`** | Ties aftersales 100% to Stock Value and Invoice Balance without building a ticketing system. |
 | **External Systems & LHDN** | Ignored how SMEs onboard or handle Malaysia's LHDN e-Invoicing. | **60-Second Onboarding** (pick template or drop old Excel/bills), **LHDN TIN Collector on WhatsApp**, and **1-Click Monthly Excel Export** for bookkeepers. | Realistic for Malaysian micro-SMEs without needing live ERP integrations. |
-| **AI Model Setup** | Mandated live RunPod vLLM cold-starts for 7 separate AI skills. | **1 Structured Agent Endpoint** supporting **Local LLM first (`Ollama` / `LM Studio`)**, switchable to RunPod via `.env`, plus instant Demo Cache. | Free and fast to test locally on laptops; zero risk of RunPod cold-start failing the demo. |
+| **AI Model Setup** | Mandated live RunPod vLLM cold-starts for 7 separate AI skills. | **1 Structured Agent Endpoint** (`POST /api/whatsapp/analyze`) on **LM Studio** (local, `qwen3-vl-4b-instruct`), plus a built-in deterministic fallback. RunPod is planned in `.env.example` but not wired in yet. | Free and fast to test locally on laptops; zero risk of RunPod cold-start failing the demo. |
 
 ---
 
@@ -60,11 +60,11 @@ When explaining the new flow to your team, walk through these **4 scenarios**:
 
 ## 4. Questions to Ask Your Friends / Teammates
 
-1. **UI Layout:** Open `CashChase_Interactive_Prototype.html` in Chrome—do we all agree on having **only 2 views** (the **WhatsApp Extension Sidebar** + the **1-Page All-in-One WebApp**)?
+1. **UI Layout:** Run `start_cashchase.bat` and open `http://localhost:8000` in Chrome—do we all agree on having **only 2 interfaces** (the **WhatsApp Extension Sidebar** + the **sidebar WebApp**)?
 2. **Stock Hold Rule:** Is the **48-hour Quote Hold → Deposit Deducts Stock** rule clear to everyone?
 3. **Aftersales Scope:** Does everyone agree with keeping Aftersales strictly on the Invoice row (`Pause Chasing` + `-1 Stock Replace` or `-RM Discount` + `Mark Resolved`) instead of building a separate technician ticketing page?
 4. **Task Split:** Who wants to take:
-   - **Person 1:** Backend API + 4-Table State + Net Worth & Stock Hold Math (`Phase 1`)
-   - **Person 2:** Single-Page WebApp UI — Net Worth Banner, Stock Table, Invoice Table & Upload Box (`Phase 2`)
-   - **Person 3:** Local LLM Agent Prompt/JSON (`Ollama`/RunPod) + Chrome Extension Sidebar on WhatsApp Web (`Phase 3`)
+   - **Person 1:** FastAPI backend + SQLite state + Net Worth & Stock Hold Math + server-side role checks (`backend/`, `Phase 1` + `Phase 4`)
+   - **Person 2:** WebApp UI — Overview, Invoices & Quotes, Stock, Ledger pages (`webapp/`, `Phase 2`)
+   - **Person 3:** LM Studio Agent Prompt/JSON (`backend/services/prompts.py`) + Chrome Extension Sidebar on WhatsApp Web (`extension/`, `Phase 3`)
    - **Person 4:** Seed Data (Aircond + F&B profiles), Excel Export, Pitch Deck & Demo Video (`Phase 4`)

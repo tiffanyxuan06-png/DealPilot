@@ -3,13 +3,14 @@
 **Event:** SDC Hackathon 2026 · Domain 2: Orbyte Smart SME Challenge ("Less Busywork, Better Business")  
 **Sponsor:** Alpha Red Solutions Sdn Bhd  
 **Target Users:** Owners and Sales/Admin staff at Malaysian micro & small businesses (3–20 staff)  
-**Architecture:** 1 Chrome Extension Sidebar on `web.whatsapp.com` + 1 Clean 4-Tab Sidebar WebApp (`localhost:3000`: *Overview & Net Worth*, *Invoices/Quotes & Upload Hub*, *Stock & 48h Hold Tracker*, *SME Setup & AI Framework*)
+**Architecture:** 1 Chrome Extension Sidebar on `web.whatsapp.com` (`extension/`) + 1 Sidebar WebApp served by the FastAPI backend at `localhost:8000` (pages: *Overview & Net Worth*, *Invoices & Quotes*, *Stock & 48h Holds*, *Ledger*, *WhatsApp Simulator*, plus the *SME Profile & AI Labor Rules* settings)  
+**Stack (as built):** Python FastAPI + SQLite (`backend/`) · plain HTML/JS + Tailwind CDN (`webapp/`) · Chrome Extension MV3 (`extension/`) · LM Studio local OpenAI-compatible API (`http://127.0.0.1:1234/v1`)
 
 ---
 
 ## 1. One-Sentence Pitch (Explain-It-Back Test)
 
-> **"Small businesses run sales on WhatsApp and track stock & invoices in messy spreadsheets. CashChase connects a WhatsApp Web Extension Sidebar to a Single-Page Stock & Invoice Hub—so SME staff can quote, hold stock, upload supplier/cost bills, handle aftersales replacements, and track live Company Net Worth (`Cash + Stock`) in one click with zero manual data entry."**
+> **"Small businesses run sales on WhatsApp and track stock & invoices in messy spreadsheets. CashChase connects a WhatsApp Web Extension Sidebar to an All-in-One Stock & Invoice Hub—so SME staff can quote, hold stock, upload supplier/cost bills, handle aftersales replacements, and track live Company Net Worth (`Cash + Stock`) in one click with zero manual data entry."**
 
 ---
 
@@ -49,13 +50,13 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 2. **Connected Data:**
    - CashChase pulls together **Customer Profile (including LHDN TIN status)** + **Live Stock Count (`Physical On Hand`, `On Hold`, `Available`)** + **CashFlow & Pending Invoices**.
 3. **Decision Logic (AI Proposes, Rules Decide):**
-   - **AI (Local LLM / RunPod):** Reads unstructured WhatsApp chats (English, Malay, Manglish) and OCRs uploaded PDF/image bills into a strict JSON schema.
+   - **AI (LM Studio local LLM, e.g. `qwen3-vl-4b-instruct`; RunPod planned, not yet wired in code):** Reads unstructured WhatsApp chats (English, Malay, Manglish) and OCRs uploaded PDF/image bills into a strict JSON schema.
    - **Deterministic Rules (Code):** Checks `Available = On Hand - On Hold`, calculates exact prices from the catalogue, sets the 48-hour hold expiry timer, enforces role limits, and computes **Company Net Worth**.
 4. **Human Approval (People Stay in Control):**
    - **Sales/Admin Staff:** Can 1-click approve routine Quotations (putting stock `On Hold`), insert WhatsApp replies, and upload draft bills.
    - **Company Owner:** Must approve consequential financial/stock actions: confirming customer Deposits/Payments (which deducts physical stock and increases Cash), approving Supplier Stock/Cost bills above threshold, applying Aftersales Stock Replacements (`-1 Stock`) or Discounts (`-RM`), and marking Aftersales issues `Resolved`.
 5. **Visible Outcome & Activity Log:**
-   - Reply/Quote inserts directly into WhatsApp Web; **Stock Count** and **Company Net Worth (`Cash + Stock Value`)** update immediately on the Single-Page WebApp; and an immutable entry is written to the **Activity & Audit Log**.
+   - Reply/Quote inserts directly into WhatsApp Web; **Stock Count** and **Company Net Worth (`Cash + Stock Value`)** update immediately on the WebApp; and an immutable entry is written to the **Activity & Audit Log**.
 
 ---
 
@@ -80,6 +81,8 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 
 ### 5.3 Role-Based Permissions (Simulated Orbyte RBAC)
 
+> **Current repo status:** the Owner/Staff switch (`toggleRole()` in `webapp/index.html`) is UI-only. API requests carry `role` in the request body (default `OWNER`), so the backend does not yet enforce this table. Server-side 403 checks are a TODO (see `03_Five_Day_Phased_Build_Plan.md`, Phase 4).
+
 | Action | 👤 Sales / Admin Staff | 👑 Company Owner |
 |---|---|---|
 | Read WhatsApp chat via Extension, generate Quote (`Stock On Hold`), insert reply | ✅ Allowed (1-Click) | ✅ Allowed |
@@ -97,7 +100,7 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 
 1. **Complements Orbyte Without Overlap:** Orbyte manages **internal HR & team workflows** (`eLeave`, `eClaim`, `Attendance`). CashChase adds the **external Commercial, Stock & CashFlow loop**, plugging into Orbyte's simulated Role Switcher, Approval Inbox, and Audit Log.
 2. **60-Second Zero-Typing Setup for Any SME:**
-   - Any SME (Air-cond servicing/supply, F&B wholesale, Hardware trading) sets up CashChase in 3 steps:
+   - Any SME (the repo ships 3 profiles: Air-cond contractor *Sejuk Jaya*, Software Studio *NexaByte IT*, Wholesale F&B *Kopi & Bakery*) sets up CashChase in 3 steps:
      1. Pick an industry template **or** drop their existing `Stock_List.xlsx` / past 3 Supplier Invoices into the upload box (AI auto-builds their catalogue).
      2. Enter 1 number: **Starting Cash on Hand**.
      3. Set their **Quote Hold Timer** (default `48h`) and **Owner Approval Threshold** (default `RM 1,000`).

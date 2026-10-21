@@ -1,8 +1,8 @@
-# CashChase — User Flows, Single-Page UI & Local LLM Agent Spec
+# CashChase — User Flows, WebApp UI & Local LLM Agent Spec
 
-**Architecture Rule:** Strictly **2 user-facing interfaces** backed by **1 Next.js API & 4 Data Tables**:
-1. **Chrome Extension Sidebar on `web.whatsapp.com`** (`chrome-extension/` + `/extension` embed)
-2. **ONE Single-Page CashChase WebApp (`http://localhost:3000/`)** where Net Worth, Invoice Uploads, Phone Orders, Stock Count, and Invoices/Aftersales all live on a single screen.
+**Architecture Rule:** Strictly **2 user-facing interfaces** backed by **1 FastAPI backend (`backend/`) & 1 SQLite database (`backend/cashchase.db`)**:
+1. **Chrome Extension Sidebar on `web.whatsapp.com`** (`extension/`: `content.js` injects the sidebar, `background.js` calls the API)
+2. **ONE CashChase WebApp (`http://localhost:8000/`)** with a left sidebar: *Overview & Net Worth*, *Invoices & Quotes*, *Stock & 48h Holds*, *Ledger*, and a built-in *WhatsApp Simulator* (backup for the extension), plus the *SME Profile & AI Labor Rules* settings.
 
 ---
 
@@ -16,7 +16,7 @@ flowchart TB
         DOM <--> SIDE
     end
 
-    subgraph ONE_PAGE["Interface 2: Single-Page CashChase WebApp (localhost:3000)"]
+    subgraph ONE_PAGE["Interface 2: CashChase WebApp (localhost:8000, webapp/)"]
         NW["Section 1: Live Company Net Worth Banner\n• Core Net Worth = Cash on Hand + Stock Value\n• Full Net Position = Core + Pending In - Pending Out"]
         INP["Section 2: Zero-Friction Input Row\n• Drag & Drop Invoice OCR (Supplier / Cost / Customer)\n• 1-Line Phone Call Quick Key-In Bar"]
         STK["Section 3A: Live Stock Count Table\n• Physical On Hand | On Hold (48h) | Available | Value"]
@@ -24,9 +24,9 @@ flowchart TB
         LOG["Section 4: Immutable Orbyte Activity Log & Excel Export"]
     end
 
-    subgraph BACKEND["Shared Backend & Local LLM (Ollama / LM Studio / RunPod)"]
-        API["POST /api/agent/analyze  ·  POST /api/actions/execute"]
-        DB[("4 Core Tables:\n1. customers (with LHDN TIN)\n2. stock_items (on_hand, on_hold, unit_cost)\n3. invoices_quotes (QUOTE_HOLD | PENDING | AFTERSALES | SUPPLIER_COST)\n4. activity_logs")]
+    subgraph BACKEND["FastAPI Backend (backend/) & LM Studio Local LLM"]
+        API["POST /api/whatsapp/analyze · POST /api/whatsapp/execute\nPOST /api/invoices/{id}/action · POST /api/orders/walkin\nPOST /api/ocr/extract · GET /api/state · GET /api/export/xlsx"]
+        DB[("SQLite tables:\n1. stock (on_hand, on_hold, unit_cost)\n2. invoices (QUOTE_HOLD | PENDING | PENDING_VERIFY | AFTERSALES | SUPPLIER_COST | PAID_DONE)\n3. client_memories (tier, tone, history)\n4. receipt_records\n5. audit_logs\n6. settings (cash, profile, AI rules)")]
     end
 
     SIDE --> API
@@ -41,13 +41,13 @@ flowchart TB
 
 ### Flow 1: WhatsApp Inquiry → Quotation & 48-Hour Stock Hold
 1. **Trigger:** Customer texts on WhatsApp: *"Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much?"*
-2. **Extension Reads & Checks:** The Extension Sidebar sends the message + current catalogue state to `/api/agent/analyze`.
+2. **Extension Reads & Checks:** The Extension Sidebar sends the message + current catalogue state to `POST /api/whatsapp/analyze`.
 3. **Rule Verification:**
    - Checks `Available Stock = Physical On Hand - Stock On Hold`.
    - Computes total from official catalogue prices (`5 × RM 1,150 + 5 × RM 180 = RM 6,650`).
 4. **Human Action (1 Click):** Sales/Admin clicks **`[✅ Hold Stock (48h) & Insert Quote Reply]`**.
 5. **Outcome:**
-   - Creates `QT-104` (`QUOTE_HOLD`) on the Single-Page WebApp.
+   - Creates `QT-104` (`QUOTE_HOLD`) on the WebApp (Invoices & Quotes page).
    - Increases `on_hold` by `+5` on both items with a **48-hour countdown timer** (**does NOT deduct `on_hand` yet!**).
    - Auto-fills the WhatsApp Web chat box with the formatted quote reply.
 
@@ -73,7 +73,7 @@ flowchart TB
 ---
 
 ### Flow 4: 1-Drop Invoice Upload (Supplier Stock, Operating Cost, Customer Receipt) & Phone Calls
-Located directly in **Section 2 of the Single-Page WebApp**:
+Located on the **Invoices & Quotes** page of the WebApp (`POST /api/ocr/extract` for uploads, `POST /api/orders/walkin` for phone orders):
 1. **Supplier Stock Invoice Upload (e.g., Bought `+20x R32 Gas @ RM 130 = RM 2,600`):**
    - AI OCR extracts supplier name, matched SKU (`GAS-R32`), quantity (`+20`), and total (`RM 2,600`).
    - Clicking **Confirm** increases `Physical Stock On Hand` (`+20 units`, `+RM 2,600 Stock Value`) and reduces `Cash on Hand` (`-RM 2,600`) or adds to `Unpaid Supplier Bills`.
@@ -117,25 +117,29 @@ In real contractor/service SMEs, quotes and invoices include **Labor Charges** p
 
 ## 3. Agent Formatted Text Specification (Local LLM First)
 
-To make sure a fast **Local LLM** (`Ollama` or `LM Studio` running `qwen2.5:7b` or `llama3.1:8b`) returns 100% reliable results without hallucinating prices or math, we use a **strict Input Text Envelope** and **strict JSON Output Schema**.
+To make sure a fast **Local LLM** (`LM Studio` running `qwen3-vl-4b-instruct` or `qwen3-4b-instruct`) returns 100% reliable results without hallucinating prices or math, we use a **strict Input Text Envelope** and **strict JSON Output Schema**.
 
-### 3.1 Environment Configuration (`.env.local`)
+### 3.1 Environment Configuration (`.env`, copied from `.env.example`)
 ```env
-# Option 1: Local LLM via Ollama (Default for fast, free local dev)
-LLM_PROVIDER="local"
-LLM_BASE_URL="http://localhost:11434/v1"
-LLM_MODEL="qwen2.5:7b"
+# "lmstudio" (default) | "runpod" | "auto"
+AI_PROVIDER=lmstudio
 
-# Option 2: RunPod Serverless vLLM (For cloud demo)
-# LLM_PROVIDER="runpod"
-# LLM_BASE_URL="https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1"
-# LLM_API_KEY="rp_..."
+# Option A: LM Studio local server (Developer tab → Start Server, port 1234, CORS on)
+LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+LMSTUDIO_API_KEY=lm-studio
+LMSTUDIO_MODEL=local-model
+LMSTUDIO_VISION_MODEL=auto
 
-# Always keep pre-verified demo cache enabled as instant fallback
-ENABLE_DEMO_CACHE="true"
+# Option B: RunPod serverless vLLM (OpenAI-compatible)
+RUNPOD_BASE_URL=https://api.runpod.ai/v2/<ENDPOINT_ID>/openai/v1
+RUNPOD_API_KEY=rpa_...
+RUNPOD_MODEL=Qwen/Qwen3-4B-Instruct
+
+PORT=8000
 ```
+> **Repo status:** the backend currently reads only `LMSTUDIO_URL`, `LMSTUDIO_API_KEY` and `LMSTUDIO_MODEL` (`backend/database.py`); `AI_PROVIDER` and the `RUNPOD_*` values are not wired in yet, and `LMSTUDIO_BASE_URL` in `.env.example` does not match the `LMSTUDIO_URL` name the code reads. The LM Studio URL/model can also be changed at runtime from the WebApp settings (`POST /api/settings`). Pre-written fallback answers in `backend/services/prompts.py` keep the demo working when LM Studio is offline.
 
-### 3.2 Exact Formatted Text Sent TO the Agent (`buildAgentPrompt()`)
+### 3.2 Exact Formatted Text Sent TO the Agent (built in `backend/services/prompts.py`)
 ```text
 === CASHCHASE AGENT INPUT ===
 SME_COMPANY: Sejuk Jaya Aircond Sdn Bhd
@@ -154,41 +158,61 @@ MESSAGE_TEXT:
 =============================
 ```
 
-### 3.3 Exact JSON Schema Returned BY the Agent (`AgentProposalSchema`)
+### 3.3 JSON Returned BY the Agent (as defined in `backend/services/prompts.py`)
 ```json
 {
-  "intent": "CREATE_QUOTE_HOLD",
-  "confidence": 0.95,
-  "customerName": "Tan Bros Trading",
-  "matchedRecordId": null,
-  "items": [
-    { "sku": "ACN-DAI-15", "qty": 5 },
-    { "sku": "GAS-R32", "qty": 5 }
+  "intent": "BUYING_INQUIRY",
+  "badge": "Buying Inquiry",
+  "extTitle": "Quote for Tan Bros Trading",
+  "extCheck": "5x Daikin 1.5HP available (5 left) · 5x R32 available (15 left) · Total RM 6,650",
+  "extActionDesc": "Inserts the selected reply into WhatsApp.",
+  "extDraft": "Hi Tan Bros! Both in stock. 5x Daikin 1.5HP (RM 5,750) + 5x R32 Gas (RM 900) = RM 6,650. Send deposit anytime to confirm!",
+  "replyOptions": [
+    { "label": "⭐ Option 1: Best Match for Client & Your Prompt", "text": "..." },
+    { "label": "🤝 Option 2: Friendly Boss Style (40% Deposit to Confirm)", "text": "..." },
+    { "label": "⚡ Option 3: Fast-Close / Priority Dispatch Offer", "text": "..." },
+    { "label": "🇲🇾 Option 4: Bahasa Melayu / Formal", "text": "..." }
   ],
-  "extractedAmountRM": null,
-  "buyerTinExtracted": null,
-  "requiresOwnerApproval": false,
-  "stockEffect": "HOLD_ONLY_48H",
-  "summaryReason": "Customer requested quote for 5x Daikin 1.5HP and 5x R32 Gas. All items available in stock.",
-  "draftWhatsAppReply": "Hi Tan Bros! Both in stock. Quote #QT-104 for 5x Daikin 1.5HP (RM 5,750) + 5x R32 Gas (RM 900) = RM 6,650. We have placed these items ON HOLD for 48 hours—send deposit anytime to confirm!"
+  "extBtnLabel": "💬 Insert Selected Reply (No Stock Hold)",
+  "extActionType": "REPLY_ONLY",
+  "sku": "ACN-DAI-15",
+  "qty": 5,
+  "extraSku": "GAS-R32",
+  "extraQty": 5,
+  "amount": 6650
 }
 ```
 
-**Allowed `intent` values (6 deterministic routes):**
-- `CREATE_QUOTE_HOLD` — Places items `On Hold (48h)` and builds Quotation.
-- `CONFIRM_DEPOSIT_DEDUCT` — Owner confirms deposit; converts `On Hold` → `-Physical Stock` & `+Cash`.
-- `AFTERSALES_ISSUE` — Pauses invoice chasing; proposes `-1 Stock Replace` or `-RM Discount`.
-- `RELEASE_EXPIRED_HOLD` — Releases expired 48h quote hold back to `Available Stock`.
-- `UPLOAD_BILL_EXTRACTED` — Used when OCRing a Supplier Stock Bill, Cost Bill, or Customer Receipt.
-- `SAVE_LHDN_TIN` — Extracts Buyer TIN / SSM BRN from WhatsApp reply into Customer record.
+**Allowed `intent` values (6, from the prompt):**
+- `BUYING_INQUIRY` — customer asks for price / stock.
+- `DEPOSIT_PAID` — customer says they paid a deposit or sends a receipt.
+- `AFTERSALES_ISSUE` — faulty item / complaint; pauses chasing.
+- `EXPIRED_HOLD_FOLLOWUP` — follow-up on a quote whose 48h hold expired.
+- `CASUAL_CHAT` — no business action.
+- `CUSTOMER_DECLINED` — customer says no; reply politely, release stock.
+
+**Executable `extActionType` values (`POST /api/whatsapp/execute`, `backend/routes/whatsapp.py`):**
+- `REPLY_ONLY` — insert reply, no stock change.
+- `CREATE_QUOTE_HOLD` — create a quote and put stock `On Hold (48h)`.
+- `CONFIRM_DEPOSIT_DEDUCT` — `On Hold` → `-Physical Stock`, `+Cash`, create pending invoice.
+- `AFTERSALES_REPLACE` — `-1` stock as warranty replacement.
+- `RELEASE_EXPIRED_HOLD` — return expired hold to `Available`.
+
+> **Mismatch to resolve:** the live LM Studio prompt tells the model *not* to hold stock until a deposit is confirmed and only offers `REPLY_ONLY` for inquiries, while Flow 1 above (and the WhatsApp Simulator in `webapp/js/state.js`) uses `CREATE_QUOTE_HOLD`. Decide which rule is correct and align the prompt or this spec.
+
+**Invoice row actions (`POST /api/invoices/{id}/action`):** `RELEASE_QUOTE`, `CONFIRM_QUOTE`, `MARK_PAID`, `PAY_SUPPLIER`, `SET_TIN`. Receipt checks: `POST /api/invoices/{id}/verify-receipt`.
 
 ---
 
-## 4. Database Schema (4 Simple Tables)
+## 4. Database Schema (SQLite, `backend/database.py`)
 
-Whether stored in SQLite / PGlite or JSON state for the 5-day prototype, the entire app needs only **4 tables**:
+Money is stored as whole RM integers (not sen). Tables are created and seeded by `init_db()`; `POST /api/reset` re-seeds them.
 
-1. **`customers`**: `id`, `name`, `phone`, `tin_number`, `ssm_number`, `lhdn_ready`
-2. **`stock_items`**: `sku`, `name`, `on_hand`, `on_hold`, `hold_note`, `unit_cost`, `sell_price`
-3. **`invoices_quotes`**: `id`, `type` (`QUOTE_HOLD` | `PENDING` | `AFTERSALES` | `SUPPLIER_COST` | `PAID_DONE`), `party_name`, `items_json`, `amount`, `status`, `hold_expires_at`, `lhdn_status`
-4. **`activity_logs`**: `id`, `timestamp`, `actor_role`, `action_type`, `description` (Append-only)
+1. **`settings`**: `key`, `value` (company name, SSM, TIN, `cash_on_hand`, `sme_preset`, AI labor `framework`, LM Studio URL/key/model)
+2. **`stock`**: `sku`, `name`, `on_hand`, `on_hold`, `hold_note`, `unit_cost`, `sell_price`
+3. **`invoices`** (quotes, invoices, bills): `id`, `type` (`QUOTE_HOLD` | `PENDING` | `PENDING_VERIFY` | `AFTERSALES` | `SUPPLIER_COST` | `PAID_DONE`), `party`, `phone`, `hold_timer`, `chat_idx`, `items_text`, `sku`, `qty`, `extra_sku`, `extra_qty`, `amount`, `claimed_amount`, `receipt_ref`, `status`, `lhdn`, `created_at`
+4. **`client_memories`**: `customer`, `phone`, `tier`, `score`, `style_summary`, `payment_behavior`, `total_orders`, `total_paid_rm`, `last_message`, `recent_history_json`, `cached_analysis_json`, `updated_at`
+5. **`receipt_records`**: `id`, `invoice_id`, `customer`, `file_name`, `file_type`, `ref`, `amount`, `file_data`, `html_preview`, `created_at`
+6. **`audit_logs`**: `id`, `entry`, `created_at` (append-only by convention; not yet enforced in the database)
+
+There is no separate `customers` table yet: customer name/phone live on `invoices` and `client_memories`, and LHDN TIN status is the `invoices.lhdn` text field.
