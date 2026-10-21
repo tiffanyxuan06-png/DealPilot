@@ -538,7 +538,9 @@
       const st = getState();
       const results = [];
       st.invoices.forEach(inv => {
-        if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') {
+        // Backend profile: expired quotes no longer hold stock. Demo profiles keep counting them until released.
+        const holding = usesBackend() ? inv.status === 'ON_HOLD_48H' : inv.status !== 'HOLD_RELEASED';
+        if (inv.type === 'QUOTE_HOLD' && holding) {
           if (inv.sku === sku) {
             results.push({ inv, heldQty: inv.qty });
           } else if (inv.extraSku === sku && inv.extraQty > 0) {

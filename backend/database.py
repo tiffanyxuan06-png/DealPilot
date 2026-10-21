@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -13,6 +13,55 @@ DEFAULT_LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "local-model")
 
 def now_time_str() -> str:
     return datetime.now().strftime("%I:%M %p")
+
+
+HOLD_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def hold_expiry_str(conn: sqlite3.Connection, from_time: Optional[datetime] = None) -> str:
+    """When a quote created now stops holding stock (default 48h, Owner setting `hold_hours`)."""
+    try:
+        hours = int(get_setting(conn, "hold_hours", "48"))
+    except ValueError:
+        hours = 48
+    return ((from_time or datetime.now()) + timedelta(hours=hours)).strftime(HOLD_TIME_FORMAT)
+
+
+def parse_hold_time(value: Optional[str]) -> Optional[datetime]:
+    try:
+        return datetime.strptime(value, HOLD_TIME_FORMAT) if value else None
+    except ValueError:
+        return None
+
+
+def hold_timer_text(status: str, expires_at: Optional[str], stored: str) -> str:
+    """Live countdown shown in the WebApp and the extension."""
+    expires = parse_hold_time(expires_at)
+    if not expires:
+        return stored or ""
+    secs = int((expires - datetime.now()).total_seconds())
+    if status == "ON_HOLD_48H" and secs > 0:
+        return f"⏳ {secs // 3600}h {secs % 3600 // 60:02d}m left"
+    if status == "HOLD_EXPIRED":
+        ago = max(0, -secs)
+        return f"⚠️ Expired {ago // 3600}h {ago % 3600 // 60:02d}m ago · stock released"
+    return stored or ""
+
+
+def expire_holds(conn: sqlite3.Connection) -> None:
+    """Quotes whose 48h hold has run out stop holding stock (units go back to Available). The quote stays for follow-up."""
+    now = datetime.now()
+    rows = conn.execute(
+        "SELECT * FROM invoices WHERE type = 'QUOTE_HOLD' AND status = 'ON_HOLD_48H' AND hold_expires_at IS NOT NULL"
+    ).fetchall()
+    for r in rows:
+        expires = parse_hold_time(r["hold_expires_at"])
+        if expires and expires <= now:
+            conn.execute("UPDATE invoices SET status = 'HOLD_EXPIRED' WHERE id = ?", (r["id"],))
+            items = f"{r['qty']}x {r['sku']}" + (f" + {r['extra_qty']}x {r['extra_sku']}" if r["extra_sku"] and r["extra_qty"] else "")
+            add_log(conn, f"[SYSTEM] Quote #{r['id']} ({r['party']}) expired with no deposit → {items} released back to Available.")
+    if rows:
+        recompute_stock_holds(conn)
 
 
 def get_db() -> sqlite3.Connection:
@@ -59,7 +108,7 @@ def recompute_stock_holds(conn: sqlite3.Connection) -> None:
     """Keeps stock.on_hold and stock.hold_note 100% synchronized with active QUOTE_HOLD records."""
     stocks = conn.execute("SELECT sku FROM stock").fetchall()
     active_holds = conn.execute(
-        "SELECT id, party, sku, qty, extra_sku, extra_qty, status, hold_timer FROM invoices WHERE type = 'QUOTE_HOLD' AND status != 'HOLD_RELEASED'"
+        "SELECT id, party, sku, qty, extra_sku, extra_qty, status, hold_timer FROM invoices WHERE type = 'QUOTE_HOLD' AND status = 'ON_HOLD_48H'"
     ).fetchall()
 
     for s in stocks:
@@ -83,6 +132,7 @@ def recompute_stock_holds(conn: sqlite3.Connection) -> None:
 
 def build_state_payload() -> Dict[str, Any]:
     conn = get_db()
+    expire_holds(conn)
     recompute_stock_holds(conn)
     conn.commit()
 
@@ -122,7 +172,8 @@ def build_state_payload() -> Dict[str, Any]:
                 "type": r["type"],
                 "party": r["party"],
                 "phone": r["phone"] or "",
-                "holdTimer": r["hold_timer"] or "",
+                "holdTimer": hold_timer_text(r["status"], r["hold_expires_at"], r["hold_timer"] or ""),
+                "holdExpiresAt": r["hold_expires_at"],
                 "chatIdx": r["chat_idx"],
                 "itemsText": r["items_text"],
                 "sku": r["sku"],
@@ -143,7 +194,7 @@ def build_state_payload() -> Dict[str, Any]:
         sku = s["sku"]
         holders = []
         for inv in invoices_list:
-            if inv["type"] == "QUOTE_HOLD" and inv["status"] != "HOLD_RELEASED":
+            if inv["type"] == "QUOTE_HOLD" and inv["status"] == "ON_HOLD_48H":
                 if inv["sku"] == sku:
                     holders.append(
                         {
@@ -293,6 +344,7 @@ def init_db(force_reset: bool = False) -> None:
             party TEXT NOT NULL,
             phone TEXT DEFAULT '',
             hold_timer TEXT DEFAULT '',
+            hold_expires_at TEXT DEFAULT NULL,
             chat_idx INTEGER DEFAULT NULL,
             items_text TEXT NOT NULL,
             sku TEXT NOT NULL,
@@ -356,6 +408,11 @@ def init_db(force_reset: bool = False) -> None:
     from backend.services.permissions import ensure_tables
 
     ensure_tables(conn)
+
+    # Older databases: add the hold expiry column.
+    cols = [c["name"] for c in conn.execute("PRAGMA table_info(invoices)").fetchall()]
+    if "hold_expires_at" not in cols:
+        conn.execute("ALTER TABLE invoices ADD COLUMN hold_expires_at TEXT DEFAULT NULL")
 
     cur.execute("SELECT COUNT(*) AS cnt FROM settings")
     if cur.fetchone()["cnt"] == 0:
@@ -439,12 +496,13 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
         "lmstudio_api_key": DEFAULT_LMSTUDIO_API_KEY,
         "lmstudio_model": DEFAULT_LMSTUDIO_MODEL,
         "owner_approval_threshold": "1000",
+        "hold_hours": "48",
     }
     for k, v in default_settings.items():
         cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
 
     stock_rows = [
-        ("ACN-DAI-15", "Daikin 1.5HP Inverter Unit", 8, 3, "3x QT-101 (Expired 50h)", 850, 1150),
+        ("ACN-DAI-15", "Daikin 1.5HP Inverter Unit", 8, 0, "-", 850, 1150),
         ("GAS-R32", "R32 Refrigerant Gas (3kg)", 15, 0, "-", 130, 180),
         ("PIP-COP-3M", "Copper Pipe 3m Set", 15, 2, "2x QT-102 (41h left)", 96, 150),
     ]
@@ -482,9 +540,9 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
             "QUOTE_HOLD",
             "Kedai Runcit Ah Seng",
             "+60 19-221 0091",
-            "⚠️ Expired (50h ago)",
+            "⚠️ Expired",
             3,
-            "3x Daikin 1.5HP (ON HOLD — 50h ago, EXPIRED)",
+            "3x Daikin 1.5HP (48h hold expired · no deposit)",
             "ACN-DAI-15",
             3,
             None,
@@ -583,9 +641,13 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
         """,
         invoice_rows,
     )
+    # Real hold times for the demo quotes: QT-101 ran out 2h ago, QT-102 has 41h left.
+    now = datetime.now()
+    cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-101'", ((now - timedelta(hours=2)).strftime(HOLD_TIME_FORMAT),))
+    cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-102'", ((now + timedelta(hours=41)).strftime(HOLD_TIME_FORMAT),))
 
     logs = [
-        "10:45 AM · [System] Flagged QT-101 (Kedai Ah Seng): 48h Stock Hold expired (3x Daikin ready to release).",
+        "10:45 AM · [System] QT-101 (Kedai Ah Seng): 48h Stock Hold expired with no deposit (3x Daikin released back to Available).",
         "10:42 AM · [Auto-OCR] Decoded DuitNow Receipt Ref: DN-88412 from Wisma Perdana (RM 2,200 vs RM 2,400 invoice: RM 200 Shortfall).",
         "09:51 AM · [Guard] Auto-paused reminders on INV-201 (Klinik Dr. Lim) due to aftersales complaint.",
         "09:00 AM · [System] Loaded CashChase SME Database (Cash: RM 9,800 · Physical Stock: RM 10,190).",

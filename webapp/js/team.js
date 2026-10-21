@@ -4,6 +4,7 @@
     // =========================================================================
     let permissionDraft = {};      // action key -> mode the Owner picked but has not saved yet
     let permissionThresholdDraft = null;
+    let holdHoursDraft = null;
 
     function escapeHtmlText(text) {
       return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -86,7 +87,8 @@
       const isOwner = currentRole === 'OWNER';
       const groups = [...new Set(p.actions.map(a => a.group))];
       const threshold = permissionThresholdDraft ?? p.threshold;
-      const changedCount = Object.keys(permissionDraft).length + (permissionThresholdDraft !== null ? 1 : 0);
+      const holdHours = holdHoursDraft ?? p.holdHours;
+      const changedCount = Object.keys(permissionDraft).length + (permissionThresholdDraft !== null ? 1 : 0) + (holdHoursDraft !== null ? 1 : 0);
 
       box.innerHTML = `
         ${isOwner ? '' : `<div class="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold">🔒 Only the Owner can change permissions. You are viewing what Staff are allowed to do.</div>`}
@@ -123,6 +125,12 @@
               onchange="permissionThresholdDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
               class="w-24 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" />
           </label>
+          <label class="text-xs font-semibold text-[#042970] flex items-center gap-2">
+            ⏳ Quote holds stock for
+            <input type="number" min="1" max="720" step="1" value="${holdHours}" ${isOwner ? '' : 'disabled'}
+              onchange="holdHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
+              class="w-16 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" /> hours
+          </label>
           ${isOwner ? `
             <div class="flex gap-2">
               <button onclick="resetPermissionDraftToDefaults()" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#042970] text-xs font-bold">↺ Defaults</button>
@@ -132,6 +140,15 @@
               </button>
             </div>` : ''}
         </div>
+
+        ${isOwner ? `
+          <div class="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-dashed border-[#0152FC]/40 p-3">
+            <div class="text-xs text-[#042970]"><b>🕒 Demo clock:</b> pretend time has passed so you can show a quote hold expiring and its stock coming back.</div>
+            <div class="flex gap-2">
+              <button onclick="fastForwardHolds(24)" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#0152FC]/40 text-[#0152FC] text-xs font-bold">⏩ +24h</button>
+              <button onclick="fastForwardHolds(48)" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#0152FC]/40 text-[#0152FC] text-xs font-bold">⏩ +48h</button>
+            </div>
+          </div>` : ''}
 
         <details class="bg-white rounded-xl border border-[#D5DFEE] p-3">
           <summary class="text-xs font-bold text-[#042970] cursor-pointer">🛡️ Mandatory safety rules (always on, cannot be changed)</summary>
@@ -159,16 +176,28 @@
         if (a.mode !== a.default) permissionDraft[a.key] = a.default;
       });
       permissionThresholdDraft = backendPermissions.threshold !== 1000 ? 1000 : null;
+      holdHoursDraft = backendPermissions.holdHours !== 48 ? 48 : null;
       renderTeamPermissions();
     }
 
     async function savePermissions() {
       const body = { staffModes: { ...permissionDraft } };
       if (permissionThresholdDraft !== null) body.threshold = permissionThresholdDraft;
+      if (holdHoursDraft !== null) body.holdHours = holdHoursDraft;
       const data = await backendAction('/api/permissions', body, 'Saved Team & Permissions. The change is in the activity log.');
       if (data) {
         permissionDraft = {};
         permissionThresholdDraft = null;
+        holdHoursDraft = null;
         renderTeamPermissions();
       }
+    }
+
+    function fastForwardHolds(hours) {
+      askUserConfirm(
+        `Demo: Fast-Forward ${hours}h`,
+        `Pretend ${hours} hours have passed for every quote hold?\n\nQuotes past their hold time expire and their stock goes back to Available to Sell. This is logged.`,
+        () => backendAction('/api/demo/fast-forward', { hours }, `⏩ Fast-forwarded ${hours}h. Expired holds released their stock.`),
+        `⏩ Fast-Forward ${hours}h`
+      );
     }

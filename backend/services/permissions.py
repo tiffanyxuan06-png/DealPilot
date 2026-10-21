@@ -49,6 +49,7 @@ OWNER_ONLY = {
     "settings.change": "Change business settings & AI rules",
     "data.reset": "Reset demo data",
     "approval.decide": "Approve or reject requests",
+    "demo.time": "Fast-forward demo time",
 }
 
 MANDATORY_RULES: List[str] = [
@@ -198,6 +199,7 @@ def receipt_check_reasons(conn: sqlite3.Connection, inv: sqlite3.Row, paid_rm: O
 def permissions_payload(conn: sqlite3.Connection) -> Dict[str, Any]:
     return {
         "threshold": approval_threshold(conn),
+        "holdHours": int(get_setting(conn, "hold_hours", "48") or 48),
         "modeLabels": MODE_LABELS,
         "actions": [
             {

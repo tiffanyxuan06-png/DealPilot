@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse
 
 from backend.database import (
     add_log,
+    expire_holds,
+    hold_expiry_str,
     build_state_payload,
     get_db,
     get_setting,
@@ -61,6 +63,8 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
     )
 
     role = normalize_role(req.role)
+    expire_holds(conn)
+    s = conn.execute("SELECT * FROM stock WHERE sku = ?", (req.sku,)).fetchone()
     if req.mode != "PAID_NOW" and qty > s["on_hand"] - s["on_hold"]:
         conn.close()
         raise HTTPException(
@@ -117,12 +121,13 @@ def api_create_walkin_order(req: WalkInOrderRequest) -> Dict[str, Any]:
         conn.execute(
             """
             INSERT INTO invoices (
-                id, type, party, phone, hold_timer, items_text, sku, qty, amount, status, lhdn, created_at
-            ) VALUES (?, 'QUOTE_HOLD', ?, 'Phone Order', '⏳ 48h Left (Just Held)', ?, ?, ?, ?, 'ON_HOLD_48H', ?, ?)
+                id, type, party, phone, hold_timer, hold_expires_at, items_text, sku, qty, amount, status, lhdn, created_at
+            ) VALUES (?, 'QUOTE_HOLD', ?, 'Phone Order', '⏳ 48h Left (Just Held)', ?, ?, ?, ?, ?, 'ON_HOLD_48H', ?, ?)
             """,
             (
                 new_id,
                 f"{req.customerName} (Phone Order)",
+                hold_expiry_str(conn),
                 f"{qty}x {s['name']} (ON HOLD — 48h timer)",
                 req.sku,
                 qty,
@@ -292,6 +297,16 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
         recompute_stock_holds(conn)
         add_log(conn, f"[{role}] Released Quote Hold #{inv_id} (+{inv['qty']}x {inv['sku']} returned to Available Stock).")
     elif act == "CONFIRM_QUOTE":
+        if inv["status"] == "HOLD_EXPIRED":
+            expire_holds(conn)
+            for chk_sku, chk_qty in ((inv["sku"], inv["qty"]), (inv["extra_sku"], inv["extra_qty"] or 0)):
+                row = conn.execute("SELECT on_hand, on_hold FROM stock WHERE sku = ?", (chk_sku,)).fetchone() if chk_sku else None
+                if row and chk_qty > row["on_hand"] - row["on_hold"]:
+                    conn.close()
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Quote #{inv_id} expired and only {max(0, row['on_hand'] - row['on_hold'])}x {chk_sku} is still available (needs {chk_qty}). Make a new quote.",
+                    )
         conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - ?) WHERE sku = ?", (inv["qty"], inv["sku"]))
         if inv["extra_sku"] and (inv["extra_qty"] or 0) > 0:
             conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - ?) WHERE sku = ?", (inv["extra_qty"], inv["extra_sku"]))

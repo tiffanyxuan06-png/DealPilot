@@ -3,6 +3,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.database import (
+    expire_holds,
+    hold_expiry_str,
     add_log,
     build_state_payload,
     get_db,
@@ -226,6 +228,21 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         }
 
 
+def _require_available(conn, items, why: str) -> None:
+    """An expired quote no longer holds stock: it can only be confirmed if the units are still free."""
+    for chk_sku, chk_qty in items:
+        if not chk_sku or not chk_qty:
+            continue
+        row = conn.execute("SELECT on_hand, on_hold FROM stock WHERE sku = ?", (chk_sku,)).fetchone()
+        free = (row["on_hand"] - row["on_hold"]) if row else 0
+        if chk_qty > free:
+            conn.close()
+            raise HTTPException(
+                status_code=409,
+                detail=f"{why} and only {max(0, free)}x {chk_sku} is still available (needs {chk_qty}). Make a new quote.",
+            )
+
+
 def _find_invoice(conn, req: WhatsAppExecuteRequest, types, exclude_status=None, latest_fallback=True):
     """Finds the record an action applies to: explicit invoiceId, else the latest one for this customer, else (optionally) the latest one."""
     type_sql = ",".join("?" for _ in types)
@@ -284,6 +301,9 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         conn.close()
         return {"status": "ok", "action": "REPLY_ONLY", "state": build_state_payload()}
 
+    if action in ("CREATE_QUOTE_HOLD", "CONFIRM_DEPOSIT_DEDUCT"):
+        expire_holds(conn)
+
     if action == "CREATE_QUOTE_HOLD":
         for chk_sku, chk_qty in ((req.sku, req.qty or 1), (req.extraSku, req.extraQty or 0)):
             if not chk_sku or chk_qty <= 0:
@@ -308,14 +328,15 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         conn.execute(
             """
             INSERT INTO invoices (
-                id, type, party, phone, hold_timer, chat_idx, items_text,
+                id, type, party, phone, hold_timer, hold_expires_at, chat_idx, items_text,
                 sku, qty, extra_sku, extra_qty, amount, status, lhdn, created_at
-            ) VALUES (?, 'QUOTE_HOLD', ?, ?, '⏳ 48h Left (Just Held)', 0, ?, ?, ?, ?, ?, ?, 'ON_HOLD_48H', '🟢 LHDN Ready', ?)
+            ) VALUES (?, 'QUOTE_HOLD', ?, ?, '⏳ 48h Left (Just Held)', ?, 0, ?, ?, ?, ?, ?, ?, 'ON_HOLD_48H', '🟢 LHDN Ready', ?)
             """,
             (
                 quote_id,
                 req.customer,
                 req.phone or "",
+                hold_expiry_str(conn),
                 items_desc,
                 req.sku,
                 req.qty or 1,
@@ -345,6 +366,8 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         extra_qty = (q["extra_qty"] or 0) if q else (req.extraQty or 0)
         quote_total = q["amount"] if q else 6650
         deposit = req.amount or 2000
+        if q and q["status"] == "HOLD_EXPIRED":
+            _require_available(conn, ((sku, qty), (extra_sku, extra_qty)), f"Quote #{q['id']} expired")
 
         conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - ?) WHERE sku = ?", (qty, sku))
         if extra_sku and extra_qty > 0:

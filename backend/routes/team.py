@@ -2,8 +2,19 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 
-from backend.database import add_log, build_state_payload, get_db, now_time_str, set_setting
-from backend.models.schemas import ApprovalDecisionRequest, PermissionsUpdateRequest
+from datetime import timedelta
+
+from backend.database import (
+    HOLD_TIME_FORMAT,
+    add_log,
+    build_state_payload,
+    get_db,
+    get_setting,
+    now_time_str,
+    parse_hold_time,
+    set_setting,
+)
+from backend.models.schemas import ApprovalDecisionRequest, FastForwardRequest, PermissionsUpdateRequest
 from backend.services.permissions import (
     ACTIONS,
     ALLOW,
@@ -70,6 +81,33 @@ def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
             set_setting(conn, "owner_approval_threshold", str(new_threshold))
             add_log(conn, f"[OWNER] Permission changed · Approval threshold: RM {old_threshold:,} → RM {new_threshold:,}.")
 
+    if req.holdHours is not None:
+        new_hours = min(720, max(1, int(req.holdHours)))
+        old_hours = int(get_setting(conn, "hold_hours", "48") or 48)
+        if new_hours != old_hours:
+            set_setting(conn, "hold_hours", str(new_hours))
+            add_log(conn, f"[OWNER] Setting changed · Quote stock hold: {old_hours}h → {new_hours}h (applies to new quotes).")
+
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "state": build_state_payload()}
+
+
+@router.post("/api/demo/fast-forward")
+def api_demo_fast_forward(req: FastForwardRequest) -> Dict[str, Any]:
+    """Demo helper: moves every hold expiry earlier, as if `hours` had passed, so judges can watch a hold expire."""
+    conn = get_db()
+    require_owner(req.role, "demo.time", conn)
+    hours = min(240, max(1, int(req.hours)))
+    rows = conn.execute("SELECT id, hold_expires_at FROM invoices WHERE hold_expires_at IS NOT NULL").fetchall()
+    for r in rows:
+        expires = parse_hold_time(r["hold_expires_at"])
+        if expires:
+            conn.execute(
+                "UPDATE invoices SET hold_expires_at = ? WHERE id = ?",
+                ((expires - timedelta(hours=hours)).strftime(HOLD_TIME_FORMAT), r["id"]),
+            )
+    add_log(conn, f"[OWNER] Demo: fast-forwarded the clock {hours}h for all quote holds.")
     conn.commit()
     conn.close()
     return {"status": "ok", "state": build_state_payload()}

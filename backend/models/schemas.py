@@ -118,6 +118,12 @@ class PermissionsUpdateRequest(BaseModel):
     role: Optional[str] = None
     staffModes: Optional[Dict[str, str]] = None  # action key -> ALLOW | APPROVAL | DENY
     threshold: Optional[int] = None  # Owner approval threshold for Staff money-out (RM)
+    holdHours: Optional[int] = None  # how long a quote holds stock
+
+
+class FastForwardRequest(BaseModel):
+    role: Optional[str] = None
+    hours: int = 48
 
 
 class ApprovalDecisionRequest(BaseModel):
