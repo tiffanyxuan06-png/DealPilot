@@ -64,7 +64,7 @@ Return ONLY a valid JSON object with these keys:
   "intent": "BUYING_INQUIRY" | "DEPOSIT_PAID" | "AFTERSALES_ISSUE" | "EXPIRED_HOLD_FOLLOWUP" | "CASUAL_CHAT" | "CUSTOMER_DECLINED",
   "badge": "Short 2-3 word label",
   "extTitle": "Action card title",
-  "extCheck": "Multi-line summary of stock availability and RM calculation (Note: Do NOT hold stock until deposit is confirmed!)",
+  "extCheck": "Multi-line summary of stock availability and RM calculation (Note: a quote places stock ON HOLD for 48h; physical stock is only deducted after the deposit is confirmed)",
   "extActionDesc": "1-sentence explanation of what clicking the primary button will do",
   "extDraft": "Primary WhatsApp reply adapted to this client's relationship & tone",
   "replyOptions": [
@@ -73,8 +73,8 @@ Return ONLY a valid JSON object with these keys:
     {{"label": "⚡ Option 3: Fast-Close / Priority Dispatch Offer", "text": "..."}},
     {{"label": "🇲🇾 Option 4: Bahasa Melayu / Formal", "text": "..."}}
   ],
-  "extBtnLabel": "💬 Insert Selected Reply (No Stock Hold)",
-  "extActionType": "REPLY_ONLY" | "CONFIRM_DEPOSIT_DEDUCT" | "AFTERSALES_REPLACE" | "RELEASE_EXPIRED_HOLD",
+  "extBtnLabel": "✅ Hold Stock (48h) & Insert Selected Reply",
+  "extActionType": "CREATE_QUOTE_HOLD" | "REPLY_ONLY" | "CONFIRM_DEPOSIT_DEDUCT" | "AFTERSALES_REPLACE" | "RELEASE_EXPIRED_HOLD",
   "sku": "Primary SKU code (e.g. ACN-DAI-15)",
   "qty": 5,
   "extraSku": "Secondary SKU code if any (e.g. GAS-R32) or null",
@@ -421,29 +421,41 @@ def deterministic_fallback_analysis(
     primary_matched = matched_lines[0]
     extra_matched = matched_lines[1] if len(matched_lines) > 1 else None
 
+    # Quotes hold stock for 48h, but only when every requested item is available to sell.
+    can_hold = all(
+        l["qty"] <= l["item"].get("available", l["item"].get("onHand", 0) - l["item"].get("onHold", 0))
+        for l in matched_lines
+    )
+
     return {
         "intent": "BUYING_INQUIRY",
         "badge": "1. Price & Quote Info",
-        "extTitle": f"📋 {custom_prefix}Price Quote · No Stock Locked",
+        "extTitle": f"📋 {custom_prefix}Price Quote → Hold Stock for 48h" if can_hold else f"📋 {custom_prefix}Price Quote · Not Enough Stock to Hold",
         "extCheck": (
             f"📦 {items_summary}\n"
             + (f"🛠️ Labor/Service: RM {labor_fee:,}\n" if labor_fee > 0 else "")
             + (f"🎁 Special Discount Applied: -RM {discount_rm:,}\n" if discount_rm > 0 else "")
             + f"💰 Quote Total: RM {total_rm:,} (40% Deposit: RM {deposit_40:,})\n"
-            + f"ℹ️ Warehouse stock is NOT locked. Stock is only locked after deposit is confirmed."
+            + (
+                "⏳ Quote places these units ON HOLD for 48h. Physical stock is only deducted after the deposit is confirmed."
+                if can_hold
+                else "⚠️ Not enough available stock to hold all items. Reply only; no stock is held."
+            )
         ),
         "extActionDesc": (
-            f"Choose a reply option below to send pricing/quote. Physical warehouse stock will NOT be locked until customer pays deposit."
+            "Choose a reply option below. The button places the quoted units ON HOLD for 48h and inserts the reply."
+            if can_hold
+            else "Choose a reply option below. No stock is held because some items are not available."
         ),
         "extDraft": opt1,
         "replyOptions": [
-            {"label": "💬 Option 1: Stock Info & Price (No Hold)", "text": opt1},
+            {"label": "💬 Option 1: Stock Info & Price", "text": opt1},
             {"label": f"🤝 Option 2: Friendly Boss Style (DuitNow 40% to Confirm)", "text": opt2},
             {"label": f"⚡ Option 3: Fast-Close Priority Dispatch (50% Deposit RM {deposit_50:,})", "text": opt3},
             {"label": "🇲🇾 Option 4: Bahasa Melayu (Sebut Harga Rasmi)", "text": opt4},
         ],
-        "extBtnLabel": f"💬 Insert Selected Reply (No Stock Hold)",
-        "extActionType": "REPLY_ONLY",
+        "extBtnLabel": "✅ Hold Stock (48h) & Insert Selected Reply" if can_hold else "💬 Insert Selected Reply (No Stock Hold)",
+        "extActionType": "CREATE_QUOTE_HOLD" if can_hold else "REPLY_ONLY",
         "sku": primary_matched["item"]["sku"],
         "qty": primary_matched["qty"],
         "extraSku": extra_matched["item"]["sku"] if extra_matched else None,

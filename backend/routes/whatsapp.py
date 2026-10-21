@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.database import (
     add_log,
@@ -148,11 +148,13 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
             **{k: v for k, v in parsed.items() if v is not None and v != ""},
             "clientMemory": client_memory_summary,
         }
-        if merged.get("intent") in ("BUYING_INQUIRY", "GENERAL_INQUIRY", "CASUAL_CHAT"):
+        # Code, not the AI, decides whether a quote holds stock (48h hold only when every item is available).
+        if merged.get("intent") == "BUYING_INQUIRY" and fallback_result.get("intent") == "BUYING_INQUIRY":
+            merged["extActionType"] = fallback_result["extActionType"]
+            merged["extBtnLabel"] = fallback_result["extBtnLabel"]
+        elif merged.get("intent") in ("BUYING_INQUIRY", "GENERAL_INQUIRY", "CASUAL_CHAT"):
             merged["extActionType"] = "REPLY_ONLY"
             merged["extBtnLabel"] = "💬 Insert Selected Reply (No Stock Hold)"
-            if "Hold Stock" in merged.get("extTitle", ""):
-                merged["extTitle"] = merged["extTitle"].replace("→ Hold Stock for 48h", "· No Stock Locked Yet")
 
         conn.execute(
             """
@@ -223,6 +225,30 @@ You MUST adjust the quotation items, quantities, installation labor, discounts, 
         }
 
 
+def _find_invoice(conn, req: WhatsAppExecuteRequest, types, exclude_status=None, latest_fallback=True):
+    """Finds the record an action applies to: explicit invoiceId, else the latest one for this customer, else (optionally) the latest one."""
+    type_sql = ",".join("?" for _ in types)
+    status_sql = " AND status != ?" if exclude_status else ""
+    params = list(types) + ([exclude_status] if exclude_status else [])
+    if req.invoiceId:
+        row = conn.execute(f"SELECT * FROM invoices WHERE id = ? AND type IN ({type_sql}){status_sql}", [req.invoiceId] + params).fetchone()
+        if row:
+            return row
+    name = (req.customer or "").replace(" (Deposit)", "").strip()
+    if name:
+        row = conn.execute(
+            f"SELECT * FROM invoices WHERE type IN ({type_sql}){status_sql} AND party LIKE ? ORDER BY rowid DESC LIMIT 1",
+            params + [f"%{name}%"],
+        ).fetchone()
+        if row:
+            return row
+    if not latest_fallback:
+        return None
+    return conn.execute(
+        f"SELECT * FROM invoices WHERE type IN ({type_sql}){status_sql} ORDER BY rowid DESC LIMIT 1", params
+    ).fetchone()
+
+
 @router.post("/api/whatsapp/execute")
 def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
     conn = get_db()
@@ -237,6 +263,16 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         return {"status": "ok", "action": "REPLY_ONLY", "state": build_state_payload()}
 
     if action == "CREATE_QUOTE_HOLD":
+        for chk_sku, chk_qty in ((req.sku, req.qty or 1), (req.extraSku, req.extraQty or 0)):
+            if not chk_sku or chk_qty <= 0:
+                continue
+            row = conn.execute("SELECT on_hand, on_hold FROM stock WHERE sku = ?", (chk_sku,)).fetchone()
+            if row and chk_qty > row["on_hand"] - row["on_hold"]:
+                conn.close()
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Only {max(0, row['on_hand'] - row['on_hold'])}x {chk_sku} available to hold; requested {chk_qty}.",
+                )
         quote_id = f"QT-{104 + conn.execute('SELECT COUNT(*) AS c FROM invoices').fetchone()['c']}"
         s1 = conn.execute("SELECT * FROM stock WHERE sku = ?", (req.sku,)).fetchone()
         s2 = conn.execute("SELECT * FROM stock WHERE sku = ?", (req.extraSku,)).fetchone() if req.extraSku else None
@@ -279,9 +315,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         return {"status": "ok", "createdId": quote_id, "state": build_state_payload()}
 
     if action == "CONFIRM_DEPOSIT_DEDUCT":
-        q = conn.execute(
-            "SELECT * FROM invoices WHERE type = 'QUOTE_HOLD' AND status != 'HOLD_RELEASED' ORDER BY rowid DESC LIMIT 1"
-        ).fetchone()
+        q = _find_invoice(conn, req, ("QUOTE_HOLD",), exclude_status="HOLD_RELEASED")
 
         sku = q["sku"] if q else (req.sku or "ACN-DAI-15")
         qty = q["qty"] if q else (req.qty or 5)
@@ -330,27 +364,40 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
         return {"status": "ok", "createdId": inv_id, "state": build_state_payload()}
 
     if action == "AFTERSALES_REPLACE":
+        inv = _find_invoice(conn, req, ("AFTERSALES",))
         sku = req.sku or "GAS-R32"
+        if inv and sku not in (inv["sku"], inv["extra_sku"]):
+            sku = inv["sku"]  # replace an item that is actually on this invoice
         conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - 1) WHERE sku = ?", (sku,))
-        conn.execute(
-            """
-            UPDATE invoices
-            SET status = 'REPLACEMENT_SENT',
-                items_text = '4x Daikin, 4x R32 (1x Replacement Sent — Ready to Resolve)'
-            WHERE id = 'INV-201'
-            """
-        )
-        add_log(conn, f"[{role}] Sent 1x Replacement {sku} (-1 Physical Stock) on #INV-201 via WhatsApp Extension.")
+        target = f"#{inv['id']}" if inv else req.customer
+        if inv:
+            conn.execute(
+                """
+                UPDATE invoices
+                SET status = 'REPLACEMENT_SENT',
+                    items_text = items_text || ' (1x Replacement ' || ? || ' Sent — Ready to Resolve)'
+                WHERE id = ?
+                """,
+                (sku, inv["id"]),
+            )
+        add_log(conn, f"[{role}] Sent 1x Replacement {sku} (-1 Physical Stock) on {target} via WhatsApp Extension.")
         conn.commit()
         conn.close()
         return {"status": "ok", "state": build_state_payload()}
 
     if action == "RELEASE_EXPIRED_HOLD":
-        conn.execute(
-            "UPDATE invoices SET status = 'HOLD_RELEASED', type = 'PAID_DONE' WHERE id = 'QT-101'"
-        )
+        inv = _find_invoice(conn, req, ("QUOTE_HOLD",), exclude_status="HOLD_RELEASED", latest_fallback=False)
+        if inv:
+            released = [inv]
+        else:
+            released = conn.execute(
+                "SELECT * FROM invoices WHERE type = 'QUOTE_HOLD' AND status = 'HOLD_EXPIRED'"
+            ).fetchall()
+        for r in released:
+            conn.execute("UPDATE invoices SET status = 'HOLD_RELEASED', type = 'PAID_DONE' WHERE id = ?", (r["id"],))
         recompute_stock_holds(conn)
-        add_log(conn, f"[{role}] Released expired 48h stock hold on #QT-101 (+3x ACN-DAI-15 back to Available).")
+        ids = ", ".join(f"#{r['id']}" for r in released) or "none"
+        add_log(conn, f"[{role}] Released 48h stock hold on {ids} (units back to Available).")
         conn.commit()
         conn.close()
         return {"status": "ok", "state": build_state_payload()}

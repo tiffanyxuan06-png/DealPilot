@@ -22,6 +22,7 @@ from backend.database import (
 )
 from backend.models.schemas import (
     AddStockRequest,
+    BillApplyRequest,
     InvoiceActionRequest,
     OcrExtractRequest,
     ReceiptSaveRequest,
@@ -128,6 +129,11 @@ def api_verify_receipt(inv_id: str, req: VerifyReceiptRequest) -> Dict[str, Any]
     amount = inv["amount"]
     claimed = inv["claimed_amount"] or amount
     decision = req.decision.upper()
+    if decision == "CONFIRM" or (decision in ("FULL", "PARTIAL") and req.paidAmount is not None):
+        # Owner typed the amount actually seen in the bank: full if it covers the balance, else partial.
+        paid_seen = req.paidAmount if req.paidAmount is not None else claimed
+        decision = "FULL" if paid_seen >= amount else "PARTIAL"
+        claimed = paid_seen
 
     if decision == "FULL":
         cash = int(get_setting(conn, "cash_on_hand", "9800")) + amount
@@ -231,10 +237,202 @@ def api_invoice_action(inv_id: str, req: InvoiceActionRequest) -> Dict[str, Any]
         new_lhdn = f"🟢 LHDN TIN: {tin_val}" if tin_val else "🔵 Consolidated e-Invoice"
         conn.execute("UPDATE invoices SET lhdn = ? WHERE id = ?", (new_lhdn, inv_id))
         add_log(conn, f"[{req.role}] Updated LHDN e-Invoice status on #{inv_id} to {new_lhdn}.")
+    elif act == "REPLACE_ONE":
+        sku = req.sku or inv["sku"]
+        item = conn.execute("SELECT name FROM stock WHERE sku = ?", (sku,)).fetchone()
+        item_name = item["name"] if item else sku
+        conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - 1) WHERE sku = ?", (sku,))
+        conn.execute(
+            "UPDATE invoices SET status = 'REPLACEMENT_SENT', items_text = items_text || ? WHERE id = ?",
+            (f" (1x Replacement {item_name} Sent — Ready to Mark Resolved)", inv_id),
+        )
+        add_log(conn, f"[{req.role}] Sent 1x Replacement {item_name} for #{inv_id} (-1 Physical Stock).")
+    elif act == "DISCOUNT":
+        rebate = max(0, req.amount or 0)
+        new_amount = max(0, inv["amount"] - rebate)
+        conn.execute(
+            "UPDATE invoices SET amount = ?, status = 'DISCOUNT_APPLIED', items_text = items_text || ? WHERE id = ?",
+            (new_amount, f" (RM {rebate:,} Credit Rebate Applied — Ready to Mark Resolved)", inv_id),
+        )
+        add_log(conn, f"[{req.role}] Applied RM {rebate:,} Aftersales Credit Rebate on #{inv_id} (Balance RM {new_amount:,}).")
+    elif act == "MARK_RESOLVED":
+        conn.execute("UPDATE invoices SET type = 'PENDING', status = 'PENDING_PAYMENT' WHERE id = ?", (inv_id,))
+        add_log(conn, f"[{req.role}] Marked Aftersales Issue on #{inv_id} RESOLVED → Resumed normal Pending Invoice status.")
+    elif act == "ADD_PIPE_LABOR":
+        # Flow 6: extra copper piping (deducts stock) + installation labor (customer charge vs installer cost).
+        pipe_sku = req.sku or "PIP-COP-3M"
+        pipe = conn.execute("SELECT * FROM stock WHERE sku = ?", (pipe_sku,)).fetchone()
+        if not pipe:
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"SKU {pipe_sku} not found")
+        pipe_qty = 2
+        pipe_charge = pipe["sell_price"] * pipe_qty
+        labor_charge, installer_cost = 350, 150
+        conn.execute("UPDATE stock SET on_hand = MAX(0, on_hand - ?) WHERE sku = ?", (pipe_qty, pipe_sku))
+        conn.execute(
+            "UPDATE invoices SET amount = amount + ?, items_text = items_text || ? WHERE id = ?",
+            (
+                pipe_charge + labor_charge,
+                f" + [{pipe_qty}x {pipe['name']} (RM {pipe_charge:,}) & Labor (RM {labor_charge:,})]",
+                inv_id,
+            ),
+        )
+        cash = int(get_setting(conn, "cash_on_hand", "9800")) - installer_cost
+        set_setting(conn, "cash_on_hand", str(cash))
+        add_log(
+            conn,
+            f"[{req.role}] Added Extra Piping (-{pipe_qty} Stock, +RM {pipe_charge:,}) & Labor (+RM {labor_charge:,}, -RM {installer_cost:,} Installer Cost) on #{inv_id}.",
+        )
+    elif act == "ATTACH_RECEIPT":
+        claimed = max(0, req.amount or 0)
+        ref = (req.ref or "").strip()
+        conn.execute(
+            """
+            UPDATE invoices
+            SET type = 'PENDING_VERIFY', status = 'PENDING_BANK_VERIFY', claimed_amount = ?, receipt_ref = ?,
+                items_text = items_text || ?
+            WHERE id = ?
+            """,
+            (claimed, ref, f" (OCR Receipt Claimed RM {claimed:,} · Ref: {ref} · Waiting Bank Verify)", inv_id),
+        )
+        add_log(conn, f"[{req.role}] OCR Customer Receipt ({ref}, RM {claimed:,}) staged for #{inv_id} in PENDING_VERIFY.")
+    else:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Unknown invoice action {req.action}")
 
     conn.commit()
     conn.close()
     return {"status": "ok", "state": build_state_payload()}
+
+
+def _unique_id(conn, prefix: str, preferred: str = "") -> str:
+    """Returns `preferred` if it is free, else the next free `<prefix>-<n>` id."""
+    if preferred and not conn.execute("SELECT 1 FROM invoices WHERE id = ?", (preferred,)).fetchone():
+        return preferred
+    n = conn.execute("SELECT COUNT(*) AS c FROM invoices").fetchone()["c"] + 900
+    while conn.execute("SELECT 1 FROM invoices WHERE id = ?", (f"{prefix}-{n}",)).fetchone():
+        n += 1
+    return f"{prefix}-{n}"
+
+
+@router.post("/api/stock/{sku}/release")
+def api_release_sku_holds(sku: str, role: str = "OWNER") -> Dict[str, Any]:
+    """Releases every active quote hold on one SKU back to Available."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM invoices WHERE type = 'QUOTE_HOLD' AND status != 'HOLD_RELEASED' AND (sku = ? OR extra_sku = ?)",
+        (sku, sku),
+    ).fetchall()
+    for r in rows:
+        if r["sku"] == sku:
+            conn.execute("UPDATE invoices SET status = 'HOLD_RELEASED', type = 'PAID_DONE' WHERE id = ?", (r["id"],))
+        else:
+            conn.execute("UPDATE invoices SET extra_qty = 0 WHERE id = ?", (r["id"],))
+    recompute_stock_holds(conn)
+    add_log(conn, f"[{role}] Released all held units of {sku} back to Available Stock ({len(rows)} quote(s)).")
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "state": build_state_payload()}
+
+
+@router.post("/api/bills/apply")
+def api_apply_bill(req: BillApplyRequest) -> Dict[str, Any]:
+    """Saves a confirmed OCR document: supplier stock bill (+stock, -cash), expense (-cash) or customer receipt (pending bank verify)."""
+    conn = get_db()
+    ts = now_time_str()
+    kind = req.kind.lower()
+    ref = (req.ref or "").strip()
+    amount = max(0, req.amount)
+    qty = max(1, req.qty)
+
+    if kind == "supplier":
+        sku = (req.sku or "").strip().upper()
+        item = conn.execute("SELECT * FROM stock WHERE UPPER(sku) = ?", (sku,)).fetchone() if sku else None
+        if item:
+            conn.execute("UPDATE stock SET on_hand = on_hand + ? WHERE sku = ?", (qty, item["sku"]))
+            sku, item_name = item["sku"], item["name"]
+        else:
+            if not sku or not req.newSkuName:
+                conn.close()
+                raise HTTPException(status_code=400, detail="Supplier bill needs an existing sku, or sku + newSkuName for a new item")
+            item_name = req.newSkuName.strip()
+            unit_cost = max(1, round(amount / qty))
+            conn.execute(
+                "INSERT INTO stock (sku, name, on_hand, on_hold, hold_note, unit_cost, sell_price) VALUES (?, ?, ?, 0, '-', ?, ?)",
+                (sku, item_name, qty, unit_cost, req.newSellPrice or unit_cost),
+            )
+        cash = int(get_setting(conn, "cash_on_hand", "9800")) - amount
+        set_setting(conn, "cash_on_hand", str(cash))
+        bill_id = _unique_id(conn, "SUP", ref if ref.startswith("SUP") else "")
+        conn.execute(
+            """
+            INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, status, lhdn, created_at)
+            VALUES (?, 'SUPPLIER_COST', ?, ?, ?, ?, ?, 'PAID_STOCK_IN', '🟢 Supplier e-Inv', ?)
+            """,
+            (bill_id, req.party, f"+{qty}x {item_name} Added to Physical Stock (OCR Bill {ref})", sku, qty, amount, ts),
+        )
+        add_log(conn, f"[{req.role}] OCR Supplier Bill {ref} ({req.party}) → +{qty}x {item_name} added to Stock, Cash -RM {amount:,}.")
+        created = bill_id
+    elif kind == "expense":
+        cash = int(get_setting(conn, "cash_on_hand", "9800")) - amount
+        set_setting(conn, "cash_on_hand", str(cash))
+        exp_id = _unique_id(conn, "EXP", ref if ref.startswith("EXP") else "")
+        conn.execute(
+            """
+            INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, status, lhdn, created_at)
+            VALUES (?, 'SUPPLIER_COST', ?, ?, '-', 1, ?, 'PAID_EXPENSE', '🔵 Consolidated', ?)
+            """,
+            (exp_id, req.party, f"Operating Expense ({ref})", amount, ts),
+        )
+        add_log(conn, f"[{req.role}] OCR Operating Expense {ref} ({req.party}) → Cash -RM {amount:,}.")
+        created = exp_id
+    elif kind == "customer":
+        target = None
+        if req.invoiceId:
+            target = conn.execute("SELECT id FROM invoices WHERE id = ?", (req.invoiceId,)).fetchone()
+        if not target:
+            target = conn.execute(
+                "SELECT id FROM invoices WHERE type IN ('PENDING', 'AFTERSALES') AND party LIKE ? ORDER BY rowid DESC LIMIT 1",
+                (f"%{req.party}%",),
+            ).fetchone()
+        if target:
+            conn.execute(
+                """
+                UPDATE invoices
+                SET type = 'PENDING_VERIFY', status = 'PENDING_BANK_VERIFY', claimed_amount = ?, receipt_ref = ?,
+                    items_text = items_text || ?
+                WHERE id = ?
+                """,
+                (amount, ref, f" (OCR Receipt Claimed RM {amount:,} · Ref: {ref} · Waiting Bank Verify)", target["id"]),
+            )
+            created = target["id"]
+        else:
+            created = _unique_id(conn, "INV")
+            first_sku = conn.execute("SELECT sku FROM stock LIMIT 1").fetchone()
+            conn.execute(
+                """
+                INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, claimed_amount, receipt_ref, status, lhdn, created_at)
+                VALUES (?, 'PENDING_VERIFY', ?, ?, ?, 1, ?, ?, ?, 'PENDING_BANK_VERIFY', '🟢 LHDN Ready', ?)
+                """,
+                (
+                    created,
+                    req.party,
+                    f"Customer Payment Receipt Claimed RM {amount:,} (Ref: {ref})",
+                    first_sku["sku"] if first_sku else "-",
+                    amount,
+                    amount,
+                    ref,
+                    ts,
+                ),
+            )
+        add_log(conn, f"[{req.role}] OCR Customer Receipt ({ref}, RM {amount:,}) staged on #{created} in PENDING_VERIFY.")
+    else:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Unknown bill kind {req.kind}")
+
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "createdId": created, "state": build_state_payload()}
 
 
 @router.post("/api/stock/add")
@@ -259,12 +457,22 @@ def api_add_or_restock(req: AddStockRequest) -> Dict[str, Any]:
         )
 
     total_cost = qty * req.unitCost
-    cash = int(get_setting(conn, "cash_on_hand", "9800")) - total_cost
-    set_setting(conn, "cash_on_hand", str(cash))
-    add_log(
-        conn,
-        f"[OWNER] Purchased & Restocked +{qty}x {req.name} ({sku}) → Cash -RM {total_cost:,}.",
-    )
+    if req.payWithCash:
+        cash = int(get_setting(conn, "cash_on_hand", "9800")) - total_cost
+        set_setting(conn, "cash_on_hand", str(cash))
+        conn.execute(
+            """
+            INSERT INTO invoices (id, type, party, items_text, sku, qty, amount, status, lhdn, created_at)
+            VALUES (?, 'SUPPLIER_COST', 'Warehouse Restock Purchase', ?, ?, ?, ?, 'PAID_STOCK_IN', '🟢 Supplier e-Inv', ?)
+            """,
+            (_unique_id(conn, "SUP"), f"+{qty}x {req.name} ({sku}) Added to Stock", sku, qty, total_cost, now_time_str()),
+        )
+        add_log(
+            conn,
+            f"[{req.role}] Purchased & Restocked +{qty}x {req.name} ({sku}) → Cash -RM {total_cost:,}.",
+        )
+    else:
+        add_log(conn, f"[{req.role}] Added +{qty}x {req.name} ({sku}) to Warehouse Stock (Stock Value +RM {total_cost:,}).")
 
     conn.commit()
     conn.close()

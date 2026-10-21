@@ -28,6 +28,7 @@ class WhatsAppExecuteRequest(BaseModel):
     extraQty: Optional[int] = 0
     amount: Optional[int] = 6650
     receiptRef: Optional[str] = None
+    invoiceId: Optional[str] = None
     role: Optional[str] = "OWNER"
 
 
@@ -40,13 +41,17 @@ class WalkInOrderRequest(BaseModel):
 
 
 class VerifyReceiptRequest(BaseModel):
-    decision: str  # FULL, PARTIAL, REJECT
+    decision: str  # FULL, PARTIAL, CONFIRM, REJECT
+    paidAmount: Optional[int] = None  # amount actually seen in the bank; defaults to the claimed amount
     role: Optional[str] = "OWNER"
 
 
 class InvoiceActionRequest(BaseModel):
     action: str
     tin: Optional[str] = ""
+    amount: Optional[int] = None  # DISCOUNT rebate, ATTACH_RECEIPT claimed amount
+    ref: Optional[str] = ""  # ATTACH_RECEIPT reference
+    sku: Optional[str] = None  # REPLACE_ONE / ADD_PIPE_LABOR item
     role: Optional[str] = "OWNER"
 
 
@@ -63,6 +68,21 @@ class AddStockRequest(BaseModel):
     qty: int = 1
     unitCost: int = 100
     sellPrice: int = 150
+    payWithCash: bool = True  # False = opening stock / already paid, no cash change
+    role: Optional[str] = "OWNER"
+
+
+class BillApplyRequest(BaseModel):
+    kind: str  # supplier | expense | customer
+    party: str
+    ref: Optional[str] = ""
+    amount: int
+    qty: int = 1
+    sku: Optional[str] = None  # supplier bill: existing SKU
+    newSkuName: Optional[str] = None  # supplier bill: create this SKU if `sku` does not exist
+    newSellPrice: Optional[int] = None
+    invoiceId: Optional[str] = None  # customer receipt: invoice to attach to
+    role: Optional[str] = "OWNER"
 
 
 class OcrExtractRequest(BaseModel):
