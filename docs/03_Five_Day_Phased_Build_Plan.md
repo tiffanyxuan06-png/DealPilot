@@ -109,7 +109,7 @@ Connect **LM Studio** (with a deterministic fallback so the demo never fails) an
    - Uploaded `file_data` has no size or type limit.
 5. ✅ **Receipt and reply checks:** receipts with payee ≠ company, a reused reference or amount ≠ balance go to the Owner ("Receipt needs checking"); every RM amount in an AI reply must match a code-calculated amount and threat wording is blocked (`check_ai_replies`).
 6. ✅ **Real 48h expiry:** `hold_expires_at` per quote, automatic release on expiry, live countdown, Owner-set hold length, Owner-only demo clock (`POST /api/demo/fast-forward`).
-6. ⚠️ **60-second onboarding:** preset frameworks exist in Settings; "drop old Excel / supplier bills to build the catalogue" is not built.
+6. ✅ **60-second onboarding:** Settings → 🚀 60-Second Setup (`backend/services/onboarding.py`, `POST /api/onboarding/preview` and `/apply`, Owner only): template or own stock list (.xlsx / .csv), starting cash, hold time, approval threshold.
 
 ### Phase 4 Done Check
 - Run the 5-minute demo script (`04_Pitch_and_Selling_Playbook.md` §4) twice without errors.

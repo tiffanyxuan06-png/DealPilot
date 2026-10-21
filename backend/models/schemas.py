@@ -126,6 +126,29 @@ class PermissionsUpdateRequest(BaseModel):
     holdHours: Optional[int] = None  # how long a quote holds stock
 
 
+class OnboardingPreviewRequest(BaseModel):
+    role: Optional[str] = None
+    fileName: str
+    fileBase64: str  # data URL or plain base64
+
+
+class OnboardingItem(BaseModel):
+    sku: str
+    name: str
+    qty: int = 0
+    unitCost: int = 0
+    sellPrice: int = 0
+
+
+class OnboardingApplyRequest(BaseModel):
+    role: Optional[str] = None
+    companyName: str
+    startingCash: int = 0
+    holdHours: int = 48
+    threshold: int = 1000
+    items: List[OnboardingItem]
+
+
 class ProfileSwitchRequest(BaseModel):
     role: Optional[str] = None
     preset: str  # aircond | software | fnb

@@ -12,6 +12,7 @@ from backend.routes.company_ai import router as company_ai_router
 from backend.routes.invoices import router as invoices_router
 from backend.routes.exports import router as exports_router
 from backend.routes.team import router as team_router
+from backend.routes.onboarding import router as onboarding_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEBAPP_DIR = BASE_DIR / "webapp"
@@ -40,6 +41,7 @@ app.include_router(company_ai_router)
 app.include_router(invoices_router)
 app.include_router(exports_router)
 app.include_router(team_router)
+app.include_router(onboarding_router)
 
 # Mount webapp static directory, including /js and /css
 if WEBAPP_DIR.exists():

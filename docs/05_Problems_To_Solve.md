@@ -60,7 +60,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 | # | Problem | Effort | Status |
 |---|---|---|---|
 | 27 | Only the aircond profile was in the database. **Fixed:** all 3 profiles are in the backend (`backend/services/profiles.py`); the Owner switches profile in Settings, which loads that business's demo data for the WebApp and extension | 1–2 h | ✅ |
-| 28 | 60-second onboarding (drop old Excel / bills → catalogue) not built | 2–3 h | ⬜ |
+| 28 | 60-second onboarding. **Fixed:** Settings → 🚀 60-Second Setup: pick a template (3 profiles) or upload your own stock list (.xlsx / .csv, columns matched in code, missing prices estimated and marked), enter starting cash, hold time and approval threshold; Reset rebuilds that business. Supplier-bill import still goes through the normal OCR upload | 2–3 h | ✅ |
 | 29 | LHDN TIN request on WhatsApp. **Fixed:** customers without a TIN get an "Ask for LHDN e-Invoice TIN" reply option and a "📨 Ask TIN on WhatsApp" button in the directory; when a customer sends their TIN (and SSM no.), code detects it and one click saves it to the customer and their invoices | 1 h | ✅ |
 | 30 | No customers table. **Fixed:** `customers` table (name, phone, TIN, SSM BRN) built from invoices; new quotes/invoices take their LHDN status from it; Excel export has a Customers & LHDN sheet | 1 h | ✅ |
 | 31 | Operating expense bill (−cash) not saved to the backend | 30 min | ✅ |

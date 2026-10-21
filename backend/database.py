@@ -530,11 +530,13 @@ def seed_default_data(conn: sqlite3.Connection, preset: str = "aircond") -> None
 
     ts = now_time_str()
     if preset != "aircond":
-        from backend.services.profiles import seed_profile
+        from backend.services.profiles import PROFILES, seed_profile
 
         for k in ("ssm", "tin"):  # Sejuk Jaya registration details
             cur.execute("DELETE FROM settings WHERE key = ?", (k,))
-        seed_profile(conn, preset, ts, HOLD_TIME_FORMAT)
+        if preset in PROFILES:
+            seed_profile(conn, preset, ts, HOLD_TIME_FORMAT)
+        # "custom": the 60-second setup fills the business in (backend/services/onboarding.py)
 
     if preset == "aircond":
         stock_rows = [

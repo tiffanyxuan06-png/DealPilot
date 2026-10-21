@@ -4,6 +4,7 @@ function renderAll() {
       renderWebAppView();
       renderApprovalsCard();
       renderTeamPermissions();
+      renderOnboarding();
     }
 
     renderAll();

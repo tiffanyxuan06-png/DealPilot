@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Header, HTTPException
 from backend.database import (
@@ -9,9 +10,11 @@ from backend.database import (
     get_db,
     get_setting,
     init_db,
+    now_time_str,
     set_setting,
 )
 from backend.models.schemas import ProfileSwitchRequest, RoleRequest, SettingsUpdateRequest
+from backend.services.onboarding import apply_onboarding
 from backend.services.profiles import PROFILE_NAMES
 from backend.services.permissions import require_owner
 from backend.services.lmstudio import check_lmstudio_health
@@ -45,8 +48,15 @@ def api_reset_db(
     require_owner((req.role if req else None) or x_cashchase_role, "data.reset")
     conn = get_db()
     preset = get_setting(conn, "sme_preset", "aircond")  # reset keeps the current business profile
+    setup_json = get_setting(conn, "onboarding_json", "")
     conn.close()
     init_db(force_reset=True, preset=preset)
+    if preset == "custom" and setup_json:
+        # A business from the 60-second setup is rebuilt from its own stock list, not demo data.
+        conn = get_db()
+        apply_onboarding(conn, json.loads(setup_json), now_time_str())
+        conn.commit()
+        conn.close()
     return {"status": "reset_complete", "state": build_state_payload()}
 
 

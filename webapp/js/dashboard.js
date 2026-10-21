@@ -28,6 +28,7 @@
 
     function openSettingsModal() {
       renderTeamPermissions();
+      renderOnboarding();
       document.getElementById('settings-modal').classList.remove('hidden');
     }
 

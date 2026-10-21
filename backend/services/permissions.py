@@ -20,7 +20,7 @@ DEFAULT_THRESHOLD_RM = 1000
 
 # key -> label, group, default Staff mode, modes the Owner may choose, short note shown in Settings
 ACTIONS: Dict[str, Dict[str, Any]] = {
-    "quote.create": {"label": "Create quote & hold stock (48h)", "group": "Sales & Stock", "default": ALLOW},
+    "quote.create": {"label": "Create quote & hold stock", "group": "Sales & Stock", "default": ALLOW},
     "quote.release": {"label": "Release a stock hold", "group": "Sales & Stock", "default": ALLOW},
     "order.walkin_paid": {"label": "Walk-in sale (paid now)", "group": "Sales & Stock", "default": ALLOW},
     "stock.add": {"label": "Add / restock stock", "group": "Sales & Stock", "default": ALLOW,
@@ -51,6 +51,7 @@ OWNER_ONLY = {
     "approval.decide": "Approve or reject requests",
     "demo.time": "Fast-forward demo time",
     "profile.switch": "Switch SME profile",
+    "business.setup": "Set up a new business (60-second setup)",
 }
 
 MANDATORY_RULES: List[str] = [

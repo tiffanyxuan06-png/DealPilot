@@ -722,6 +722,10 @@ let currentRole = 'OWNER';
     function renderSimulationBar() {
       const container = document.getElementById('sim-buttons-container');
       if (!container) return;
+      if (currentSME === 'custom') {
+        container.innerHTML = `<span class="text-xs text-[#64748B]">Your own business: use the WhatsApp extension on real chats, or type a customer message below.</span>`;
+        return;
+      }
       if (currentSME === 'software') {
         container.innerHTML = `
           <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 shadow-2xs transition">
@@ -824,6 +828,9 @@ let currentRole = 'OWNER';
     function showProfileInUI(val) {
       currentSME = val;
       const select = document.getElementById('sme-select');
+      if (select && ![...select.options].some(o => o.value === val)) {
+        select.add(new Option(`My Business · ${smeProfiles[val].name}`, val));  // business from the 60-second setup
+      }
       if (select) select.value = val;
       currentChatIndex = 0;
       const st = getState();
