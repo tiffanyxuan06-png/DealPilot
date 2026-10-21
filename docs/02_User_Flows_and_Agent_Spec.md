@@ -137,7 +137,7 @@ RUNPOD_MODEL=Qwen/Qwen3-4B-Instruct
 
 PORT=8000
 ```
-> **Repo status:** the backend currently reads only `LMSTUDIO_URL`, `LMSTUDIO_API_KEY` and `LMSTUDIO_MODEL` (`backend/database.py`); `AI_PROVIDER` and the `RUNPOD_*` values are not wired in yet, and `LMSTUDIO_BASE_URL` in `.env.example` does not match the `LMSTUDIO_URL` name the code reads. The LM Studio URL/model can also be changed at runtime from the WebApp settings (`POST /api/settings`). Pre-written fallback answers in `backend/services/prompts.py` keep the demo working when LM Studio is offline.
+> **Repo status:** `.env` is loaded at startup (`backend/env.py`). `AI_PROVIDER` picks LM Studio or RunPod (`backend/services/ai_provider.py`); the RunPod key stays on the server. The LM Studio URL/model can also be changed at runtime from the WebApp settings (`POST /api/settings`, Owner only). Pre-written fallback answers in `backend/services/prompts.py` keep the demo working when the AI is offline or cold-starting.
 
 ### 3.2 Exact Formatted Text Sent TO the Agent (built in `backend/services/prompts.py`)
 ```text

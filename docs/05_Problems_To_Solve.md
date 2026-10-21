@@ -51,7 +51,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 | # | Problem | Where | Effort | Status |
 |---|---|---|---|---|
 | 23 | `.env.example` said `LMSTUDIO_BASE_URL`, code reads `LMSTUDIO_URL`. **Fixed:** `.env.example` uses `LMSTUDIO_URL`; the code accepts both names | `.env.example`, `backend/database.py` | 5 min | ✅ |
-| 24 | RunPod listed but not connected | `backend/services/lmstudio.py` | 1–2 h | ⬜ |
+| 24 | RunPod listed but not connected. **Fixed:** `AI_PROVIDER=runpod` / `auto` sends every AI call (WhatsApp replies, company Q&A, OCR incl. vision model) to the RunPod OpenAI endpoint; the key stays on the server; cold start / offline → built-in answers. Tested against a fake RunPod server; **still to test with the real endpoint** | `backend/services/ai_provider.py` | 1–2 h | ✅ |
 | 25 | `.env` was never loaded. **Fixed:** `backend/env.py` loads it at startup (real environment values win); `PORT` is honoured | `run_server.py` | 15 min | ✅ |
 | 26 | No fast tests. **Fixed:** 35 pytest tests in `test/unit/` (money math, holds, permissions, receipts, AI reply check) on a temp database; `python -m pytest -q` | `test/` | 2 h | ✅ |
 

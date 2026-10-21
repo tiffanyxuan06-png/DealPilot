@@ -3,6 +3,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.database import (
+    resolve_active_ai_credentials,
     expire_holds,
     hold_expiry_str,
     add_log,
@@ -45,9 +46,8 @@ def get_client_memory_endpoint(
 @router.post("/api/whatsapp/analyze")
 def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
     state = build_state_payload()
-    lm_url = state["company"]["lmstudioUrl"]
-    lm_key = state["company"]["lmstudioApiKey"]
-    lm_model = state["company"]["lmstudioModel"]
+    ai = resolve_active_ai_credentials()
+    lm_url, lm_key, lm_model = ai["base_url"], ai["api_key"], ai["model"]
 
     if req.stock:
         normalized_stock = []

@@ -11,6 +11,7 @@ from backend.database import (
     get_setting,
     init_db,
     now_time_str,
+    resolve_active_ai_credentials,
     set_setting,
 )
 from backend.models.schemas import ProfileSwitchRequest, RoleRequest, SettingsUpdateRequest
@@ -24,14 +25,12 @@ router = APIRouter(tags=["State & Settings"])
 
 @router.get("/api/health")
 def api_health() -> Dict[str, Any]:
-    conn = get_db()
-    lm_url = get_setting(conn, "lmstudio_url", DEFAULT_LMSTUDIO_URL)
-    lm_key = get_setting(conn, "lmstudio_api_key", DEFAULT_LMSTUDIO_API_KEY)
-    conn.close()
-    lm_status = check_lmstudio_health(lm_url, api_key=lm_key)
+    ai = resolve_active_ai_credentials()
+    lm_status = check_lmstudio_health(ai["base_url"], api_key=ai["api_key"])
     return {
         "status": "ok",
         "database": str(DB_PATH),
+        "aiProvider": ai["provider"],
         "lmstudio": lm_status,
     }
 

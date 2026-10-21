@@ -62,6 +62,7 @@ To use CashChase directly inside live [WhatsApp Web](https://web.whatsapp.com/):
 Copy `.env.example` to `.env`. It is loaded automatically when the server starts; values already set in your environment (e.g. Replit Secrets) win.
 - `LMSTUDIO_URL`, `LMSTUDIO_API_KEY`, `LMSTUDIO_MODEL`: your LM Studio server (default `http://127.0.0.1:1234/v1`).
 - `PORT`: server port (default `8000`).
+- `AI_PROVIDER`: `lmstudio` (default), `runpod`, or `auto`. For RunPod fill in `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` and `RUNPOD_MODEL` (and optionally `RUNPOD_VISION_MODEL` for receipt photos). The key stays on the server. If RunPod is cold-starting or offline, CashChase answers with its built-in replies until it wakes up.
 
 ---
 

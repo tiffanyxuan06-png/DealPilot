@@ -1,7 +1,7 @@
 from typing import Any, Dict
 from fastapi import APIRouter
 
-from backend.database import build_state_payload
+from backend.database import resolve_active_ai_credentials, build_state_payload
 from backend.models.schemas import CompanyAgentAskRequest
 from backend.services.lmstudio import call_lmstudio_chat
 from backend.services.prompts import build_company_agent_system_prompt
@@ -16,9 +16,8 @@ def api_company_agent_ask(req: CompanyAgentAskRequest) -> Dict[str, Any]:
     with full real-time company state injected into the system prompt.
     """
     db_state = build_state_payload()
-    lm_url = db_state["company"]["lmstudioUrl"]
-    lm_key = db_state["company"]["lmstudioApiKey"]
-    lm_model = db_state["company"]["lmstudioModel"]
+    ai = resolve_active_ai_credentials()
+    lm_url, lm_key, lm_model = ai["base_url"], ai["api_key"], ai["model"]
 
     active_st = req.state if req.state and isinstance(req.state, dict) else db_state
     c_name = active_st.get("name") or active_st.get("company", {}).get("name", db_state["company"]["name"])

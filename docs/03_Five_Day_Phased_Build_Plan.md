@@ -84,7 +84,7 @@ Connect **LM Studio** (with a deterministic fallback so the demo never fails) an
 3. ✅ **Client memory (`backend/services/memory.py`, `GET /api/client/memory`):** remembers tier, tone and history per customer.
 4. ✅ **OCR (`POST /api/ocr/extract`):** fast PDF text extraction with `pypdf` first, then LM Studio vision for images.
 5. ✅ **Chrome Extension (`extension/`, Manifest V3):** `content.js` injects the sidebar into `web.whatsapp.com`, reads the active chat name and recent messages, shows reply options, and inserts the chosen reply into the WhatsApp message box. `background.js` forwards the sidebar's API calls to `http://127.0.0.1:8000` (avoids mixed-content blocks).
-6. ❌ **RunPod:** listed in `.env.example` (`AI_PROVIDER`, `RUNPOD_*`) but not called by the backend yet.
+6. ✅ **RunPod:** `AI_PROVIDER=runpod` or `auto` (`backend/services/ai_provider.py`) sends all AI calls to the RunPod OpenAI endpoint; the key stays on the server; cold starts fall back to the built-in answers.
 7. ✅ **Quote-hold rule:** a buying inquiry gets `CREATE_QUOTE_HOLD` (48h hold) when every requested item is available, decided in code; otherwise `REPLY_ONLY`.
 
 ### Phase 3 Done Check
@@ -124,7 +124,7 @@ Because the app is a self-contained FastAPI + SQLite server with an OpenAI-compa
 1. **Push to GitHub & import to Replit:** Create Repl → Import from GitHub → run `pip install -r requirements.txt` and `python run_server.py` (on Replit, bind to the port Replit provides).
 2. **Point the LLM at a reachable endpoint (Replit Secrets):**
    - **Option A — laptop LM Studio through a tunnel:** run `npx cloudflared tunnel --url http://localhost:1234` and set `LMSTUDIO_URL="https://<your-tunnel>.trycloudflare.com/v1"`.
-   - **Option B — RunPod serverless vLLM:** needs the RunPod provider wired into the backend first (Phase 3, task 6).
+   - **Option B — RunPod serverless vLLM:** set `AI_PROVIDER=runpod`, `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` and `RUNPOD_MODEL` in Replit Secrets. Warm the worker before judging (cold starts can take minutes; until then the built-in answers are used).
    - **Option C — fallback only:** with no LLM reachable, the deterministic fallback answers keep every demo flow working.
 3. **Point the Chrome Extension at the Replit URL:** update `BACKEND_URL` in `extension/content.js` (and the default URL in `extension/background.js`) and add the Replit host to `host_permissions` in `extension/manifest.json`.
 4. **Before going public:** finish the Phase 4 security fixes; a public URL exposes `/api/reset`, `/api/settings` and the receipt file route.

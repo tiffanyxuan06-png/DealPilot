@@ -94,13 +94,19 @@ def resolve_active_ai_credentials(conn: Optional[sqlite3.Connection] = None) -> 
         conn = get_db()
         should_close = True
     try:
+        from backend.services.ai_provider import active_provider, runpod_credentials
+
+        if active_provider() == "runpod":
+            return runpod_credentials()
         url = get_setting(conn, "lmstudio_url", DEFAULT_LMSTUDIO_URL).strip() or DEFAULT_LMSTUDIO_URL
         api_key = get_setting(conn, "lmstudio_api_key", DEFAULT_LMSTUDIO_API_KEY).strip() or DEFAULT_LMSTUDIO_API_KEY
         model = get_setting(conn, "lmstudio_model", DEFAULT_LMSTUDIO_MODEL).strip() or DEFAULT_LMSTUDIO_MODEL
         return {
+            "provider": "lmstudio",
             "base_url": url.rstrip("/"),
             "api_key": api_key,
             "model": model,
+            "vision_model": (os.getenv("LMSTUDIO_VISION_MODEL") or "auto").strip() or "auto",
         }
     finally:
         if should_close:
@@ -145,7 +151,8 @@ def build_state_payload() -> Dict[str, Any]:
     framework = get_setting(conn, "framework", "")
     ai_creds = resolve_active_ai_credentials(conn)
     lmstudio_url = ai_creds["base_url"]
-    lmstudio_api_key = ai_creds["api_key"]
+    # The RunPod key is a paid secret: it stays on the server (routes read it with resolve_active_ai_credentials).
+    lmstudio_api_key = ai_creds["api_key"] if ai_creds["provider"] == "lmstudio" else ""
     lmstudio_model = ai_creds["model"]
 
     stock_rows = conn.execute("SELECT * FROM stock").fetchall()
@@ -301,6 +308,7 @@ def build_state_payload() -> Dict[str, Any]:
             "lmstudioUrl": lmstudio_url,
             "lmstudioApiKey": lmstudio_api_key,
             "lmstudioModel": lmstudio_model,
+            "aiProvider": ai_creds["provider"],
             "framework": framework,
         },
         "stock": stock_list,

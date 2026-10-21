@@ -658,7 +658,15 @@
         });
         const res = await fetch(`${BACKEND_API_BASE}/api/health`);
         const data = await res.json();
-        if (data.lmstudio && data.lmstudio.connected) {
+        if (data.aiProvider === 'runpod') {
+          // RunPod is set in .env on the server; the LM Studio fields here are not used.
+          const up = data.lmstudio && data.lmstudio.connected;
+          if (pill) {
+            pill.className = `px-2.5 py-0.5 rounded-full font-bold text-xs ${up ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`;
+            pill.textContent = up ? `🟢 RunPod (${(data.lmstudio.models || []).join(', ') || 'model ready'})` : '🟡 RunPod waking up · fallback answers meanwhile';
+          }
+          showToast(up ? 'Using RunPod (set in .env on the server).' : 'RunPod is set in .env but not answering yet (cold start). Built-in answers are used until it wakes up.');
+        } else if (data.lmstudio && data.lmstudio.connected) {
           const models = (data.lmstudio.models || []).join(', ') || 'Loaded Model';
           if (pill) {
             pill.className = 'px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs';

@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from backend.database import (
+    resolve_active_ai_credentials,
     add_log,
     expire_holds,
     hold_expiry_str,
@@ -633,9 +634,8 @@ def api_add_or_restock(req: AddStockRequest) -> Dict[str, Any]:
 @router.post("/api/ocr/extract")
 def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
     state = build_state_payload()
-    lm_url = state["company"]["lmstudioUrl"]
-    lm_key = state["company"]["lmstudioApiKey"]
-    lm_model = state["company"]["lmstudioModel"]
+    ai = resolve_active_ai_credentials()
+    lm_url, lm_key, lm_model = ai["base_url"], ai["api_key"], ai["model"]
 
     fname = (req.fileName or "receipt.png").lower()
     decoded_pdf_text = (req.extractedText or req.pdfText or "").strip()
@@ -717,8 +717,9 @@ def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
     if req.imageBase64 and req.imageBase64.startswith("data:image/"):
         health = check_lmstudio_health(lm_url, api_key=lm_key)
         if health["connected"] and health["models"]:
+            vision_model = ai.get("vision_model", "auto")
             active_model = select_best_lmstudio_model(
-                health["models"], configured_model=lm_model, task="vision"
+                health["models"], configured_model=vision_model if vision_model != "auto" else "auto", task="vision"
             )
             url = lm_url.rstrip("/") + "/chat/completions"
             payload = {
