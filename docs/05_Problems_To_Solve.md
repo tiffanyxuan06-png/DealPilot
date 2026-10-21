@@ -3,6 +3,8 @@
 Checked against the code on `main` (FastAPI + SQLite backend, `webapp/`, `extension/`). Effort is a rough guess.
 Status key: ⬜ open · ✅ fixed · ⏭️ skipped (team decision).
 
+**How #1/#2 were fixed:** the aircond profile now loads from `GET /api/state`, every WebApp button calls its backend route, and the page re-checks the backend every 4 s so actions from the WhatsApp extension appear. The F&B and Software profiles are still front-end demo data (#27).
+
 **Team decision (21 Oct):** this is a hackathon demo on a laptop, so the security items are **skipped** for now. Revisit them before anything is put on a public URL.
 
 ---
@@ -11,14 +13,14 @@ Status key: ⬜ open · ✅ fixed · ⏭️ skipped (team decision).
 
 | # | Problem | Where | Effort | Status |
 |---|---|---|---|---|
-| 1 | WebApp uses its own hard-coded data instead of the backend, so it never shows changes made from the WhatsApp extension, and its own changes are lost on refresh | `webapp/js/state.js` never calls `GET /api/state` | 2–3 h | ⬜ |
-| 2 | WebApp buttons don't save (confirm deposit, release hold, mark paid, phone order, restock, verify receipt, bills) | WebApp never calls the backend action routes | with #1 | ⬜ |
-| 3 | Aftersales replace only works on `INV-201` | `backend/routes/whatsapp.py` (`AFTERSALES_REPLACE`) | 30 min | ⬜ |
-| 4 | Release expired hold only works on `QT-101` | `backend/routes/whatsapp.py` (`RELEASE_EXPIRED_HOLD`) | 30 min | ⬜ |
-| 5 | No "−RM discount" action in the backend | missing route | 30 min | ⬜ |
-| 6 | No "Mark resolved" action in the backend (only browser memory) | missing route | 30 min | ⬜ |
-| 7 | Quote-hold rule clash: the live AI prompt says "don't hold stock until deposit"; the plan says quotes hold stock 48h. **Decision: quotes hold stock for 48h; the deposit deducts it.** Align the prompt | `backend/services/prompts.py` | 20 min | ⬜ |
-| 8 | `openpyxl` and `pypdf` missing from `requirements.txt` → Excel export / PDF reading fail on a fresh install | `requirements.txt` | 5 min | ⬜ |
+| 1 | WebApp uses its own hard-coded data instead of the backend, so it never shows changes made from the WhatsApp extension, and its own changes are lost on refresh | `webapp/js/state.js` never calls `GET /api/state` | 2–3 h | ✅ |
+| 2 | WebApp buttons don't save (confirm deposit, release hold, mark paid, phone order, restock, verify receipt, bills) | WebApp never calls the backend action routes | with #1 | ✅ |
+| 3 | Aftersales replace only works on `INV-201` | `backend/routes/whatsapp.py` (`AFTERSALES_REPLACE`) | 30 min | ✅ |
+| 4 | Release expired hold only works on `QT-101` | `backend/routes/whatsapp.py` (`RELEASE_EXPIRED_HOLD`) | 30 min | ✅ |
+| 5 | No "−RM discount" action in the backend | missing route | 30 min | ✅ |
+| 6 | No "Mark resolved" action in the backend (only browser memory) | missing route | 30 min | ✅ |
+| 7 | Quote-hold rule clash: the live AI prompt said "don't hold stock until deposit"; the plan says quotes hold stock 48h. **Decision: quotes hold stock for 48h; the deposit deducts it.** Code (not the AI) now picks `CREATE_QUOTE_HOLD` when every item is available, and `/api/whatsapp/execute` refuses to hold more than is available (409) | `backend/services/prompts.py` | 20 min | ✅ |
+| 8 | `openpyxl` and `pypdf` missing from `requirements.txt` → Excel export / PDF reading fail on a fresh install | `requirements.txt` | 5 min | ✅ |
 
 ## Security (⏭️ skipped for the hackathon demo)
 
@@ -61,8 +63,8 @@ Status key: ⬜ open · ✅ fixed · ⏭️ skipped (team decision).
 | 28 | 60-second onboarding (drop old Excel / bills → catalogue) not built | 2–3 h | ⬜ |
 | 29 | LHDN TIN request on WhatsApp not built (only `SET_TIN` row action) | 1 h | ⬜ |
 | 30 | No customers table; customer details spread across invoices and client memory | 1 h | ⬜ |
-| 31 | Operating expense bill (−cash) not saved to the backend | 30 min | ⬜ |
-| 32 | Flow 6 (labour + extra piping on an invoice) not a backend action | 1–2 h | ⬜ |
+| 31 | Operating expense bill (−cash) not saved to the backend | 30 min | ✅ |
+| 32 | Flow 6 (labour + extra piping on an invoice) not a backend action | 1–2 h | ✅ |
 | 33 | "Prototype — synthetic data" label not shown on screens | 10 min | ⬜ |
 
 ## Decisions to make (not code)

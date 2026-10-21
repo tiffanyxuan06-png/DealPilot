@@ -485,6 +485,11 @@
         mode === 'PAID_NOW' ? `Confirm Walk-In Sale` : `Confirm 48h Phone Quote Hold`,
         confirmMsg,
         () => {
+          if (usesBackend()) {
+            backendAction('/api/orders/walkin', { customerName, buyerTin, sku: item.sku, qty, mode: mode === 'PAID_NOW' ? 'PAID_NOW' : 'QUOTE_HOLD' },
+              d => mode === 'PAID_NOW' ? `Walk-In Sale ${d.createdId} recorded!` : `Phone Quote ${d.createdId} created! ${qty}x ${item.name} placed ON HOLD for 48h.`);
+            return;
+          }
           if (mode === 'PAID_NOW') {
             item.onHand = Math.max(0, item.onHand - qty);
             st.cashOnHand += totalAmount;
@@ -656,6 +661,11 @@
           ? `Save Buyer LHDN TIN "${tinClean}" for ${inv.party} on #${id}?`
           : `Classify #${id} (${inv.party}) under Monthly Consolidated e-Invoice (General TIN EI00000000010)?`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'SET_TIN', tin: tinClean },
+              tinClean ? `Saved Buyer TIN ${tinClean} on ${id} — LHDN e-Invoice Ready!` : `Marked ${id} as Monthly Consolidated e-Invoice!`);
+            return;
+          }
           if (tinClean) {
             inv.lhdn = `🟢 LHDN TIN: ${tinClean}`;
             st.logs.unshift(`10:50 AM · [${currentRole}] Keyed in Buyer LHDN TIN (${tinClean}) on ${id}.`);
@@ -680,6 +690,10 @@
         `Confirm Release Held Stock · ${s.sku}`,
         `Release all ${released} held units of ${s.name} (${s.sku}) back to Available Stock?`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/stock/${encodeURIComponent(s.sku)}/release`, {}, `Released ${released} units of ${s.name} back to Available Stock!`);
+            return;
+          }
           s.onHold = 0;
           s.holdNote = '-';
           st.invoices.forEach(inv => {
@@ -710,6 +724,11 @@
         `Confirm Deposit & Deduct Stock · #${id}`,
         `Confirm 40% Deposit (RM ${deposit.toLocaleString()}) from ${inv.party} on #${id}?\n\n• Deduct ${inv.qty}x ${item.name} from Physical Stock\n• Add +RM ${deposit.toLocaleString()} to Cash on Hand\n• Convert Quote to Active Invoice (Balance RM ${(inv.amount - deposit).toLocaleString()})`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'CONFIRM_QUOTE' },
+              `Order ${id} confirmed! Deducted ${inv.qty} units from Stock & added RM ${deposit} deposit to Cash.`);
+            return;
+          }
           item.onHold = Math.max(0, item.onHold - inv.qty);
           item.onHand = Math.max(0, item.onHand - inv.qty);
           if (inv.extraSku && inv.extraQty > 0) {
@@ -741,6 +760,11 @@
         `Confirm Release Quote Hold · #${id}`,
         `Release Quote Hold #${id} for ${inv.party}?\n\n• Returns +${inv.qty}x ${item.name} back to Available to Sell Stock.`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'RELEASE_QUOTE' },
+              `Released Quote ${id}! +${inv.qty} units returned to Available Stock.`);
+            return;
+          }
           item.onHold = Math.max(0, item.onHold - inv.qty);
           if (inv.extraSku && inv.extraQty > 0) {
             const extraItem = st.stock.find(s => s.sku === inv.extraSku);
@@ -767,6 +791,11 @@
         `Confirm Aftersales Replacement · #${id}`,
         `Send 1x Replacement ${item.name} (${item.sku}) to ${inv.party}?\n\n• Deducts -1 unit from Physical Warehouse Stock.`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'REPLACE_ONE', sku: item.sku },
+              `Deducted 1x ${item.name} as Aftersales Replacement! Now click 'Mark Aftersales Resolved' when done.`);
+            return;
+          }
           item.onHand = Math.max(0, item.onHand - 1);
           inv.status = 'REPLACEMENT_SENT';
           inv.itemsText = `4x Daikin, 4x R32 (1x Replacement ${item.name} Sent — Ready to Mark Resolved)`;
@@ -789,6 +818,11 @@
         `Confirm Aftersales Credit Rebate · #${id}`,
         `Apply RM ${rebate.toLocaleString()} Credit Rebate to #${id} (${inv.party})?\n\n• Current Balance: RM ${inv.amount.toLocaleString()}\n• New Balance After Rebate: RM ${Math.max(0, inv.amount - rebate).toLocaleString()}`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'DISCOUNT', amount: rebate },
+              `Applied RM ${rebate.toLocaleString()} credit rebate on ${id}!`);
+            return;
+          }
           inv.amount = Math.max(0, inv.amount - rebate);
           inv.status = 'DISCOUNT_APPLIED';
           inv.itemsText = `4x Daikin, 4x R32 (RM ${rebate.toLocaleString()} Credit Rebate Applied — Ready to Mark Resolved)`;
@@ -808,6 +842,11 @@
         `Confirm Resolve Aftersales · #${id}`,
         `Mark Aftersales issue for ${inv.party} (#${id}) as RESOLVED and resume normal payment collection (RM ${inv.amount.toLocaleString()})?`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_RESOLVED' },
+              `${id} marked Resolved! Payment follow-up resumed.`);
+            return;
+          }
           inv.type = 'PENDING';
           inv.status = 'PENDING_PAYMENT';
           st.logs.unshift(`10:52 AM · [OWNER] Marked Aftersales Issue on ${id} RESOLVED → Resumed normal Pending Invoice status.`);
@@ -826,6 +865,11 @@
         `Confirm Full Payment Received · #${id}`,
         `Mark Invoice #${id} (${inv.party}) as 100% PAID?\n\n• Adds +RM ${inv.amount.toLocaleString()} to Verified Cash on Hand.`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_PAID' },
+              `Invoice ${id} marked PAID! Cash on Hand +RM ${inv.amount.toLocaleString()}.`);
+            return;
+          }
           st.cashOnHand += inv.amount;
           inv.status = 'PAID';
           inv.type = 'PAID_DONE';
@@ -849,6 +893,11 @@
         `Confirm Add Extra Piping & Labor · #${id}`,
         `Add Extra Piping & Installer Labor to #${id} (${inv.party})?\n\n• Physical Stock: -2x ${pipe.name} (${pipe.sku})\n• Customer Invoice: +RM ${(pipeCharge + laborCustomerCharge).toLocaleString()}\n• Installer Subcon Cost: -RM ${laborInstallerCost.toLocaleString()} from Cash`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'ADD_PIPE_LABOR', sku: pipe.sku },
+              `Added Extra Piping & Labor to ${id}! Invoice +RM ${pipeCharge + laborCustomerCharge}, Installer Cost -RM ${laborInstallerCost}.`);
+            return;
+          }
           pipe.onHand = Math.max(0, pipe.onHand - 2);
           inv.amount += (pipeCharge + laborCustomerCharge);
           st.cashOnHand -= laborInstallerCost;
@@ -869,6 +918,11 @@
         `Confirm Pay Supplier Bill · #${id}`,
         `Record payment of RM ${inv.amount.toLocaleString()} to ${inv.party} (#${id})?\n\n• Deducts -RM ${inv.amount.toLocaleString()} from Cash on Hand.`,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'PAY_SUPPLIER' },
+              `Paid Supplier Bill ${id}! Cash on Hand -RM ${inv.amount.toLocaleString()}.`);
+            return;
+          }
           st.cashOnHand -= inv.amount;
           inv.status = 'PAID_SUPPLIER';
           st.logs.unshift(`10:55 AM · [OWNER] Paid Supplier Bill ${id} (-RM ${inv.amount} Cash on Hand).`);

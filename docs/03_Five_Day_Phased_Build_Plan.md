@@ -11,7 +11,7 @@ Status key: ✅ built · ⚠️ partly built · ❌ not built yet.
 
 ```
 Phase 1 (Hours 1–3)  ──► FastAPI + SQLite State, Net Worth Math, SME Profiles & API Routes      ✅
-Phase 2 (Hours 4–7)  ──► Sidebar WebApp (Overview, Invoices & Quotes, Stock, Ledger, Simulator) ⚠️ not wired to the backend
+Phase 2 (Hours 4–7)  ──► Sidebar WebApp (Overview, Invoices & Quotes, Stock, Ledger, Simulator) ✅
 Phase 3 (Hours 8–11) ──► LM Studio Agent (+ fallback) & Chrome Extension Sidebar on WhatsApp Web ✅
 Phase 4 (Hours 12–14)──► Excel/PDF Export ✅ · Role Guardrails ❌ · Security fixes ❌ · Rehearsal
 ```
@@ -55,9 +55,9 @@ Shared backend state so both the **WebApp** and the **WhatsApp Chrome Extension*
 
 ---
 
-## Phase 2: The CashChase WebApp (Hours 4–7) ⚠️
+## Phase 2: The CashChase WebApp (Hours 4–7) ✅
 
-> **Biggest gap:** the WebApp keeps its own hard-coded data in `webapp/js/state.js` (one copy per SME profile) and never calls `GET /api/state`, `/api/whatsapp/execute`, `/api/invoices/{id}/action`, `/api/orders/walkin`, `/api/stock/add` or `/api/invoices/{id}/verify-receipt`. Actions taken in the WebApp only change browser memory (lost on refresh), and actions taken in the WhatsApp extension (saved in SQLite) do not show up in the WebApp. Wire the WebApp to `/api/state` + the action endpoints.
+> The aircond profile loads from `GET /api/state` and every button calls its backend route (`webapp/js/state.js`: `syncFromBackend()`, `backendAction()`); the page re-checks the backend every 4 s, so actions taken in the WhatsApp extension appear in the WebApp. The F&B and Software Studio profiles are still front-end demo data.
 
 ### Goal
 The live WebApp at `http://localhost:8000/` (`webapp/index.html`).
@@ -69,7 +69,7 @@ The live WebApp at `http://localhost:8000/` (`webapp/index.html`).
 4. ✅ **Inline 1-click row buttons** (Confirm Deposit, Release Hold, Replace -1 Stock, Mark Paid, Pay Supplier, Set TIN).
 
 ### Phase 2 Done Check
-- Open `http://localhost:8000`: uploading a supplier bill, keying a phone order, or confirming a deposit updates **Stock** and **Net Worth** live, **and the same numbers appear after a page refresh and in the extension** (❌ not true yet).
+- Open `http://localhost:8000`: uploading a supplier bill, keying a phone order, or confirming a deposit updates **Stock** and **Net Worth** live, and the same numbers appear after a page refresh and in the extension.
 
 ---
 
@@ -82,10 +82,10 @@ Connect **LM Studio** (with a deterministic fallback so the demo never fails) an
 1. ✅ **Agent route (`POST /api/whatsapp/analyze`):** builds the prompt in `backend/services/prompts.py` (company, stock, owner labor framework, client memory, message), calls LM Studio at `http://127.0.0.1:1234/v1/chat/completions`, and returns the JSON (`intent`, `extDraft`, 4 `replyOptions`, `extActionType`, `sku`, `qty`, `amount`).
 2. ✅ **Fallback:** if LM Studio is offline or returns bad JSON, `deterministic_fallback_analysis()` returns a pre-written answer.
 3. ✅ **Client memory (`backend/services/memory.py`, `GET /api/client/memory`):** remembers tier, tone and history per customer.
-4. ✅ **OCR (`POST /api/ocr/extract`):** fast PDF text extraction with `pypdf` first (note: `pypdf` is not in `requirements.txt` yet), then LM Studio vision for images.
+4. ✅ **OCR (`POST /api/ocr/extract`):** fast PDF text extraction with `pypdf` first, then LM Studio vision for images.
 5. ✅ **Chrome Extension (`extension/`, Manifest V3):** `content.js` injects the sidebar into `web.whatsapp.com`, reads the active chat name and recent messages, shows reply options, and inserts the chosen reply into the WhatsApp message box. `background.js` forwards the sidebar's API calls to `http://127.0.0.1:8000` (avoids mixed-content blocks).
 6. ❌ **RunPod:** listed in `.env.example` (`AI_PROVIDER`, `RUNPOD_*`) but not called by the backend yet.
-7. ⚠️ **Quote-hold rule mismatch:** the live prompt tells the model not to hold stock until a deposit is confirmed (`REPLY_ONLY`), while the Simulator and the flows doc use `CREATE_QUOTE_HOLD` on inquiry. Pick one rule.
+7. ✅ **Quote-hold rule:** a buying inquiry gets `CREATE_QUOTE_HOLD` (48h hold) when every requested item is available, decided in code; otherwise `REPLY_ONLY`.
 
 ### Phase 3 Done Check
 - Load `extension/` as an Unpacked Extension in `chrome://extensions`.

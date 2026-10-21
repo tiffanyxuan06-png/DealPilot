@@ -198,9 +198,9 @@ MESSAGE_TEXT:
 - `AFTERSALES_REPLACE` — `-1` stock as warranty replacement.
 - `RELEASE_EXPIRED_HOLD` — return expired hold to `Available`.
 
-> **Mismatch to resolve:** the live LM Studio prompt tells the model *not* to hold stock until a deposit is confirmed and only offers `REPLY_ONLY` for inquiries, while Flow 1 above (and the WhatsApp Simulator in `webapp/js/state.js`) uses `CREATE_QUOTE_HOLD`. Decide which rule is correct and align the prompt or this spec.
+> **Quote-hold rule:** a buying inquiry gets `CREATE_QUOTE_HOLD` when every requested item is available to sell (decided in code in `backend/services/prompts.py`, not by the AI); otherwise `REPLY_ONLY`. `POST /api/whatsapp/execute` returns 409 if a hold asks for more than is available.
 
-**Invoice row actions (`POST /api/invoices/{id}/action`):** `RELEASE_QUOTE`, `CONFIRM_QUOTE`, `MARK_PAID`, `PAY_SUPPLIER`, `SET_TIN`. Receipt checks: `POST /api/invoices/{id}/verify-receipt`.
+**Invoice row actions (`POST /api/invoices/{id}/action`):** `RELEASE_QUOTE`, `CONFIRM_QUOTE`, `MARK_PAID`, `PAY_SUPPLIER`, `SET_TIN`, `REPLACE_ONE`, `DISCOUNT`, `MARK_RESOLVED`, `ADD_PIPE_LABOR`, `ATTACH_RECEIPT`. Receipt checks: `POST /api/invoices/{id}/verify-receipt` (`decision` + optional `paidAmount`). Bills: `POST /api/bills/apply` (`supplier` / `expense` / `customer`). Release all holds on one item: `POST /api/stock/{sku}/release`.
 
 ---
 

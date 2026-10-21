@@ -225,6 +225,30 @@
         `Confirm Save OCR Document`,
         summaryMsg,
         () => {
+          if (usesBackend()) {
+            const body = { kind, party, ref, amount, qty };
+            if (kind === 'supplier') {
+              if (skuSelVal === 'NEW_SKU') {
+                body.sku = (document.getElementById('ocr-new-sku-code')?.value || 'ACN-MIT-10').trim().toUpperCase();
+                body.newSkuName = (document.getElementById('ocr-new-sku-name')?.value || 'Mitsubishi 1.0HP Inverter').trim();
+                body.newSellPrice = Math.max(1, parseInt(document.getElementById('ocr-new-sku-sell')?.value || '1080', 10));
+              } else {
+                body.sku = (st.stock[parseInt(skuSelVal || '0', 10)] || st.stock[0]).sku;
+              }
+            } else if (kind === 'customer') {
+              const target = st.invoices.find(i => i.type === 'PENDING' && i.party.includes(party))
+                || st.invoices.find(i => i.id === 'INV-202' || i.type === 'PENDING');
+              if (target) body.invoiceId = target.id;
+            }
+            const msgs = {
+              supplier: `Supplier Stock Bill saved! +${qty} units added to Stock & Cash -RM ${amount.toLocaleString()}.`,
+              expense: `Operating Expense recorded! Cash -RM ${amount.toLocaleString()}.`
+            };
+            backendAction('/api/bills/apply', body,
+              d => msgs[kind] || `Receipt staged as Pending Bank Verify on #${d.createdId}! Click "🔍 Verify Receipt Against Bank" to approve.`);
+            document.getElementById('ocr-preview-box').classList.add('hidden');
+            return;
+          }
           if (kind === 'supplier') {
             let targetItem = null;
             if (skuSelVal === 'NEW_SKU') {
@@ -336,6 +360,13 @@
         `Confirm Add / Restock Inventory`,
         `Add +${qty}x ${name} (${sku}) to Physical Warehouse Stock?\n\n• Unit Cost: RM ${unitCost.toLocaleString()} | Selling Price: RM ${sellPrice.toLocaleString()}\n• Stock Value Change: +RM ${totalCost.toLocaleString()}\n• Cash Effect: ${source === 'CASH_PURCHASE' ? `-RM ${totalCost.toLocaleString()} (Paid Supplier by Cash/Bank)` : 'RM 0 (Opening Stock / Already Paid)'}`,
         () => {
+          if (usesBackend()) {
+            backendAction('/api/stock/add', { sku, name, qty, unitCost, sellPrice, payWithCash: source === 'CASH_PURCHASE' },
+              source === 'CASH_PURCHASE'
+                ? `Added +${qty}x ${name} (${sku}) to Stock & deducted RM ${totalCost.toLocaleString()} Cash!`
+                : `Added +${qty}x ${name} (${sku}) to Warehouse Stock!`);
+            return;
+          }
           const existing = st.stock.find(s => s.sku.toUpperCase() === sku);
           if (existing) {
             existing.onHand += qty;
@@ -391,6 +422,11 @@
         `Confirm Quick Restock · ${s.sku}`,
         `Add +${addQty} units of ${s.name} (${s.sku}) to Physical Stock?\n\n• Current On Hand: ${s.onHand} units\n• New On Hand: ${s.onHand + addQty} units`,
         () => {
+          if (usesBackend()) {
+            backendAction('/api/stock/add', { sku: s.sku, name: s.name, qty: addQty, unitCost: s.unitCost, sellPrice: s.sellPrice, payWithCash: false },
+              `Restocked +${addQty}x ${s.name}! Total On Hand: ${s.onHand + addQty} units.`);
+            return;
+          }
           s.onHand += addQty;
           st.logs.unshift(`10:56 AM · [${currentRole}] Restocked +${addQty}x ${s.name} (${s.sku}) → New Physical On Hand: ${s.onHand} units.`);
           showToast(`Restocked +${addQty}x ${s.name}! Total On Hand: ${s.onHand} units.`);
@@ -748,6 +784,16 @@
         confirmTitle,
         confirmMsg,
         () => {
+          if (usesBackend()) {
+            backendAction(`/api/invoices/${encodeURIComponent(inv.id)}/verify-receipt`,
+              isConfirm ? { decision: 'CONFIRM', paidAmount: paidNow } : { decision: 'REJECT' },
+              isConfirm
+                ? (rem > 0 ? `✅ Confirmed +RM ${paidNow.toLocaleString()} Cash! Remaining RM ${rem.toLocaleString()} stays open on #${inv.id}.`
+                           : `✅ Confirmed in Bank! #${inv.id} marked PAID & Cash on Hand +RM ${paidNow.toLocaleString()}.`)
+                : `❌ Rejected receipt for #${inv.id}! Cash on Hand unchanged.`);
+            closeVerifyModal();
+            return;
+          }
           if (isConfirm) {
             st.cashOnHand += paidNow;
 

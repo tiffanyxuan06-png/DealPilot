@@ -81,6 +81,7 @@ let currentRole = 'OWNER';
             ],
             extBtnLabel: '✅ Hold Stock (48h) & Insert Selected Reply',
             extActionType: 'CREATE_QUOTE_HOLD',
+            sku: 'ACN-DAI-15', qty: 5, extraSku: 'GAS-R32', extraQty: 5, amount: 6650,
             done: false,
             memory: {
               tier: 'VIP Fast Payer',
@@ -126,6 +127,7 @@ let currentRole = 'OWNER';
             ],
             extBtnLabel: '💰 Confirm Deposit & Deduct Stock',
             extActionType: 'CONFIRM_DEPOSIT_DEDUCT',
+            amount: 2000,
             done: false,
             memory: {
               tier: 'Corporate Commercial',
@@ -176,6 +178,7 @@ let currentRole = 'OWNER';
             ],
             extBtnLabel: '📦 Send -1 Replacement Stock & Insert Reply',
             extActionType: 'AFTERSALES_REPLACE',
+            sku: 'GAS-R32', qty: 1,
             done: false,
             memory: {
               tier: 'Long-Term Clinic Partner',
@@ -222,6 +225,7 @@ let currentRole = 'OWNER';
             ],
             extBtnLabel: '🔓 Release 3x Held Stock & Insert Follow-Up',
             extActionType: 'RELEASE_EXPIRED_HOLD',
+            sku: 'ACN-DAI-15', qty: 3,
             done: false,
             memory: {
               tier: 'Slow Payer / Ghosting Risk',
@@ -597,6 +601,73 @@ let currentRole = 'OWNER';
     const BACKEND_API_BASE = window.location.protocol.startsWith('http')
       ? window.location.origin
       : 'http://localhost:8000';
+
+
+// --- BACKEND SYNC ---
+    // The aircond profile lives in the backend database (shared with the WhatsApp extension).
+    // Other profiles stay as front-end demo data.
+    let backendOnline = false;
+    let lastBackendSignature = '';
+
+    function usesBackend() {
+      return backendOnline && currentSME === 'aircond';
+    }
+
+    function applyBackendState(data) {
+      if (!data || !data.company) return;
+      const st = smeProfiles.aircond;
+      st.cashOnHand = data.company.cashOnHand;
+      st.stock = data.stock;
+      st.invoices = data.invoices;
+      st.logs = data.logs;
+      lastBackendSignature = JSON.stringify([data.company, data.stock, data.invoices, data.logs]);
+    }
+
+    async function syncFromBackend() {
+      try {
+        const res = await fetch(`${BACKEND_API_BASE}/api/state`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        backendOnline = true;
+        const signature = JSON.stringify([data.company, data.stock, data.invoices, data.logs]);
+        if (signature === lastBackendSignature) return;
+        applyBackendState(data);
+        if (currentSME === 'aircond') renderAll();
+      } catch (err) {
+        backendOnline = false;
+      }
+    }
+
+    // POSTs one action to the backend, then re-renders from the state it returns.
+    async function backendAction(path, body, successMsg) {
+      try {
+        const res = await fetch(`${BACKEND_API_BASE}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: currentRole, ...body })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showToast(`⚠️ ${data.detail || `Backend error (HTTP ${res.status})`}`);
+          return null;
+        }
+        applyBackendState(data.state);
+        renderAll();
+        if (successMsg) showToast(typeof successMsg === 'function' ? successMsg(data) : successMsg);
+        return data;
+      } catch (err) {
+        showToast('⚠️ Backend offline — start it with python run_server.py');
+        return null;
+      }
+    }
+
+    // Picks up changes made from the WhatsApp extension. Skips while the user is typing so inputs are not reset.
+    setInterval(() => {
+      const el = document.activeElement;
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      const modalOpen = !document.getElementById('universal-confirm-modal')?.classList.contains('hidden');
+      if (currentSME === 'aircond' && !typing && !modalOpen) syncFromBackend();
+    }, 4000);
 
 
 // --- PROFILE & FRAMEWORK MANAGEMENT ---

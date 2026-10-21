@@ -384,6 +384,13 @@
             }
             chat.extBtnLabel = a.extBtnLabel || chat.extBtnLabel;
             chat.extActionType = a.extActionType || chat.extActionType;
+            if (a.sku) {
+              chat.sku = a.sku;
+              chat.qty = a.qty;
+              chat.extraSku = a.extraSku || null;
+              chat.extraQty = a.extraQty || 0;
+            }
+            if (a.amount) chat.amount = a.amount;
             chat.selectedReplyIdx = 0;
             if (a.clientMemory) {
               chat.memory = {
@@ -485,6 +492,28 @@
           } else if (chat.extActionType === 'RELEASE_EXPIRED_HOLD') {
             chat.memory.score = Math.max(20, (chat.memory.score || 50) - 5);
             chat.memory.timeline.unshift({ time: 'Just Now', note: `Released expired 48h hold without deposit. Trust Score adjusted.` });
+          }
+
+          const staffDeposit = chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
+          if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
+            const msgs = {
+              CREATE_QUOTE_HOLD: `Quote created for ${chat.customer}! Stock placed ON HOLD for 48h & reply filled into WhatsApp!`,
+              CONFIRM_DEPOSIT_DEDUCT: 'Deposit confirmed! Order confirmed & scheduled for delivery!',
+              AFTERSALES_REPLACE: `1x replacement dispatched as Aftersales Resolution for ${chat.customer}!`,
+              RELEASE_EXPIRED_HOLD: `Released ${chat.customer}'s expired reservation back to Available Stock!`
+            };
+            chat.done = true;
+            backendAction('/api/whatsapp/execute', {
+              customer: chat.customer,
+              phone: (chat.phone || '').split(' · ')[0],
+              actionType: chat.extActionType,
+              sku: chat.sku || item1.sku,
+              qty: chat.qty || 1,
+              extraSku: chat.extraSku || null,
+              extraQty: chat.extraQty || 0,
+              amount: chat.amount || 0
+            }, msgs[chat.extActionType]).then(d => { if (!d) chat.done = false; });
+            return;
           }
 
           if (!chat.done) {
