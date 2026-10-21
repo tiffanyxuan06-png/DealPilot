@@ -11,7 +11,7 @@ Status key: ✅ built · ⚠️ partly built · ❌ not built yet.
 
 ```
 Phase 1 (Hours 1–3)  ──► FastAPI + SQLite State, Net Worth Math, SME Profiles & API Routes      ✅
-Phase 2 (Hours 4–7)  ──► Sidebar WebApp (Overview, Invoices & Quotes, Stock, Ledger, Simulator) ✅
+Phase 2 (Hours 4–7)  ──► Sidebar WebApp (Overview, Invoices & Quotes, Stock, Ledger, Simulator) ⚠️ not wired to the backend
 Phase 3 (Hours 8–11) ──► LM Studio Agent (+ fallback) & Chrome Extension Sidebar on WhatsApp Web ✅
 Phase 4 (Hours 12–14)──► Excel/PDF Export ✅ · Role Guardrails ❌ · Security fixes ❌ · Rehearsal
 ```
@@ -55,7 +55,9 @@ Shared backend state so both the **WebApp** and the **WhatsApp Chrome Extension*
 
 ---
 
-## Phase 2: The CashChase WebApp (Hours 4–7) ✅
+## Phase 2: The CashChase WebApp (Hours 4–7) ⚠️
+
+> **Biggest gap:** the WebApp keeps its own hard-coded data in `webapp/js/state.js` (one copy per SME profile) and never calls `GET /api/state`, `/api/whatsapp/execute`, `/api/invoices/{id}/action`, `/api/orders/walkin`, `/api/stock/add` or `/api/invoices/{id}/verify-receipt`. Actions taken in the WebApp only change browser memory (lost on refresh), and actions taken in the WhatsApp extension (saved in SQLite) do not show up in the WebApp. Wire the WebApp to `/api/state` + the action endpoints.
 
 ### Goal
 The live WebApp at `http://localhost:8000/` (`webapp/index.html`).
@@ -67,7 +69,7 @@ The live WebApp at `http://localhost:8000/` (`webapp/index.html`).
 4. ✅ **Inline 1-click row buttons** (Confirm Deposit, Release Hold, Replace -1 Stock, Mark Paid, Pay Supplier, Set TIN).
 
 ### Phase 2 Done Check
-- Open `http://localhost:8000`: uploading a supplier bill, keying a phone order, or confirming a deposit updates **Stock** and **Net Worth** live.
+- Open `http://localhost:8000`: uploading a supplier bill, keying a phone order, or confirming a deposit updates **Stock** and **Net Worth** live, **and the same numbers appear after a page refresh and in the extension** (❌ not true yet).
 
 ---
 
