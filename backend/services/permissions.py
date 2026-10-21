@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 
 from backend.database import add_log, build_state_payload, get_setting, now_time_str
+from backend.services.auth import current_role
 
 ALLOW, APPROVAL, DENY = "ALLOW", "APPROVAL", "DENY"
 MODE_LABELS = {ALLOW: "Allowed", APPROVAL: "Needs Owner approval", DENY: "Off"}
@@ -73,7 +74,11 @@ def register_handler(name: str, fn: Callable, model: Any, path_params: Optional[
 
 
 def normalize_role(role: Optional[str]) -> str:
-    """Unknown or missing roles get the least privilege."""
+    """Unknown or missing roles get the least privilege.
+
+    With login on, the signed-in user's role always wins over the role a request claims.
+    """
+    role = current_role() or role
     return "OWNER" if (role or "").strip().upper() == "OWNER" else "STAFF"
 
 

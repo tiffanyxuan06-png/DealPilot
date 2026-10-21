@@ -1,4 +1,5 @@
 """Every test gets a fresh, seeded SQLite database in a temp folder (never backend/cashchase.db)."""
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -7,6 +8,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
+# Login off by default (the real .env may turn it on); test_auth.py switches it on itself.
+os.environ["SUPABASE_URL"] = ""
 
 import backend.database as database  # noqa: E402
 

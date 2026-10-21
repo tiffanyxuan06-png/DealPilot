@@ -67,7 +67,13 @@ async function ccApiRequest(path, method = "GET", bodyObj = null) {
       if (bgRes && bgRes.ok && bgRes.data) {
         return bgRes.data;
       }
+      if (bgRes && bgRes.status) {
+        // The backend answered with an error; a direct fetch would get the same (and has no login token).
+        if (bgRes.status === 401) showCcAuth({ enabled: true });
+        throw new Error(`HTTP ${bgRes.status}`);
+      }
     } catch (e) {
+      if (String(e && e.message).startsWith("HTTP ")) throw e;
       // Fallback to direct fetch below
     }
   }
@@ -80,6 +86,67 @@ async function ccApiRequest(path, method = "GET", bodyObj = null) {
   const directRes = await fetch(fullUrl, opts);
   if (!directRes.ok) throw new Error(`HTTP ${directRes.status}`);
   return await directRes.json();
+}
+
+// --- LOGIN (same Supabase accounts as the WebApp; the session is kept by background.js) ---
+function sendToBackground(message) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ backend: BACKEND_URL, ...message }, (resp) => {
+        resolve(chrome.runtime.lastError ? null : resp);
+      });
+    } catch (e) {
+      resolve(null);  // extension was reloaded: this page needs a refresh
+    }
+  });
+}
+
+// status: { enabled, email, role } — login form when login is on and nobody is signed in.
+function showCcAuth(status) {
+  const enabled = !!(status && status.enabled);
+  const signedIn = !!(status && status.email);
+  const loginBox = document.getElementById("cc-login");
+  const roleSelect = document.getElementById("cc-role-select");
+  const userPill = document.getElementById("cc-user-pill");
+  if (!loginBox) return;
+  loginBox.style.display = enabled && !signedIn ? "block" : "none";
+  if (roleSelect) roleSelect.style.display = enabled ? "none" : "";  // with login on, the role is the account's
+  userPill.style.display = signedIn ? "flex" : "none";
+  if (signedIn) {
+    document.getElementById("cc-user-text").textContent =
+      `${status.role === "OWNER" ? "👑 Owner" : "👤 Staff"} · ${status.email}`;
+  }
+}
+
+async function refreshCcAuth() {
+  showCcAuth(await sendToBackground({ type: "CC_AUTH_STATUS" }));
+}
+
+async function submitCcLogin(event) {
+  event.preventDefault();
+  const errorEl = document.getElementById("cc-login-error");
+  const button = document.getElementById("cc-login-submit");
+  errorEl.style.display = "none";
+  button.disabled = true;
+  const resp = await sendToBackground({
+    type: "CC_AUTH_LOGIN",
+    email: document.getElementById("cc-login-email").value.trim(),
+    password: document.getElementById("cc-login-password").value
+  });
+  button.disabled = false;
+  if (!resp || !resp.ok) {
+    errorEl.textContent = (resp && resp.error) || "Login failed. Refresh WhatsApp Web and try again.";
+    errorEl.style.display = "block";
+    return;
+  }
+  document.getElementById("cc-login-password").value = "";
+  showCcAuth({ enabled: true, email: resp.email, role: resp.role });
+  refreshStateFromBackend();
+}
+
+async function ccLogout() {
+  await sendToBackground({ type: "CC_AUTH_LOGOUT" });
+  showCcAuth({ enabled: true });
 }
 
 function cleanCustomerName(name) {
@@ -902,9 +969,25 @@ function createSidebar() {
           <option value="OWNER" style="color:#042970;">👑 Owner</option>
           <option value="STAFF" style="color:#042970;">👤 Staff</option>
         </select>
+        <div id="cc-user-pill" style="display:none; align-items:center; gap:4px; font-size:10px; color:#fff;">
+          <span id="cc-user-text" style="font-weight:700; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
+          <button id="cc-logout-btn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); color:#fff; border-radius:6px; padding:1px 5px; font-size:10px; cursor:pointer;">Log out</button>
+        </div>
         <span class="cc-badge" id="cc-intent-badge">Ready</span>
         <span style="font-size:10px; color:#8AB4F8;" id="cc-cache-pill">⚡ 0 Pre-Cached</span>
       </div>
+    </div>
+
+    <!-- Login (shown when the backend has Supabase login on and nobody is signed in) -->
+    <div id="cc-login" style="display:none; padding:12px; background:#F2F6FF; border-bottom:1px solid #D5DFEE;">
+      <div style="font-weight:700; font-size:12px; color:#042970; margin-bottom:2px;">🔒 Log in to CashChase</div>
+      <div style="font-size:11px; color:#64748B; margin-bottom:8px;">Same email and password as the WebApp.</div>
+      <form id="cc-login-form" style="display:flex; flex-direction:column; gap:6px;">
+        <input id="cc-login-email" class="cc-input" type="email" required placeholder="Email" autocomplete="email" />
+        <input id="cc-login-password" class="cc-input" type="password" required placeholder="Password" autocomplete="current-password" />
+        <div id="cc-login-error" role="alert" style="display:none; font-size:11px; color:#DC2626;"></div>
+        <button id="cc-login-submit" type="submit" style="background:#042970; color:#fff; border:none; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">Log in</button>
+      </form>
     </div>
 
     <div class="cc-body">
@@ -1002,6 +1085,9 @@ function createSidebar() {
     roleSelect.value = getCcRole();
     roleSelect.addEventListener("change", () => setCcRole(roleSelect.value));
   }
+  document.getElementById("cc-login-form").addEventListener("submit", submitCcLogin);
+  document.getElementById("cc-logout-btn").addEventListener("click", ccLogout);
+  refreshCcAuth();
 
   const collapseBtn = document.getElementById("cc-collapse-btn");
   if (collapseBtn) {

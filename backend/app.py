@@ -1,7 +1,10 @@
+import os
 from pathlib import Path
-from fastapi import FastAPI
+import jwt
+from fastapi import FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.database import init_db
@@ -13,6 +16,7 @@ from backend.routes.invoices import router as invoices_router
 from backend.routes.exports import router as exports_router
 from backend.routes.team import router as team_router
 from backend.routes.onboarding import router as onboarding_router
+from backend.services.auth import auth_enabled, reset_current_role, role_from_claims, set_current_role, verify_token
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEBAPP_DIR = BASE_DIR / "webapp"
@@ -34,6 +38,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+PUBLIC_API_PATHS = {"/api/auth/config"}  # the login page needs this before anyone is signed in
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """With login on, every /api call needs a valid Supabase token; its user's role is used for permissions."""
+    path = request.url.path
+    if not auth_enabled() or request.method == "OPTIONS" or not path.startswith("/api/") or path in PUBLIC_API_PATHS:
+        return await call_next(request)
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Bearer "):
+        return JSONResponse({"detail": "Please log in."}, status_code=401)
+    try:
+        claims = await run_in_threadpool(verify_token, header[len("Bearer "):].strip())
+    except jwt.PyJWTError:
+        return JSONResponse({"detail": "Your login has expired. Please log in again."}, status_code=401)
+    token = set_current_role(role_from_claims(claims))
+    try:
+        return await call_next(request)
+    finally:
+        reset_current_role(token)
+
+
 # Include Modular API Routers
 app.include_router(state_router)
 app.include_router(whatsapp_router)
@@ -52,6 +79,12 @@ if WEBAPP_DIR.exists():
         app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
     if css_dir.exists():
         app.mount("/css", StaticFiles(directory=str(css_dir)), name="css")
+
+
+@app.get("/api/auth/config")
+def auth_config() -> dict:
+    """Public Supabase settings for the WebApp login (the anon key is safe to expose)."""
+    return {"url": os.getenv("SUPABASE_URL", ""), "anonKey": os.getenv("SUPABASE_ANON_KEY", "")}
 
 
 @app.get("/", response_class=HTMLResponse)
