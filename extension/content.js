@@ -980,6 +980,7 @@ function createSidebar() {
         </div>
         <div id="cc-stock-mini-list" style="display:none;"></div>
       </div>
+      <div style="font-size:10px; color:#92400E; text-align:center; padding:2px 0 4px;">Prototype — synthetic data, not connected to Orbyte</div>
     </div>
   `;
 

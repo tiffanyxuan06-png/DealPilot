@@ -50,10 +50,10 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 
 | # | Problem | Where | Effort | Status |
 |---|---|---|---|---|
-| 23 | `.env.example` says `LMSTUDIO_BASE_URL`, code reads `LMSTUDIO_URL` | `.env.example`, `backend/database.py` | 5 min | ⬜ |
+| 23 | `.env.example` said `LMSTUDIO_BASE_URL`, code reads `LMSTUDIO_URL`. **Fixed:** `.env.example` uses `LMSTUDIO_URL`; the code accepts both names | `.env.example`, `backend/database.py` | 5 min | ✅ |
 | 24 | RunPod listed but not connected | `backend/services/lmstudio.py` | 1–2 h | ⬜ |
-| 25 | `.env` not loaded unless started via `start_cashchase.bat` | `run_server.py` | 15 min | ⬜ |
-| 26 | Tests need LM Studio running; nothing tests roles or money math | `test/` | 2 h | ⬜ |
+| 25 | `.env` was never loaded. **Fixed:** `backend/env.py` loads it at startup (real environment values win); `PORT` is honoured | `run_server.py` | 15 min | ✅ |
+| 26 | No fast tests. **Fixed:** 35 pytest tests in `test/unit/` (money math, holds, permissions, receipts, AI reply check) on a temp database; `python -m pytest -q` | `test/` | 2 h | ✅ |
 
 ## P2 — features promised in the plan but missing
 
@@ -65,7 +65,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 | 30 | No customers table; customer details spread across invoices and client memory | 1 h | ⬜ |
 | 31 | Operating expense bill (−cash) not saved to the backend | 30 min | ✅ |
 | 32 | Flow 6 (labour + extra piping on an invoice) not a backend action | 1–2 h | ✅ |
-| 33 | "Prototype — synthetic data" label not shown on screens | 10 min | ⬜ |
+| 33 | "Prototype — synthetic data" label not shown. **Fixed:** shown in the WebApp top bar and the extension sidebar | 10 min | ✅ |
 
 ## Decisions to make (not code)
 

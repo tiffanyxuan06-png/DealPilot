@@ -1,0 +1,2 @@
+# Developer tools (not needed to run the app)
+pytest>=8.0

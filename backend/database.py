@@ -4,9 +4,12 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
+import backend.env  # noqa: F401  (loads .env before the defaults below are read)
+
 DB_PATH = Path(__file__).resolve().parent / "cashchase.db"
 
-DEFAULT_LMSTUDIO_URL = os.getenv("LMSTUDIO_URL", "http://127.0.0.1:1234/v1")
+# LMSTUDIO_URL is the name the code always used; LMSTUDIO_BASE_URL is the older name in .env.example.
+DEFAULT_LMSTUDIO_URL = os.getenv("LMSTUDIO_URL") or os.getenv("LMSTUDIO_BASE_URL") or "http://127.0.0.1:1234/v1"
 DEFAULT_LMSTUDIO_API_KEY = os.getenv("LMSTUDIO_API_KEY", "lm-studio")
 DEFAULT_LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "local-model")
 
