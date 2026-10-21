@@ -15,7 +15,7 @@
               : 'bg-[#F2F6FF] border-[#D5DFEE] hover:bg-[#E6EEFF]/60'
           }">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-xs text-[#042970]">${c.customer}</span>
+              <span class="font-semibold text-sm text-[#042970]">${c.customer}</span>
               ${c.done ? '<span class="text-xs text-emerald-700 font-bold">✓ Done</span>' : ''}
             </div>
             <div class="text-xs text-[#0152FC] font-bold mt-0.5">${c.badge}</div>
@@ -67,17 +67,17 @@
       const selectedIdx = typeof activeChat.selectedReplyIdx === 'number' ? activeChat.selectedReplyIdx : 0;
       const selectedOpt = replyOptions[selectedIdx] || replyOptions[0];
 
-      // Determine dynamic Primary Button label based on chosen Aftersales option
+      // Primary button label follows the chosen aftersales option
       let dynamicBtnLabel = activeChat.extBtnLabel;
       if (activeChat.extActionType === 'AFTERSALES_REPLACE') {
         const rebateVal = typeof activeChat.rebateAmount === 'number' ? activeChat.rebateAmount : 180;
         const techTimeVal = activeChat.techVisitTime || 'before 3:00 PM today';
         if (selectedIdx === 1 || (selectedOpt && selectedOpt.kind === 'REBATE')) {
-          dynamicBtnLabel = `💸 Apply RM ${rebateVal.toLocaleString()} Credit Rebate & Insert Reply`;
+          dynamicBtnLabel = `Give RM ${rebateVal.toLocaleString()} rebate & reply`;
         } else if (selectedIdx === 2 || (selectedOpt && selectedOpt.kind === 'TECH_VISIT')) {
-          dynamicBtnLabel = `🛠️ Schedule Tech Drop-By (${techTimeVal}) & Insert Reply`;
+          dynamicBtnLabel = `Book technician & reply`;
         } else {
-          dynamicBtnLabel = `📦 Send -1 Replacement Stock & Insert Reply`;
+          dynamicBtnLabel = `Send replacement & reply`;
         }
       }
 
@@ -95,180 +95,164 @@
       const mem = activeChat.memory;
       const isRiskClient = (mem.score || 75) < 60;
 
+      // Panel copy comes from scenario data written with emoji; strip them so
+      // the panel uses its own icons instead
+      const plain = s => String(s || '')
+        .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍]/gu, '')
+        .replace(/\s+/g, ' ').trim();
+      const optName = label => plain(label).replace(/^Option \d+:\s*/i, '');
+      const btnText = label => plain(label)
+        .replace(/\s*&\s*Insert( Selected)? Reply/i, ' & reply')
+        .replace(/^(.)/, c => c.toUpperCase());
+      const checkIcon = '<svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"><use href="#i-check"/></svg>';
+      const infoDot = '<span class="cc-dot bg-[#01AAFC] mt-1.5 mx-1 shrink-0"></span>';
+      const checkLines = String(activeChat.extCheck || '').split('\n').filter(l => l.trim()).map(line => {
+        const isTotal = /total|received/i.test(line);
+        return `
+          <li class="flex items-start gap-2 ${isTotal ? 'pt-2 mt-1 border-t border-[#DCE4F2] font-semibold text-[#042970]' : ''}">
+            ${line.trim().startsWith('✅') ? checkIcon : infoDot}
+            <span class="min-w-0">${plain(line)}</span>
+          </li>`;
+      }).join('');
+
+      const offerChips = [
+        ['5% VIP discount', 'Give 5% VIP Discount if deposit confirmed today'],
+        ['RM 150 off', 'Knock off RM 150 discount for immediate DuitNow transfer'],
+        ['Free delivery', 'Offer free delivery or install promo instead of price cut'],
+        ['Round down', 'Round down total to nearest hundred flat']
+      ];
+
+      const primaryLabel = activeChat.done
+        ? 'Done · insert reply again'
+        : blockedByRole ? 'Send to owner for approval' : btnText(dynamicBtnLabel);
+
       extBody.innerHTML = `
-        <!-- PERSISTENT CLIENT MEMORY & RELATIONSHIP CARD -->
-        <div class="p-3.5 rounded-xl border ${isRiskClient ? 'bg-amber-50 border-amber-300' : 'bg-[#F2F6FF] border-[#D5DFEE]'} space-y-2.5 text-xs shadow-xs">
-          <div class="flex items-center justify-between font-bold text-[#042970]">
-            <span class="flex items-center gap-1.5">
-              <span>🧠</span> <b>Persistent Memory:</b> ${mem.tier}
+        <!-- Customer: one summary line, history on demand -->
+        <details class="ext-customer group">
+          <summary class="flex items-center gap-3 cursor-pointer list-none">
+            <span class="w-10 h-10 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-sm flex items-center justify-center shrink-0">
+              ${plain(activeChat.customer).split(' ').map(w => w[0]).slice(0, 2).join('')}
             </span>
-            <span class="px-2 py-0.5 rounded-full ${isRiskClient ? 'bg-amber-200 text-amber-900 font-bold' : 'bg-[#E6EEFF] text-[#0152FC] font-bold'}">
-              Trust Score: ${mem.score}/100
+            <span class="flex-1 min-w-0">
+              <span class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-sm text-[#042970] truncate">${activeChat.customer}</span>
+                <span class="cc-pill ${isRiskClient ? '!bg-amber-50 !text-amber-800' : ''}">${plain(mem.tier)}</span>
+              </span>
+              <span class="block text-xs text-[#5B6B85] mt-0.5">
+                ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid · score ${mem.score}/100
+              </span>
             </span>
-          </div>
-
-          <!-- Customer Past Record Summary -->
-          <div class="p-2.5 rounded-lg bg-white border border-[#D5DFEE]/80 space-y-1">
-            <div class="flex items-center justify-between text-[11px] font-bold text-[#042970]">
-              <span class="text-[#64748B] uppercase tracking-wider text-[10px]">Track Record:</span>
-              <span class="text-emerald-700 font-semibold">${mem.totalOrders || 1} past orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
-            </div>
-            <ul class="list-disc pl-4 space-y-0.5 text-[11px] text-[#324564]">
-              ${(mem.notes || []).map(n => `<li>${n}</li>`).join('')}
+            <svg class="w-4 h-4 text-[#5B6B85] shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="mt-3 pl-[52px] space-y-3 text-xs">
+            <ul class="space-y-1 text-[#324564] list-disc pl-4">
+              ${(mem.notes || []).map(n => `<li>${plain(n)}</li>`).join('')}
             </ul>
-          </div>
-
-          <!-- Live Memory Event Timeline -->
-          <div class="space-y-1">
-            <div class="flex items-center justify-between text-[11px] font-bold text-[#042970]">
-              <span>Recent Activity & Retained Memory:</span>
-              <button onclick="promptAddMemoryNote()" class="text-[#0152FC] hover:underline font-bold text-[10.5px] cursor-pointer">
-                ✏️ + Add Memory Note
-              </button>
-            </div>
-            <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
-              ${(mem.timeline || []).map(t => `
-                <div class="text-[10.5px] text-[#64748B] flex gap-1.5 items-start">
-                  <span class="font-semibold text-[#042970] shrink-0">• [${t.time}]</span>
-                  <span>${t.note}</span>
-                </div>
-              `).join('')}
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-semibold text-[#042970]">Recent</span>
+                <button onclick="promptAddMemoryNote()" class="font-semibold text-[#0152FC] hover:underline">Add note</button>
+              </div>
+              <div class="space-y-1 max-h-28 overflow-y-auto pr-1">
+                ${(mem.timeline || []).map(t => `
+                  <div class="flex gap-2 text-[#5B6B85]">
+                    <span class="font-mono text-[#042970] shrink-0">${t.time}</span>
+                    <span>${plain(t.note)}</span>
+                  </div>`).join('')}
+              </div>
             </div>
           </div>
-        </div>
+        </details>
 
-        <div class="p-3.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="font-bold text-sm text-[#042970]">${activeChat.extTitle}</div>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">⚡ Auto-Cached</span>
-          </div>
-          <pre class="text-xs whitespace-pre-wrap font-sans font-semibold text-[#042970] bg-[#E3F6FF] p-3 rounded-xl border border-[#01AAFC]/40">${activeChat.extCheck}</pre>
-          <p class="text-xs text-[#324564]">${activeChat.extActionDesc}</p>
-        </div>
-
-        <!-- ✨ PROMPT AI TO CUSTOMIZE QUOTATION / REPLY -->
-        <div class="p-3 rounded-xl bg-[#E6EEFF]/70 border border-[#0152FC]/30 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-[#0152FC]">✨ Prompt AI to Customize Quote / Reply</span>
-            <span class="text-[11px] text-[#324564] font-medium">Any SME instruction (price, terms, language)</span>
-          </div>
-
-          <!-- Custom User Instruction Input -->
-          <div class="flex gap-1.5">
-            <input id="wa-custom-quote-prompt" type="text" value="${activeChat.lastCustomPrompt || ''}" onkeydown="if(event.key==='Enter') promptAiCustomQuote(this.value)" placeholder="✨ Prompt AI (e.g. give 10% discount, quote 3 units, polite BM, 50% deposit)..." class="flex-1 bg-white border border-[#0152FC] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#042970] focus:outline-hidden" />
-            <button onclick="promptAiCustomQuote(document.getElementById('wa-custom-quote-prompt').value)" class="px-3 py-1.5 rounded-lg bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-xs transition cursor-pointer whitespace-nowrap">
-              ✨ Ask AI
-            </button>
-          </div>
-
-          <!-- Quick Negotiation & Discount Shortcut Chips -->
-          <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-            <span class="text-[10px] uppercase font-bold text-[#64748B]">Discount / Offer:</span>
-            <button onclick="promptAiCustomQuote('Give 5% VIP Discount if deposit confirmed today')" class="px-2 py-0.5 rounded-md bg-white border border-[#0152FC]/40 hover:bg-[#0152FC] hover:text-white text-[11px] font-semibold text-[#0152FC] transition shadow-2xs cursor-pointer">
-              💸 5% VIP Discount
-            </button>
-            <button onclick="promptAiCustomQuote('Knock off RM 150 discount for immediate DuitNow transfer')" class="px-2 py-0.5 rounded-md bg-white border border-[#0152FC]/40 hover:bg-[#0152FC] hover:text-white text-[11px] font-semibold text-[#0152FC] transition shadow-2xs cursor-pointer">
-              💸 RM 150 Off
-            </button>
-            <button onclick="promptAiCustomQuote('Offer free delivery or install promo instead of price cut')" class="px-2 py-0.5 rounded-md bg-white border border-[#0152FC]/40 hover:bg-[#0152FC] hover:text-white text-[11px] font-semibold text-[#0152FC] transition shadow-2xs cursor-pointer">
-              🚚 Free Delivery Promo
-            </button>
-            <button onclick="promptAiCustomQuote('Round down total to nearest hundred flat')" class="px-2 py-0.5 rounded-md bg-white border border-[#0152FC]/40 hover:bg-[#0152FC] hover:text-white text-[11px] font-semibold text-[#0152FC] transition shadow-2xs cursor-pointer">
-              🤝 Round Down Flat
-            </button>
-          </div>
+        <!-- What the customer wants + what CashChase checked -->
+        <div class="pt-4 border-t border-[#DCE4F2]">
+          <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
+          <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${plain(activeChat.extTitle)}</div>
+          <ul class="mt-2 space-y-1 text-sm text-[#324564]">${checkLines}</ul>
         </div>
 
         ${activeChat.isAILoading ? `
-          <!-- HIDE OLD REPLIES: SHOW CLEAN LOADING SKELETON WHILE AI IS GENERATING -->
-          <div class="p-6 rounded-2xl bg-white border-2 border-dashed border-[#0152FC]/40 text-center space-y-3.5 shadow-xs">
-            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#0152FC]/10 text-[#0152FC]">
-              <span class="inline-block w-6 h-6 border-3 border-[#0152FC] border-t-transparent rounded-full animate-spin"></span>
-            </div>
-            <div>
-              <div class="text-sm font-bold text-[#042970]">🤖 AI Copilot is generating new reply...</div>
-              <div class="text-xs text-[#64748B] mt-0.5">Hiding previous reply while analyzing pricing rules and warehouse stock.</div>
-            </div>
-            <!-- Loading Skeleton Bars -->
-            <div class="space-y-2 pt-1 max-w-sm mx-auto">
-              <div class="h-9 bg-[#E6EEFF] rounded-xl animate-pulse"></div>
-              <div class="h-9 bg-[#E6EEFF]/60 rounded-xl animate-pulse"></div>
-              <div class="h-9 bg-[#E6EEFF]/30 rounded-xl animate-pulse"></div>
-            </div>
+          <div class="pt-4 border-t border-[#DCE4F2] flex flex-col items-center text-center gap-2 py-6" role="status">
+            <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-24 h-auto m-laptop" />
+            <div class="font-semibold text-sm text-[#042970]">Writing a reply…</div>
+            <div class="text-xs text-[#5B6B85]">Checking your prices and stock first.</div>
           </div>
         ` : `
-          <!-- RECOMMENDED REPLY SELECTOR MENU -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-[#042970]">💬 Choose Recommended Reply (${replyOptions.length} Options)</span>
-              <span class="text-xs text-[#0152FC] font-semibold">Click to pick</span>
+          <!-- Reply picker: pick one, the chosen reply shows in full -->
+          <div class="pt-4 border-t border-[#DCE4F2]">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-[#5B6B85]">Pick a reply</span>
+              <span class="text-xs text-[#5B6B85]">Goes into your reply box</span>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2" role="radiogroup" aria-label="Suggested replies">
               ${replyOptions.map((opt, rIdx) => {
                 const isSelected = rIdx === selectedIdx;
                 const isRebateOpt = activeChat.extActionType === 'AFTERSALES_REPLACE' && (rIdx === 1 || opt.kind === 'REBATE');
                 const isTechOpt = activeChat.extActionType === 'AFTERSALES_REPLACE' && (rIdx === 2 || opt.kind === 'TECH_VISIT');
                 const rebateVal = typeof activeChat.rebateAmount === 'number' ? activeChat.rebateAmount : 180;
                 const techTimeVal = activeChat.techVisitTime || 'before 3:00 PM today';
-
                 return `
-                  <div class="rounded-xl border transition ${
-                    isSelected
-                      ? 'bg-[#E6EEFF] border-2 border-[#0152FC] shadow-xs'
-                      : 'bg-[#F2F6FF] border border-[#D5DFEE] hover:bg-[#E6EEFF]/60'
-                  }">
-                    <button onclick="selectRecommendedReply(${rIdx})" class="w-full text-left p-3">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="font-bold text-xs text-[#042970]">${isSelected ? '🔘' : '⚪'} ${opt.label}</span>
-                        ${isSelected ? '<span class="px-2 py-0.5 rounded-full bg-[#0152FC] text-white text-xs font-bold">Selected</span>' : ''}
-                      </div>
-                      <div class="text-xs text-[#324564] leading-relaxed" id="reply-opt-text-${rIdx}">${opt.text}</div>
+                  <div class="ext-reply ${isSelected ? 'is-selected' : ''}">
+                    <button onclick="selectRecommendedReply(${rIdx})" role="radio" aria-checked="${isSelected}" class="w-full text-left flex items-start gap-2.5 p-3">
+                      <span class="ext-radio mt-0.5"></span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold text-[#042970]">${optName(opt.label)}</span>
+                        ${isSelected
+                          ? `<span class="block text-sm text-[#324564] leading-relaxed mt-1" id="reply-opt-text-${rIdx}">${opt.text}</span>`
+                          : `<span class="block text-xs text-[#5B6B85] truncate mt-0.5">${opt.text}</span>`}
+                      </span>
                     </button>
-
                     ${isSelected && isRebateOpt ? `
-                      <div class="px-3 pb-3 pt-1 border-t border-[#0152FC]/20 flex flex-wrap items-center justify-between gap-2 bg-white/80 rounded-b-xl">
-                        <label class="text-xs font-bold text-[#042970]">✏️ Edit Credit Rebate (RM):</label>
-                        <div class="flex items-center gap-1.5">
-                          <span class="text-xs font-bold text-[#042970]">RM</span>
-                          <input id="inline-rebate-input" type="number" min="10" step="10" value="${rebateVal}" oninput="updateAftersalesRebate(this.value)" class="w-24 bg-white border-2 border-[#0152FC] rounded-lg px-2.5 py-1 text-xs font-bold text-[#042970] focus:outline-none" />
-                        </div>
+                      <div class="px-3 pb-3 pl-[38px] flex items-center gap-2">
+                        <label for="inline-rebate-input" class="text-xs font-semibold text-[#042970]">Rebate (RM)</label>
+                        <input id="inline-rebate-input" type="number" min="10" step="10" value="${rebateVal}" oninput="updateAftersalesRebate(this.value)" class="cc-input !w-28 !min-h-[36px] font-semibold" />
                       </div>
                     ` : ''}
-
                     ${isSelected && isTechOpt ? `
-                      <div class="px-3 pb-3 pt-1 border-t border-[#0152FC]/20 space-y-1.5 bg-white/80 rounded-b-xl">
-                        <label class="block text-xs font-bold text-[#042970]">🕒 Edit Technician Drop-By Time / Slot:</label>
-                        <input id="inline-tech-time-input" type="text" value="${techTimeVal}" oninput="updateAftersalesTechTime(this.value)" placeholder="e.g. before 3:00 PM today or tomorrow 10:30 AM" class="w-full bg-white border-2 border-[#0152FC] rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#042970] focus:outline-none" />
+                      <div class="px-3 pb-3 pl-[38px]">
+                        <label for="inline-tech-time-input" class="block text-xs font-semibold text-[#042970] mb-1">Technician visit time</label>
+                        <input id="inline-tech-time-input" type="text" value="${techTimeVal}" oninput="updateAftersalesTechTime(this.value)" placeholder="e.g. tomorrow 10:30 AM" class="cc-input !min-h-[36px]" />
                       </div>
                     ` : ''}
-                  </div>
-                `;
+                  </div>`;
               }).join('')}
             </div>
           </div>
-
-          ${blockedByRole ? `
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
-              🔒 <b>Owner Only:</b> Click the top-right <b>Role</b> button to switch to <b>Encik Hafiz (Owner)</b>, or press below to submit for approval.
-            </div>
-          ` : ''}
-
-          <!-- THE ONE BIG PRIMARY BUTTON IN THE EXTENSION -->
-          <button id="ext-primary-action-btn" onclick="executeExtensionAction()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white shadow-md transition ${
-            activeChat.done
-              ? 'bg-emerald-600'
-              : blockedByRole
-                ? 'bg-amber-600 hover:bg-amber-500'
-                : 'bg-[#0152FC] hover:bg-[#0141C9]'
-          }">
-            ${activeChat.done ? '✓ Done! (Click to Re-Insert Selected Reply)' : blockedByRole ? '📤 Submit for Owner Approval' : dynamicBtnLabel}
-          </button>
         `}
 
-        <div class="pt-2 border-t border-[#D5DFEE] flex items-center justify-between text-xs">
-          <span class="text-[#64748B]">Need formal PDF document?</span>
-          <button onclick="openPdfFromChat()" class="font-bold text-[#0152FC] hover:underline">
-            📄 Preview / Attach PDF →
+        <!-- Adjust: custom instructions and offers, closed until needed -->
+        <details class="ext-adjust group" ${activeChat.lastCustomPrompt ? 'open' : ''}>
+          <summary class="flex items-center gap-2 cursor-pointer list-none text-sm font-semibold text-[#0152FC]">
+            <svg class="w-4 h-4"><use href="#i-sparkle"/></svg>
+            Adjust reply
+            <span class="text-xs font-normal text-[#5B6B85]">discount, terms, language</span>
+            <svg class="w-4 h-4 ml-auto text-[#5B6B85] transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="mt-3 space-y-2.5">
+            <div class="flex gap-2">
+              <label for="wa-custom-quote-prompt" class="sr-only">Tell AI how to change the reply</label>
+              <input id="wa-custom-quote-prompt" type="text" value="${activeChat.lastCustomPrompt || ''}" onkeydown="if(event.key==='Enter') promptAiCustomQuote(this.value)" placeholder="e.g. 50% deposit, polite BM" class="cc-input !min-h-[38px]" />
+              <button onclick="promptAiCustomQuote(document.getElementById('wa-custom-quote-prompt').value)" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Rewrite</button>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${offerChips.map(([label, prompt]) => `<button onclick="promptAiCustomQuote('${prompt}')" class="cc-chip !min-h-[30px] !text-xs">${label}</button>`).join('')}
+            </div>
+          </div>
+        </details>
+
+        <!-- One main action, pinned while the panel scrolls -->
+        <div class="ext-footer">
+          ${blockedByRole ? `
+            <p class="flex items-center gap-1.5 text-xs text-amber-800 mb-2">
+              <svg class="w-3.5 h-3.5 shrink-0"><use href="#i-shield"/></svg>
+              Only the owner can do this. Switch role at the top, or send it for approval.
+            </p>
+          ` : ''}
+          <button id="ext-primary-action-btn" onclick="executeExtensionAction()" class="cc-btn cc-btn-lg w-full ${activeChat.done ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'cc-btn-primary'}">
+            ${primaryLabel}
+          </button>
+          <button onclick="openPdfFromChat()" class="w-full mt-2 text-xs font-semibold text-[#0152FC] hover:underline flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5"><use href="#i-file"/></svg> Attach PDF document
           </button>
         </div>
       `;
@@ -297,7 +281,7 @@
       if (inputBox) inputBox.value = newText;
       const btnEl = document.getElementById('ext-primary-action-btn');
       if (btnEl && !chat.done) {
-        btnEl.textContent = `💸 Apply RM ${rebate.toLocaleString()} Credit Rebate & Insert Reply`;
+        btnEl.textContent = `Give RM ${rebate.toLocaleString()} rebate & reply`;
       }
     }
 
@@ -317,7 +301,7 @@
       if (inputBox) inputBox.value = newText;
       const btnEl = document.getElementById('ext-primary-action-btn');
       if (btnEl && !chat.done) {
-        btnEl.textContent = `🛠️ Schedule Tech Drop-By (${timeStr}) & Insert Reply`;
+        btnEl.textContent = `Book technician & reply`;
       }
     }
 

@@ -411,3 +411,44 @@ main button.rounded-xl, main button.rounded-lg { min-height: 36px; }
 /* Keep IDs and codes on one line */
 main span.rounded-full, main span.rounded, .cc-pill { white-space: nowrap; }
 .cc-table tbody td:first-child { white-space: nowrap; }
+
+/* -------------------------------------------------------------------------
+   CashChase extension panel
+   ------------------------------------------------------------------------- */
+.ext-customer summary::-webkit-details-marker,
+.ext-adjust summary::-webkit-details-marker { display: none; }
+.ext-customer summary, .ext-adjust summary { min-height: 44px; border-radius: 12px; }
+
+.ext-adjust { padding-top: 1rem; border-top: 1px solid var(--line-soft); }
+
+.ext-reply {
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+.ext-reply:hover { border-color: #C3D3F0; }
+.ext-reply.is-selected { border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(1, 82, 252, 0.12); }
+
+.ext-radio {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--line);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ext-reply.is-selected .ext-radio { border-color: var(--blue); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 8px var(--blue); }
+
+.ext-footer {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -1.25rem -1.25rem;
+  padding: 0.875rem 1.25rem 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* The extension has its own AI; keep the floating helper off its action button */
+body[data-page="wa"] .cc-fab { display: none; }

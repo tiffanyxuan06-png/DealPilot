@@ -12,6 +12,7 @@
         if (nav) nav.classList.toggle('is-active', p === page);
       });
 
+      document.body.dataset.page = page;
       window.scrollTo({ top: 0 });
       if (window.revealIn) window.revealIn(document.getElementById('page-' + page));
       renderAll();
