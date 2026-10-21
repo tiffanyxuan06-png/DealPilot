@@ -80,7 +80,7 @@
       const box = document.getElementById('team-perms-body');
       if (!box) return;
       if (!usesBackend() || !backendPermissions) {
-        box.innerHTML = `<div class="text-xs text-[#64748B]">Team & Permissions apply to the live Sejuk Jaya profile stored in the backend. Switch to the Air-cond profile with the backend running (python run_server.py).</div>`;
+        box.innerHTML = `<div class="text-xs text-[#64748B]">Team & Permissions are stored in the backend. Start it with python run_server.py to view or change them.</div>`;
         return;
       }
       const p = backendPermissions;

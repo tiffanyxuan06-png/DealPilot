@@ -42,7 +42,7 @@ Shared backend state so both the **WebApp** and the **WhatsApp Chrome Extension*
 ### Tasks
 1. ✅ **FastAPI app (`backend/app.py`):** serves the WebApp from `webapp/` and the API under `/api/*`. CORS is enabled so the extension on `https://web.whatsapp.com` can call `http://localhost:8000/api/*`.
 2. ✅ **SQLite schema + seed (`backend/database.py`):** tables `settings`, `stock`, `invoices`, `client_memories`, `receipt_records`, `audit_logs`. Seed company *Sejuk Jaya Aircond Sdn Bhd*: Cash `RM 9,800`; Daikin 1.5HP, R32 Gas, Copper Pipe 3m; quotes on hold (`QT-101` expired, `QT-102`), pending invoice `INV-202`, aftersales `INV-201`, receipt to verify `INV-205`, supplier bill `SUP-881`.
-3. ⚠️ **SME profiles:** the WebApp offers Aircond (*Sejuk Jaya*), Software Studio (*NexaByte IT*) and Wholesale F&B (*Kopi & Bakery*). Only the aircond profile is seeded in the database; the other two live in the front-end simulator data.
+3. ✅ **SME profiles:** Aircond (*Sejuk Jaya*), Software Studio (*NexaByte IT*) and Wholesale F&B (*Kopi & Bakery*) are all seeded by the backend (`backend/services/profiles.py`). The Owner switches profile in Settings (`POST /api/profile`), which loads that business's demo data; Reset keeps the current profile.
 4. ✅ **Core math & state transitions:**
    - `build_state_payload()` returns `cashOnHand`, `stockValue`, `coreNetWorth`, `pendingReceivables`, `pendingPayables`, `fullNetWorth`.
    - `POST /api/whatsapp/execute` with `CREATE_QUOTE_HOLD` (increases `on_hold`, never deducts `on_hand`), `CONFIRM_DEPOSIT_DEDUCT` (deducts hold + on-hand, adds deposit to cash, creates pending invoice), `AFTERSALES_REPLACE` (`-1` stock), `RELEASE_EXPIRED_HOLD`.
@@ -57,7 +57,7 @@ Shared backend state so both the **WebApp** and the **WhatsApp Chrome Extension*
 
 ## Phase 2: The CashChase WebApp (Hours 4–7) ✅
 
-> The aircond profile loads from `GET /api/state` and every button calls its backend route (`webapp/js/state.js`: `syncFromBackend()`, `backendAction()`); the page re-checks the backend every 4 s, so actions taken in the WhatsApp extension appear in the WebApp. The F&B and Software Studio profiles are still front-end demo data.
+> The aircond profile loads from `GET /api/state` and every button calls its backend route (`webapp/js/state.js`: `syncFromBackend()`, `backendAction()`); the page re-checks the backend every 4 s, so actions taken in the WhatsApp extension appear in the WebApp. The same applies to whichever SME profile the Owner has loaded (Air-cond, Software Studio or F&B).
 
 ### Goal
 The live WebApp at `http://localhost:8000/` (`webapp/index.html`).

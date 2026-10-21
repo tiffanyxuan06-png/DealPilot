@@ -3,7 +3,7 @@
 Checked against the code on `main` (FastAPI + SQLite backend, `webapp/`, `extension/`). Effort is a rough guess.
 Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team decision).
 
-**How #1/#2 were fixed:** the aircond profile now loads from `GET /api/state`, every WebApp button calls its backend route, and the page re-checks the backend every 4 s so actions from the WhatsApp extension appear. The F&B and Software profiles are still front-end demo data (#27).
+**How #1/#2 were fixed:** the aircond profile now loads from `GET /api/state`, every WebApp button calls its backend route, and the page re-checks the backend every 4 s so actions from the WhatsApp extension appear. All three SME profiles now live in the backend (#27).
 
 **Team decision (21 Oct):** this is a hackathon demo on a laptop, so the security items are **skipped** for now. Revisit them before anything is put on a public URL.
 
@@ -59,7 +59,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 
 | # | Problem | Effort | Status |
 |---|---|---|---|
-| 27 | Only the aircond profile is in the database; F&B / Software Studio are front-end only | 1–2 h | ⬜ |
+| 27 | Only the aircond profile was in the database. **Fixed:** all 3 profiles are in the backend (`backend/services/profiles.py`); the Owner switches profile in Settings, which loads that business's demo data for the WebApp and extension | 1–2 h | ✅ |
 | 28 | 60-second onboarding (drop old Excel / bills → catalogue) not built | 2–3 h | ⬜ |
 | 29 | LHDN TIN request on WhatsApp. **Fixed:** customers without a TIN get an "Ask for LHDN e-Invoice TIN" reply option and a "📨 Ask TIN on WhatsApp" button in the directory; when a customer sends their TIN (and SSM no.), code detects it and one click saves it to the customer and their invoices | 1 h | ✅ |
 | 30 | No customers table. **Fixed:** `customers` table (name, phone, TIN, SSM BRN) built from invoices; new quotes/invoices take their LHDN status from it; Excel export has a Customers & LHDN sheet | 1 h | ✅ |

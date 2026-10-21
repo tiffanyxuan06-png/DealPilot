@@ -126,6 +126,11 @@ class PermissionsUpdateRequest(BaseModel):
     holdHours: Optional[int] = None  # how long a quote holds stock
 
 
+class ProfileSwitchRequest(BaseModel):
+    role: Optional[str] = None
+    preset: str  # aircond | software | fnb
+
+
 class FastForwardRequest(BaseModel):
     role: Optional[str] = None
     hours: int = 48

@@ -50,6 +50,7 @@ OWNER_ONLY = {
     "data.reset": "Reset demo data",
     "approval.decide": "Approve or reject requests",
     "demo.time": "Fast-forward demo time",
+    "profile.switch": "Switch SME profile",
 }
 
 MANDATORY_RULES: List[str] = [

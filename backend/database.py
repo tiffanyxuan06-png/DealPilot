@@ -141,6 +141,7 @@ def build_state_payload() -> Dict[str, Any]:
 
     cash_on_hand = int(get_setting(conn, "cash_on_hand", "9800"))
     company_name = get_setting(conn, "company_name", "Sejuk Jaya Aircond Sdn Bhd")
+    active_preset = get_setting(conn, "sme_preset", "aircond")
     framework = get_setting(conn, "framework", "")
     ai_creds = resolve_active_ai_credentials(conn)
     lmstudio_url = ai_creds["base_url"]
@@ -290,6 +291,7 @@ def build_state_payload() -> Dict[str, Any]:
         "customers": customers,
         "company": {
             "name": company_name,
+            "preset": active_preset,
             "cashOnHand": cash_on_hand,
             "stockValue": stock_value,
             "coreNetWorth": core_net_worth,
@@ -309,7 +311,8 @@ def build_state_payload() -> Dict[str, Any]:
     }
 
 
-def init_db(force_reset: bool = False) -> None:
+def init_db(force_reset: bool = False, preset: Optional[str] = None) -> None:
+    """Creates tables and seeds demo data. `preset` picks the SME profile to seed (default: air-cond)."""
     conn = get_db()
     cur = conn.cursor()
 
@@ -431,17 +434,19 @@ def init_db(force_reset: bool = False) -> None:
 
     cur.execute("SELECT COUNT(*) AS cnt FROM settings")
     if cur.fetchone()["cnt"] == 0:
-        seed_default_data(conn)
+        seed_default_data(conn, preset or "aircond")
+    active_preset = get_setting(conn, "sme_preset", "aircond")
 
     from backend.services.customers import sync_customers_from_invoices, upsert_customer
 
     if conn.execute("SELECT COUNT(*) AS cnt FROM customers").fetchone()["cnt"] == 0:
         sync_customers_from_invoices(conn, now_time_str())
-        # Demo customer who asks for a quote on WhatsApp (no invoice yet).
-        upsert_customer(conn, "Tan Bros Trading", now_time_str(), phone="+60 12-345 6789", tin="C2088391020")
+        if active_preset == "aircond":
+            # Demo customer who asks for a quote on WhatsApp (no invoice yet).
+            upsert_customer(conn, "Tan Bros Trading", now_time_str(), phone="+60 12-345 6789", tin="C2088391020")
 
     cur.execute("SELECT COUNT(*) AS cnt FROM receipt_records")
-    if cur.fetchone()["cnt"] == 0:
+    if cur.fetchone()["cnt"] == 0 and active_preset == "aircond":
         seed_receipt_records(conn)
 
     conn.commit()
@@ -500,7 +505,7 @@ def seed_receipt_records(conn: sqlite3.Connection) -> None:
     )
 
 
-def seed_default_data(conn: sqlite3.Connection) -> None:
+def seed_default_data(conn: sqlite3.Connection, preset: str = "aircond") -> None:
     cur = conn.cursor()
 
     default_settings = {
@@ -523,161 +528,169 @@ def seed_default_data(conn: sqlite3.Connection) -> None:
     for k, v in default_settings.items():
         cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
 
-    stock_rows = [
-        ("ACN-DAI-15", "Daikin 1.5HP Inverter Unit", 8, 0, "-", 850, 1150),
-        ("GAS-R32", "R32 Refrigerant Gas (3kg)", 15, 0, "-", 130, 180),
-        ("PIP-COP-3M", "Copper Pipe 3m Set", 15, 2, "2x QT-102 (41h left)", 96, 150),
-    ]
-    cur.executemany(
-        """
-        INSERT INTO stock (sku, name, on_hand, on_hold, hold_note, unit_cost, sell_price)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        stock_rows,
-    )
-
     ts = now_time_str()
-    invoice_rows = [
-        (
-            "INV-205",
-            "PENDING_VERIFY",
-            "Wisma Perdana Sdn Bhd",
-            "+60 12-998 4410",
-            "",
-            None,
-            "2x Daikin 1.5HP (Customer sent DuitNow Screenshot RM 2,200 · Ref: DN-88412 · RM 200 Short)",
-            "ACN-DAI-15",
-            2,
-            None,
-            0,
-            2400,
-            2200,
-            "DN-20261117-88412",
-            "PENDING_BANK_VERIFY",
-            "🟢 LHDN TIN: C20991820",
-            ts,
-        ),
-        (
-            "QT-101",
-            "QUOTE_HOLD",
-            "Kedai Runcit Ah Seng",
-            "+60 19-221 0091",
-            "⚠️ Expired",
-            3,
-            "3x Daikin 1.5HP (48h hold expired · no deposit)",
-            "ACN-DAI-15",
-            3,
-            None,
-            0,
-            3450,
-            None,
-            "",
-            "HOLD_EXPIRED",
-            "🟡 Missing TIN",
-            ts,
-        ),
-        (
-            "QT-102",
-            "QUOTE_HOLD",
-            "Syarikat Bina Jaya",
-            "+60 12-773 8810",
-            "⏳ 41h Left (Active)",
-            None,
-            "2x Copper Pipe 3m Set (ON HOLD — 41h left)",
-            "PIP-COP-3M",
-            2,
-            None,
-            0,
-            300,
-            None,
-            "",
-            "ON_HOLD_48H",
-            "🟢 LHDN TIN: C21884920",
-            ts,
-        ),
-        (
-            "INV-201",
-            "AFTERSALES",
-            "Klinik Dr. Lim",
-            "+60 16-882 1920",
-            "",
-            2,
-            "4x Daikin 1.5HP, 4x R32 Gas (1x R32 reported leaking)",
-            "GAS-R32",
-            1,
-            None,
-            0,
-            4800,
-            None,
-            "",
-            "AFTERSALES_PAUSED",
-            "🟢 LHDN TIN: C20114892",
-            ts,
-        ),
-        (
-            "INV-202",
-            "PENDING",
-            "Restoran Selera Kampung",
-            "+60 13-551 9022",
-            "",
-            None,
-            "1x Daikin 1.5HP + Standard Install",
-            "ACN-DAI-15",
-            1,
-            None,
-            0,
-            1650,
-            None,
-            "",
-            "PENDING_PAYMENT",
-            "🟢 LHDN TIN: C20449102",
-            ts,
-        ),
-        (
-            "SUP-881",
-            "SUPPLIER_COST",
-            "Penghawa Dingin Supplies (Supplier)",
-            "+60 3-7881 9900",
-            "",
-            None,
-            "10x Copper Pipe Set (Stock-In Bill)",
-            "PIP-COP-3M",
-            10,
-            None,
-            0,
-            1500,
-            None,
-            "",
-            "UNPAID_PAYABLE",
-            "🟢 Supplier e-Inv",
-            ts,
-        ),
-    ]
-    cur.executemany(
-        """
-        INSERT INTO invoices (
-            id, type, party, phone, hold_timer, chat_idx, items_text,
-            sku, qty, extra_sku, extra_qty, amount, claimed_amount,
-            receipt_ref, status, lhdn, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        invoice_rows,
-    )
-    # Real hold times for the demo quotes: QT-101 ran out 2h ago, QT-102 has 41h left.
-    now = datetime.now()
-    cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-101'", ((now - timedelta(hours=2)).strftime(HOLD_TIME_FORMAT),))
-    cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-102'", ((now + timedelta(hours=41)).strftime(HOLD_TIME_FORMAT),))
-    # The seeded DuitNow receipt for INV-205 was paid to the company (it is RM 200 short, which is the check it fails).
-    cur.execute("UPDATE invoices SET receipt_payee = 'Sejuk Jaya Aircond Sdn Bhd' WHERE id = 'INV-205'")
+    if preset != "aircond":
+        from backend.services.profiles import seed_profile
 
-    logs = [
-        "10:45 AM · [System] QT-101 (Kedai Ah Seng): 48h Stock Hold expired with no deposit (3x Daikin released back to Available).",
-        "10:42 AM · [Auto-OCR] Decoded DuitNow Receipt Ref: DN-88412 from Wisma Perdana (RM 2,200 vs RM 2,400 invoice: RM 200 Shortfall).",
-        "09:51 AM · [Guard] Auto-paused reminders on INV-201 (Klinik Dr. Lim) due to aftersales complaint.",
-        "09:00 AM · [System] Loaded CashChase SME Database (Cash: RM 9,800 · Physical Stock: RM 10,190).",
-    ]
-    for entry in reversed(logs):
-        cur.execute("INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)", (entry, ts))
+        for k in ("ssm", "tin"):  # Sejuk Jaya registration details
+            cur.execute("DELETE FROM settings WHERE key = ?", (k,))
+        seed_profile(conn, preset, ts, HOLD_TIME_FORMAT)
+
+    if preset == "aircond":
+        stock_rows = [
+            ("ACN-DAI-15", "Daikin 1.5HP Inverter Unit", 8, 0, "-", 850, 1150),
+            ("GAS-R32", "R32 Refrigerant Gas (3kg)", 15, 0, "-", 130, 180),
+            ("PIP-COP-3M", "Copper Pipe 3m Set", 15, 2, "2x QT-102 (41h left)", 96, 150),
+        ]
+        cur.executemany(
+            """
+            INSERT INTO stock (sku, name, on_hand, on_hold, hold_note, unit_cost, sell_price)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            stock_rows,
+        )
+
+        invoice_rows = [
+            (
+                "INV-205",
+                "PENDING_VERIFY",
+                "Wisma Perdana Sdn Bhd",
+                "+60 12-998 4410",
+                "",
+                None,
+                "2x Daikin 1.5HP (Customer sent DuitNow Screenshot RM 2,200 · Ref: DN-88412 · RM 200 Short)",
+                "ACN-DAI-15",
+                2,
+                None,
+                0,
+                2400,
+                2200,
+                "DN-20261117-88412",
+                "PENDING_BANK_VERIFY",
+                "🟢 LHDN TIN: C20991820",
+                ts,
+            ),
+            (
+                "QT-101",
+                "QUOTE_HOLD",
+                "Kedai Runcit Ah Seng",
+                "+60 19-221 0091",
+                "⚠️ Expired",
+                3,
+                "3x Daikin 1.5HP (48h hold expired · no deposit)",
+                "ACN-DAI-15",
+                3,
+                None,
+                0,
+                3450,
+                None,
+                "",
+                "HOLD_EXPIRED",
+                "🟡 Missing TIN",
+                ts,
+            ),
+            (
+                "QT-102",
+                "QUOTE_HOLD",
+                "Syarikat Bina Jaya",
+                "+60 12-773 8810",
+                "⏳ 41h Left (Active)",
+                None,
+                "2x Copper Pipe 3m Set (ON HOLD — 41h left)",
+                "PIP-COP-3M",
+                2,
+                None,
+                0,
+                300,
+                None,
+                "",
+                "ON_HOLD_48H",
+                "🟢 LHDN TIN: C21884920",
+                ts,
+            ),
+            (
+                "INV-201",
+                "AFTERSALES",
+                "Klinik Dr. Lim",
+                "+60 16-882 1920",
+                "",
+                2,
+                "4x Daikin 1.5HP, 4x R32 Gas (1x R32 reported leaking)",
+                "GAS-R32",
+                1,
+                None,
+                0,
+                4800,
+                None,
+                "",
+                "AFTERSALES_PAUSED",
+                "🟢 LHDN TIN: C20114892",
+                ts,
+            ),
+            (
+                "INV-202",
+                "PENDING",
+                "Restoran Selera Kampung",
+                "+60 13-551 9022",
+                "",
+                None,
+                "1x Daikin 1.5HP + Standard Install",
+                "ACN-DAI-15",
+                1,
+                None,
+                0,
+                1650,
+                None,
+                "",
+                "PENDING_PAYMENT",
+                "🟢 LHDN TIN: C20449102",
+                ts,
+            ),
+            (
+                "SUP-881",
+                "SUPPLIER_COST",
+                "Penghawa Dingin Supplies (Supplier)",
+                "+60 3-7881 9900",
+                "",
+                None,
+                "10x Copper Pipe Set (Stock-In Bill)",
+                "PIP-COP-3M",
+                10,
+                None,
+                0,
+                1500,
+                None,
+                "",
+                "UNPAID_PAYABLE",
+                "🟢 Supplier e-Inv",
+                ts,
+            ),
+        ]
+        cur.executemany(
+            """
+            INSERT INTO invoices (
+                id, type, party, phone, hold_timer, chat_idx, items_text,
+                sku, qty, extra_sku, extra_qty, amount, claimed_amount,
+                receipt_ref, status, lhdn, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            invoice_rows,
+        )
+        # Real hold times for the demo quotes: QT-101 ran out 2h ago, QT-102 has 41h left.
+        now = datetime.now()
+        cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-101'", ((now - timedelta(hours=2)).strftime(HOLD_TIME_FORMAT),))
+        cur.execute("UPDATE invoices SET hold_expires_at = ? WHERE id = 'QT-102'", ((now + timedelta(hours=41)).strftime(HOLD_TIME_FORMAT),))
+        # The seeded DuitNow receipt for INV-205 was paid to the company (it is RM 200 short, which is the check it fails).
+        cur.execute("UPDATE invoices SET receipt_payee = 'Sejuk Jaya Aircond Sdn Bhd' WHERE id = 'INV-205'")
+
+        logs = [
+            "10:45 AM · [System] QT-101 (Kedai Ah Seng): 48h Stock Hold expired with no deposit (3x Daikin released back to Available).",
+            "10:42 AM · [Auto-OCR] Decoded DuitNow Receipt Ref: DN-88412 from Wisma Perdana (RM 2,200 vs RM 2,400 invoice: RM 200 Shortfall).",
+            "09:51 AM · [Guard] Auto-paused reminders on INV-201 (Klinik Dr. Lim) due to aftersales complaint.",
+            "09:00 AM · [System] Loaded CashChase SME Database (Cash: RM 9,800 · Physical Stock: RM 10,190).",
+        ]
+        for entry in reversed(logs):
+            cur.execute("INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)", (entry, ts))
 
     memory_rows = [
         (

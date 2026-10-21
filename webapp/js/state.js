@@ -604,18 +604,22 @@ let currentRole = 'OWNER';
 
 
 // --- BACKEND SYNC ---
-    // The aircond profile lives in the backend database (shared with the WhatsApp extension).
-    // Other profiles stay as front-end demo data.
+    // The active SME profile lives in the backend database (shared with the WhatsApp extension).
+    // The Owner switches profile through the backend; the page follows whatever profile the backend has loaded.
     let backendOnline = false;
+    let backendPreset = 'aircond';
     let lastBackendSignature = '';
 
     function usesBackend() {
-      return backendOnline && currentSME === 'aircond';
+      return backendOnline && currentSME === backendPreset;
     }
 
     function applyBackendState(data) {
       if (!data || !data.company) return;
-      const st = smeProfiles.aircond;
+      backendPreset = (data.company.preset && smeProfiles[data.company.preset]) ? data.company.preset : 'aircond';
+      const st = smeProfiles[backendPreset];
+      st.name = data.company.name;
+      if (data.company.framework) st.framework = data.company.framework;
       st.cashOnHand = data.company.cashOnHand;
       st.stock = data.stock;
       st.invoices = data.invoices;
@@ -650,7 +654,11 @@ let currentRole = 'OWNER';
         const signature = backendSignature(data);
         if (signature === lastBackendSignature) return;
         applyBackendState(data);
-        if (currentSME === 'aircond') renderAll();
+        if (currentSME !== backendPreset) {
+          showProfileInUI(backendPreset);  // e.g. the Owner switched profile in another tab
+        } else {
+          renderAll();
+        }
       } catch (err) {
         backendOnline = false;
       }
@@ -689,7 +697,7 @@ let currentRole = 'OWNER';
       const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
       const modalOpen = !document.getElementById('universal-confirm-modal')?.classList.contains('hidden')
         || !document.getElementById('settings-modal')?.classList.contains('hidden');
-      if (currentSME === 'aircond' && !typing && !modalOpen) syncFromBackend();
+      if (!typing && !modalOpen) syncFromBackend();
     }, 4000);
 
 
@@ -789,8 +797,34 @@ let currentRole = 'OWNER';
       }
     }
 
+    // Settings dropdown: with the backend running, the Owner loads that business's demo data on the server.
     function changeSMEProfile(val) {
+      const select = document.getElementById('sme-select');
+      if (!backendOnline) {
+        showProfileInUI(val);
+        return;
+      }
+      if (val === backendPreset) return;
+      askUserConfirm(
+        `Switch SME Profile`,
+        `Load the demo data for ${smeProfiles[val].name}?\n\nThis replaces the current demo data (stock, invoices, approvals, permissions) for everyone, including the WhatsApp extension. Only the Owner can do this.`,
+        async () => {
+          const data = await backendAction('/api/profile', { preset: val });
+          if (data) {
+            showProfileInUI(val);
+          } else if (select) {
+            select.value = currentSME;
+          }
+        },
+        '🔄 Switch & Load Demo Data'
+      );
+      if (select) select.value = currentSME;  // only changes once the backend confirms
+    }
+
+    function showProfileInUI(val) {
       currentSME = val;
+      const select = document.getElementById('sme-select');
+      if (select) select.value = val;
       currentChatIndex = 0;
       const st = getState();
       const fwEl = document.getElementById('owner-framework-input');
