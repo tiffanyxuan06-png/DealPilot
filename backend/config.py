@@ -5,7 +5,7 @@ Read with get_settings(): it builds a fresh object each call, so changes to the 
 """
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, ValidationError, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -16,7 +16,8 @@ class AppSettings(BaseSettings):
 
     # Any SQLAlchemy URL. Local testing uses SQLite (e.g. sqlite:///backend/cashchase.db, see .env.example);
     # production can point at Postgres once its migrations exist (backend/schema/migrations/<dialect>/).
-    database_url: str
+    # Default for local testing; set DATABASE_URL (in .env or the environment) to use another database, e.g. Postgres later.
+    database_url: str = "sqlite:///backend/cashchase.db"
     host: str = "127.0.0.1"  # set HOST=0.0.0.0 to open the server to the Wi-Fi (e.g. a phone demo)
     port: int = 8000
 
@@ -66,12 +67,4 @@ class AppSettings(BaseSettings):
 
 
 def get_settings() -> AppSettings:
-    try:
-        return AppSettings()
-    except ValidationError as exc:
-        if any(e["loc"] == ("database_url",) for e in exc.errors()):
-            raise RuntimeError(
-                "DATABASE_URL is not set. For local testing add this line to .env:\n"
-                "DATABASE_URL=sqlite:///backend/cashchase.db"
-            ) from None
-        raise
+    return AppSettings()

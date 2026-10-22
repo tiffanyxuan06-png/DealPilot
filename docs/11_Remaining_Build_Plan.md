@@ -44,7 +44,7 @@ SUPABASE_URL= python run_server.py
 
 PowerShell: `$env:SUPABASE_URL=""; python run_server.py`. The webapp then shows the **Owner / Staff demo buttons** on the sign-in page.
 
-**`DATABASE_URL` is required.** Add `DATABASE_URL=sqlite:///backend/cashchase.db` to your `.env` (SQLite is for local testing only; see `.env.example`). The data layer is described in [doc 12](12_Data_Layer_Refactor_Plan.md): tables come only from `backend/schema/migrations/<database>/*.sql`, queries go through SQLAlchemy (`backend/db/`), demo data lives in `backend/schema/seeds/*.json`, and requests/responses/settings are Pydantic models in `backend/models/`. Never write raw SQLite-specific SQL in app code.
+**Database:** by default the server uses `sqlite:///backend/cashchase.db` (local testing only). Set `DATABASE_URL` in `.env` to use another database (see `.env.example`). The data layer is described in [doc 12](12_Data_Layer_Refactor_Plan.md): tables come only from `backend/schema/migrations/<database>/*.sql`, queries go through SQLAlchemy (`backend/db/`), demo data lives in `backend/schema/seeds/*.json`, and requests/responses/settings are Pydantic models in `backend/models/`. Never write raw SQLite-specific SQL in app code.
 
 **Run the tests** (uses a temporary database, never your own):
 

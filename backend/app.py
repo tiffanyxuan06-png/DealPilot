@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.config import get_settings
 from backend.db import init_database
+from backend.models.responses import AuthConfig
 from backend.routes.state import router as state_router
 from backend.routes.whatsapp import router as whatsapp_router
 from backend.routes.company_ai import router as company_ai_router
@@ -107,14 +108,14 @@ if WEBAPP_DIR.exists():
         app.mount("/img", StaticFiles(directory=str(img_dir)), name="img")
 
 
-@app.get("/api/auth/config")
-def auth_config() -> dict:
+@app.get("/api/auth/config", response_model=AuthConfig)
+def auth_config() -> AuthConfig:
     """Public Supabase settings for the WebApp login (the anon key is safe to expose)."""
     env = get_settings()
-    return {"url": env.supabase_url, "anonKey": env.supabase_anon_key}
+    return AuthConfig(url=env.supabase_url, anon_key=env.supabase_anon_key)
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root() -> HTMLResponse:
     index_file = WEBAPP_DIR / "index.html"
     if index_file.exists():

@@ -11,12 +11,18 @@ class RoleRequest(ApiModel):
     role: Optional[str] = None  # missing role = Staff (least privilege); with login on, the signed-in role wins
 
 
+class ChatMessage(ApiModel):
+    sender: str = "Them"
+    text: str = ""
+    is_me: Optional[bool] = None  # sent by the extension
+
+
 class WhatsAppAnalyzeRequest(RoleRequest):
     customer: str
     phone: Optional[str] = ""
     message: str
     user_instruction: Optional[str] = ""
-    recent_messages: Optional[List[Dict[str, Any]]] = None
+    recent_messages: Optional[List[ChatMessage]] = None
     last_sender: Optional[str] = "Them"
     last_client_message: Optional[str] = ""
     last_my_message: Optional[str] = ""

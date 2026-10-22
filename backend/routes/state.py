@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
 
@@ -7,6 +7,7 @@ from backend.config import get_settings
 from backend.db import init_database, session_scope
 from backend.db.seed import CUSTOM_PRESET, available_presets
 from backend.models.requests import ProfileSwitchRequest, RoleRequest, SettingsUpdateRequest
+from backend.models.responses import AiServerStatus, HealthResponse
 from backend.models.state import ActionResponse, StatePayload
 from backend.services.business import load_business, save_setting
 from backend.services.lmstudio import check_lmstudio_health
@@ -17,16 +18,16 @@ from backend.services.pipeline import build_state, log, resolve_active_ai_creden
 router = APIRouter(tags=["State & Settings"])
 
 
-@router.get("/api/health")
-def api_health() -> Dict[str, Any]:
+@router.get("/api/health", response_model=HealthResponse)
+def api_health() -> HealthResponse:
     ai = resolve_active_ai_credentials()
-    return {
-        "status": "ok",
+    return HealthResponse(
+        status="ok",
         # Only the database type, never the URL (it can hold a password).
-        "database": get_settings().database_url.split(":", 1)[0],
-        "aiProvider": ai["provider"],
-        "lmstudio": check_lmstudio_health(ai["base_url"], api_key=ai["api_key"]),
-    }
+        database=get_settings().database_url.split(":", 1)[0],
+        ai_provider=ai["provider"],
+        lmstudio=AiServerStatus(**check_lmstudio_health(ai["base_url"], api_key=ai["api_key"])),
+    )
 
 
 @router.get("/api/state", response_model=StatePayload)

@@ -1,29 +1,22 @@
 """What the API returns for each record. Built from the SQLAlchemy rows in backend/db/orm.py."""
 from typing import Dict, List, Optional
 
-from pydantic import SerializerFunctionWrapHandler, model_serializer
+from pydantic import Field
 
 from backend.models.base import ApiModel
 from backend.models.enums import PermissionMode, Stage
 
 
-def _drop_owner_only(data: dict, *fields: str) -> dict:
-    # Owner-only fields are None for Staff and then left out of the JSON entirely.
-    for f in fields:
-        if data.get(f) is None:
-            data.pop(f, None)
-    return data
+def _owner_only():
+    # None for Staff, and then left out of the JSON entirely.
+    return Field(None, exclude_if=lambda v: v is None)
 
 
 class Product(ApiModel):
     sku: str
     name: str
     sell_price: int
-    unit_cost: Optional[int] = None  # Owner only
-
-    @model_serializer(mode="wrap")
-    def _ser(self, handler: SerializerFunctionWrapHandler) -> dict:
-        return _drop_owner_only(handler(self), "unitCost", "unit_cost")
+    unit_cost: Optional[int] = _owner_only()
 
 
 class Rep(ApiModel):
@@ -65,11 +58,7 @@ class Deal(ApiModel):
     created_at: str
     won_at: Optional[str] = None
     margin_ok: bool = True
-    margin_pct: Optional[float] = None  # Owner only
-
-    @model_serializer(mode="wrap")
-    def _ser(self, handler: SerializerFunctionWrapHandler) -> dict:
-        return _drop_owner_only(handler(self), "marginPct", "margin_pct")
+    margin_pct: Optional[float] = _owner_only()
 
 
 class Customer(ApiModel):

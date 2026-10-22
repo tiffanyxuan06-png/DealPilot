@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from backend.db import orm, session_scope
 from backend.models.requests import WhatsAppAnalyzeRequest, WhatsAppExecuteRequest
+from backend.models.responses import ClientMemoryRating, WhatsAppAnalyzeResponse
+from backend.models.state import ActionResponse
 from backend.services.business import load_business
 from backend.services.clock import now_time_str
 from backend.services.customers import apply_tin, get_customer, parse_ssm, parse_tin, tin_request_text
@@ -25,7 +27,7 @@ from backend.services.prompts import (
 router = APIRouter(tags=["WhatsApp Copilot"])
 
 
-@router.get("/api/client/memory")
+@router.get("/api/client/memory", response_model=ClientMemoryRating)
 def get_client_memory_endpoint(
     customer: str = Query(..., description="Customer name"),
     phone: str = Query("", description="Phone number"),
@@ -45,14 +47,14 @@ def _save_memory(session: Session, req: WhatsAppAnalyzeRequest, mem: Dict[str, A
             total_orders=mem["totalOrders"],
             total_paid_rm=mem["totalPaidRm"],
             last_message=req.message,
-            recent_history_json=json.dumps(req.recent_messages or []),
+            recent_history_json=json.dumps([m.model_dump() for m in req.recent_messages or []]),
             cached_analysis_json=json.dumps(analysis),
             updated_at=now_time_str(),
         )
     )
 
 
-@router.post("/api/whatsapp/analyze")
+@router.post("/api/whatsapp/analyze", response_model=WhatsAppAnalyzeResponse)
 def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
     state = build_state().model_dump(by_alias=True)  # Staff view: no unit costs reach the AI
     # ponytail: the old copilot prompt still expects a "stock" list; Phase 3 replaces it with the price list.
@@ -68,7 +70,7 @@ def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
     price_context = "\n".join(f"- {p['sku']}: {p['name']} | Sell: RM {p['sellPrice']}" for p in state["products"])
 
     recent_context_str = "\n".join(
-        f"  [{as_customer_text(m.get('sender', 'Them'))}]: {as_customer_text(m.get('text', ''))}"
+        f"  [{as_customer_text(m.sender)}]: {as_customer_text(m.text)}"
         for m in (req.recent_messages or [])[-8:]
     ) or "  (First message in current view)"
 
@@ -179,8 +181,8 @@ def _add_tin_request(session: Session, analysis: Dict[str, Any], customer: str) 
     analysis["tinMissing"] = True
 
 
-@router.post("/api/whatsapp/execute")
-def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
+@router.post("/api/whatsapp/execute", response_model=ActionResponse)
+def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
     role = normalize_role(req.role)
     action = req.action_type
     with session_scope() as s:
@@ -196,7 +198,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
                 summary=f"Save LHDN TIN {tin} for {req.customer}",
             )
             if gate:
-                return gate.model_dump(by_alias=True)
+                return gate
             ssm = parse_ssm(req.ssm_brn or "") or ""
             updated = apply_tin(s, req.customer, tin, ssm, now_time_str())
             log(
@@ -209,10 +211,7 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> Dict[str, Any]:
                 status_code=501,
                 detail=f"WhatsApp action {action} is being rebuilt for deals (docs/11 §4.4). Use /api/deals for now.",
             )
-    response = {"status": "ok", "state": build_state(role)}
-    if updated is not None:
-        response["updated"] = updated
-    return response
+    return ActionResponse(status="ok", state=build_state(role), updated=updated)
 
 
 register_handler("whatsapp_execute", api_whatsapp_execute, WhatsAppExecuteRequest)

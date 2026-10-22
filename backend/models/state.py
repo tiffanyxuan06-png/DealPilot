@@ -1,6 +1,8 @@
 """The /api/state response and the envelope every action route returns."""
 from typing import Dict, List, Optional
 
+from pydantic import Field
+
 from backend.models.base import ApiModel
 from backend.models.entities import Approval, ClientMemory, Customer, Deal, Permissions, Product, Rep
 
@@ -42,13 +44,18 @@ class StatePayload(ApiModel):
     logs: List[str]
 
 
+def _only_when_set():
+    return Field(None, exclude_if=lambda v: v is None)
+
+
 class ActionResponse(ApiModel):
     """status: ok | pending_approval | updated | reset_complete. Extra fields only for some routes."""
 
     status: str
     state: StatePayload
-    created_id: Optional[str] = None
-    moved: Optional[List[str]] = None
-    approval_id: Optional[int] = None
-    reason: Optional[str] = None
-    message: Optional[str] = None
+    created_id: Optional[str] = _only_when_set()
+    moved: Optional[List[str]] = _only_when_set()
+    approval_id: Optional[int] = _only_when_set()
+    reason: Optional[str] = _only_when_set()
+    message: Optional[str] = _only_when_set()
+    updated: Optional[List[str]] = _only_when_set()  # WhatsApp TIN: the open deals it now covers

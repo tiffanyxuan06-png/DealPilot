@@ -60,7 +60,7 @@ To use CashChase directly inside live [WhatsApp Web](https://web.whatsapp.com/):
 
 ## Configuration (`.env`)
 Copy `.env.example` to `.env`. It is loaded automatically when the server starts; values already set in your environment (e.g. Replit Secrets) win.
-- `DATABASE_URL` (**required**): any SQLAlchemy URL. For local testing use `sqlite:///backend/cashchase.db`. Postgres is planned later; it needs its own migrations in `backend/schema/migrations/postgresql/`. Tables come only from the SQL files in `backend/schema/migrations/<database>/`, and demo data from `backend/schema/seeds/*.json` (see `docs/12_Data_Layer_Refactor_Plan.md`).
+- `DATABASE_URL`: any SQLAlchemy URL. Default `sqlite:///backend/cashchase.db` (local testing). Postgres is planned later; it needs its own migrations in `backend/schema/migrations/postgresql/`. Tables come only from the SQL files in `backend/schema/migrations/<database>/`, and demo data from `backend/schema/seeds/*.json` (see `docs/12_Data_Layer_Refactor_Plan.md`).
 - `LMSTUDIO_URL`, `LMSTUDIO_API_KEY`, `LMSTUDIO_MODEL`: your LM Studio server (default `http://127.0.0.1:1234/v1`).
 - `PORT`: server port (default `8000`).
 - `AI_PROVIDER`: `lmstudio` (default), `runpod`, or `auto`. For RunPod fill in `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` and `RUNPOD_MODEL` (and optionally `RUNPOD_VISION_MODEL` for receipt photos). The key stays on the server. If RunPod is cold-starting or offline, CashChase answers with its built-in replies until it wakes up.

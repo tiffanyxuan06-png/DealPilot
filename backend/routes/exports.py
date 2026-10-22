@@ -99,7 +99,7 @@ def order_rows(session: Session, date_from: Optional[str] = None, date_to: Optio
     return rows
 
 
-@router.get("/api/export/orders.csv")
+@router.get("/api/export/orders.csv", response_class=Response, responses={200: {"content": {"text/csv": {}}, "description": "Won orders, one row per line item"}})
 def api_export_orders_csv(
     date_from: Optional[str] = Query(None, alias="from"),
     date_to: Optional[str] = Query(None, alias="to"),
@@ -131,7 +131,7 @@ def api_export_orders_csv(
     )
 
 
-@router.get("/api/deals/{deal_id}/pdf")
+@router.get("/api/deals/{deal_id}/pdf", response_class=Response, responses={200: {"content": {"application/pdf": {}}, "description": "Quote or sales order PDF"}})
 def api_deal_pdf(deal_id: str) -> Response:
     """Quote PDF (or sales order once won) with prices from the price list and the availability disclaimer."""
     with session_scope() as s:

@@ -42,13 +42,13 @@ def test_bad_seed_fails_clearly():
         SeedFile.model_validate(good)
 
 
-def test_database_url_is_required(monkeypatch):
+def test_database_url_defaults_to_local_sqlite(monkeypatch):
+    from backend.config import ROOT
+
     monkeypatch.delenv("DATABASE_URL")
-    with pytest.raises(ValidationError):
-        AppSettings(_env_file=None)
-    monkeypatch.setattr("backend.config.AppSettings", lambda: AppSettings(_env_file=None))
-    with pytest.raises(RuntimeError, match="DATABASE_URL is not set"):
-        get_settings()
+    assert AppSettings(_env_file=None).database_url == "sqlite:///" + (ROOT / "backend" / "cashchase.db").as_posix()
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@h/db")
+    assert get_settings().database_url == "postgresql+psycopg://u:p@h/db"  # the environment wins
 
 
 def test_health_shows_database_type_only(client):
@@ -140,3 +140,39 @@ def test_whatsapp_tin_approval_replays_and_matches_any_case(client):
     s = client.post(f"/api/approvals/{r['approvalId']}/decide", json={**OWNER, "decision": "APPROVE"}).json()["state"]
     assert next(c for c in s["customers"] if c["name"] == "Kedai Runcit Ah Seng")["tin"] == "C29988776650"
     assert any("open deals: #QT-2026-101" in line for line in s["logs"])  # lower-case name still finds the deal
+
+
+# --- Every JSON route is described by a Pydantic model in /docs ---
+
+# Free-form on purpose: the old copilot's AI output (Phase 3 gives it a model) and FastAPI's own 422 error model.
+ALLOWED_FREE_FORM = {"WhatsAppAnalyzeResponse/properties/analysis", "ValidationError/properties/ctx"}
+
+
+def _free_form(schema, path, out):
+    if isinstance(schema, dict):
+        if schema.get("type") == "object" and "properties" not in schema and schema.get("additionalProperties") in (None, True, {}):
+            out.append(path)
+        for k, v in schema.items():
+            _free_form(v, f"{path}/{k}", out)
+    elif isinstance(schema, list):
+        for v in schema:
+            _free_form(v, path, out)
+
+
+def test_openapi_has_no_untyped_objects(client):
+    spec = client.get("/openapi.json").json()
+    for path, ops in spec["paths"].items():
+        for method, op in ops.items():
+            content = op["responses"]["200"].get("content", {})
+            assert "application/json" not in content or "$ref" in str(content["application/json"]["schema"]), f"{method.upper()} {path} has no response model"
+    out = []
+    for name, schema in spec["components"]["schemas"].items():
+        _free_form(schema, name, out)
+    assert set(out) <= ALLOWED_FREE_FORM, f"untyped objects: {sorted(set(out) - ALLOWED_FREE_FORM)}"
+
+
+def test_client_memory_route_matches_its_model(client):
+    known = client.get("/api/client/memory", params={"customer": "Kedai Runcit Ah Seng"}).json()
+    assert known["isNew"] is False and known["trustBadge"]
+    new = client.get("/api/client/memory", params={"customer": "Nobody Yet"}).json()
+    assert new["isNew"] is True and new["tier"] == "NEW_CLIENT"

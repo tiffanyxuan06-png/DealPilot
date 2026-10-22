@@ -4,9 +4,9 @@
 > 把表结构和演示数据移出 Python，查询统一走 SQLAlchemy，数据行、接口返回和设置都用 Pydantic 定义类型。在第三阶段之前完成。
 
 > **✅ Built (22 Oct 2026).** 69 tests pass (2 known Phase 3 failures). Changes from the plan below, after review:
-> - **No SQLite assumption.** The database comes from the required `DATABASE_URL` setting (`backend/config.py`). SQLite is for local testing only; Postgres comes later. Migrations live per database type: `backend/schema/migrations/sqlite/001_initial.sql` (a `postgresql/` folder is added when we switch). SQLite-only code (`executescript`, `PRAGMA foreign_keys`, `check_same_thread`) runs only when the URL is SQLite. `/api/health` shows only the database type, never the URL.
+> - **No SQLite assumption.** The database comes from the `DATABASE_URL` setting (`backend/config.py`), default `sqlite:///backend/cashchase.db`. SQLite is for local testing only; Postgres comes later. Migrations live per database type: `backend/schema/migrations/sqlite/001_initial.sql` (a `postgresql/` folder is added when we switch). SQLite-only code (`executescript`, `PRAGMA foreign_keys`, `check_same_thread`) runs only when the URL is SQLite. `/api/health` shows only the database type, never the URL.
 > - `backend/database.py` became `backend/services/pipeline.py` (state, follow-ups, margin, commission, activity log), `backend/services/business.py` (settings) and `backend/services/clock.py` (timestamps).
-> - Tests: new `test/unit/test_data_layer.py` (ORM matches migrations, migrations apply once, seed files validate, `DATABASE_URL` required).
+> - Tests: new `test/unit/test_data_layer.py` (ORM matches migrations, migrations apply once, seed files validate, `DATABASE_URL` default and override).
 
 **Agreed choices (22 Oct 2026):**
 
