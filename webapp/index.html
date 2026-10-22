@@ -8,10 +8,151 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
+  <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=20261022" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
+
+  <!-- ===================================================================== -->
+  <!-- SIGN IN (prototype: demo accounts, no real authentication yet)        -->
+  <!-- ===================================================================== -->
+  <div id="login-screen" class="login-screen" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <div class="login-shell">
+
+      <!-- Brand side: what CashChase does, shown with a small live preview -->
+      <section class="login-brand" aria-hidden="true">
+        <span class="login-glow g1"></span><span class="login-glow g2"></span><span class="login-glow g3"></span>
+
+        <div class="relative flex items-center gap-3">
+          <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto bg-white rounded-xl p-1" />
+          <div>
+            <div class="font-bold text-lg leading-tight text-white">CashChase</div>
+            <div class="text-xs text-[#01E3FB]">for Orbyte SME</div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <h2 class="text-[28px] lg:text-[32px] font-bold text-white leading-tight" style="text-wrap: balance">Know who owes you,<br />before you chase.</h2>
+          <p class="text-sm text-white/75 mt-2 max-w-xs">Cash, stock and WhatsApp orders in one place. AI suggests, you decide.</p>
+
+          <!-- Product preview -->
+          <div class="login-preview">
+            <div class="login-preview-card m-float">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-[#5B6B85]">Money coming in</span>
+                <span class="w-7 h-7 rounded-lg bg-[#E3F6FF] text-[#01AAFC] flex items-center justify-center"><svg class="w-4 h-4"><use href="#i-in"/></svg></span>
+              </div>
+              <div class="text-xl font-bold text-[#042970] mt-1" style="font-variant-numeric: tabular-nums">RM 8,850</div>
+              <div class="login-bars"><i style="height:40%"></i><i style="height:55%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:62%"></i><i style="height:88%"></i></div>
+            </div>
+            <div class="login-preview-toast">
+              <span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><svg class="w-3.5 h-3.5"><use href="#i-check"/></svg></span>
+              <span class="min-w-0">
+                <span class="block text-xs font-semibold text-[#042970]">Deposit checked</span>
+                <span class="block text-[11px] text-[#5B6B85] truncate">Wisma Perdana · RM 2,000</span>
+              </span>
+            </div>
+            <img src="img/mascot-wave.png" alt="" width="295" height="320" class="login-mascot m-wave" />
+          </div>
+        </div>
+
+        <ul class="relative flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-white/70">
+          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>LHDN e-Invoice ready</li>
+          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>48h stock holds</li>
+          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>Owner approvals</li>
+        </ul>
+      </section>
+
+      <!-- Form side -->
+      <section class="login-form-side">
+        <div class="w-full max-w-sm">
+          <div class="flex items-center gap-3 md:hidden mb-6">
+            <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto" />
+            <span class="font-bold text-lg text-[#042970]">CashChase</span>
+            <img src="img/mascot-wave.png" alt="" width="295" height="320" class="w-14 h-auto ml-auto m-wave" aria-hidden="true" />
+          </div>
+
+          <h1 id="login-title" class="text-[26px] font-bold text-[#042970] leading-tight">Welcome back</h1>
+          <p class="cc-sub mt-1">Sign in to your CashChase workspace.</p>
+
+          <form id="login-form" class="mt-7 space-y-4" novalidate onsubmit="handleLogin(event)">
+            <div>
+              <label for="login-email" class="cc-label">Work email</label>
+              <div class="login-field">
+                <svg class="login-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                <input id="login-email" type="email" inputmode="email" autocomplete="username" spellcheck="false" placeholder="you@company.my" class="cc-input" aria-describedby="login-email-error" onblur="validateField('login-email')" oninput="clearFieldError('login-email')" />
+              </div>
+              <p id="login-email-error" class="login-error" hidden></p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between">
+                <label for="login-password" class="cc-label">Password</label>
+                <button type="button" onclick="forgotPassword()" class="text-xs font-semibold text-[#0152FC] hover:underline mb-1.5">Forgot password?</button>
+              </div>
+              <div class="login-field">
+                <svg class="login-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                <input id="login-password" type="password" autocomplete="current-password" class="cc-input !pr-12" aria-describedby="login-password-hint login-password-caps login-password-error" onblur="validateField('login-password')" oninput="clearFieldError('login-password')" onkeyup="checkCapsLock(event)" onkeydown="checkCapsLock(event)" />
+                <button type="button" id="login-toggle-pw" onclick="togglePasswordVisibility()" class="login-eye" aria-label="Show password" aria-pressed="false">
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.5 0-10-7-10-7a18 18 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-2.2 3.2M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="m2 2 20 20"/></svg>
+                </button>
+              </div>
+              <p id="login-password-hint" class="text-xs text-[#5B6B85] mt-1.5">At least 6 characters.</p>
+              <p id="login-password-caps" class="login-caps" hidden>
+                <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 12h5v8h8v-8h5z"/></svg>
+                Caps Lock is on
+              </p>
+              <p id="login-password-error" class="login-error" hidden></p>
+            </div>
+
+            <label class="flex items-center gap-2.5 text-sm text-[#324564] cursor-pointer select-none">
+              <input id="login-remember" type="checkbox" class="w-4 h-4 accent-[#0152FC]" />
+              Keep me signed in on this device
+            </label>
+
+            <div id="login-form-error" class="login-form-error" role="alert" hidden>
+              <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+              <span id="login-form-error-text"></span>
+            </div>
+
+            <button id="login-submit" type="submit" class="cc-btn cc-btn-primary cc-btn-lg w-full">Sign in</button>
+          </form>
+
+          <div id="login-demo">
+          <div class="flex items-center gap-3 my-6 text-xs text-[#5B6B85]">
+            <span class="flex-1 h-px bg-[#DCE4F2]"></span>Or try the demo<span class="flex-1 h-px bg-[#DCE4F2]"></span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button type="button" onclick="demoLogin('OWNER')" class="login-demo">
+              <span class="w-9 h-9 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center shrink-0">EH</span>
+              <span class="min-w-0 text-left">
+                <span class="block text-sm font-semibold text-[#042970]">Owner</span>
+                <span class="block text-xs text-[#5B6B85] truncate">Sees everything</span>
+              </span>
+            </button>
+            <button type="button" onclick="demoLogin('STAFF')" class="login-demo">
+              <span class="w-9 h-9 rounded-full bg-[#042970] text-[#01E3FB] font-bold text-xs flex items-center justify-center shrink-0">AI</span>
+              <span class="min-w-0 text-left">
+                <span class="block text-sm font-semibold text-[#042970]">Staff</span>
+                <span class="block text-xs text-[#5B6B85] truncate">Needs approval</span>
+              </span>
+            </button>
+          </div>
+          </div>
+
+          <p class="text-sm text-[#5B6B85] mt-6 text-center">New here? Ask your business owner for an invite.</p>
+
+          <p id="login-demo-note" class="login-note">
+            <svg class="w-3.5 h-3.5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <span>Prototype. Demo logins: <span class="font-mono">hafiz@sejukjaya.my</span> or <span class="font-mono">aina@sejukjaya.my</span>, any password of 6+ characters.</span>
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
 
   <!-- Soft drifting glow behind every section -->
   <div class="ocean" aria-hidden="true">
@@ -45,28 +186,10 @@
       <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
       <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
       <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/></symbol>
     </defs>
   </svg>
-
-  <!-- LOGIN SCREEN (Supabase Auth) — covers the app until the user signs in -->
-  <div id="login-screen" class="hidden fixed inset-0 z-[100] bg-[#EEF2F8] flex items-center justify-center p-4">
-    <form id="login-form" class="w-full max-w-sm bg-white rounded-2xl border border-[#D5DFEE] shadow-sm p-6 space-y-4">
-      <div>
-        <div class="text-lg font-bold text-[#042970]">Log in to CashChase</div>
-        <div class="text-xs text-[#64748B]">Use your work email and password.</div>
-      </div>
-      <label class="block text-xs font-semibold text-[#042970]">Email
-        <input id="login-email" type="email" required autocomplete="email" class="mt-1 w-full px-3 py-2 rounded-lg border border-[#D5DFEE] text-sm focus:outline-none focus:border-[#0152FC]" />
-      </label>
-      <label class="block text-xs font-semibold text-[#042970]">Password
-        <input id="login-password" type="password" required minlength="6" autocomplete="current-password" class="mt-1 w-full px-3 py-2 rounded-lg border border-[#D5DFEE] text-sm focus:outline-none focus:border-[#0152FC]" />
-      </label>
-      <div id="login-error" class="hidden text-xs text-red-600" role="alert"></div>
-      <button id="login-submit" type="submit" class="w-full py-2.5 rounded-full bg-[#042970] hover:bg-[#0152FC] text-white text-sm font-bold transition">Log in</button>
-      <button id="signup-submit" type="button" class="w-full py-2 rounded-full border border-[#D5DFEE] hover:bg-[#F2F6FF] text-xs font-semibold text-[#042970] transition">Create account</button>
-    </form>
-  </div>
 
   <!-- ===================================================================== -->
   <!-- SIDEBAR                                                               -->
@@ -148,6 +271,7 @@
 
       <div class="flex items-center gap-2">
         <span class="md:hidden"><button onclick="openSettingsModal()" class="cc-close" aria-label="Settings"><svg><use href="#i-gear"/></svg></button></span>
+        <button onclick="logout()" class="cc-close border border-[#DCE4F2] bg-white/80 i-swipe" aria-label="Sign out" title="Sign out"><svg><use href="#i-logout"/></svg></button>
         <button id="role-btn" onclick="toggleRole()" class="flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-white/80 hover:bg-[#E6EEFF] border border-[#DCE4F2] transition" title="Switch between Owner and Staff view">
           <span id="role-avatar" class="w-7 h-7 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center">EH</span>
           <span class="text-left leading-tight">
@@ -156,11 +280,6 @@
           </span>
         </button>
 
-        <!-- Signed-in user + Log out (shown only when Supabase login is on) -->
-        <div id="auth-user" class="hidden items-center gap-2">
-          <span id="auth-email" class="text-xs text-[#64748B]"></span>
-          <button onclick="logout()" class="px-3 py-1.5 rounded-full border border-[#D5DFEE] hover:bg-[#F2F6FF] text-xs font-semibold text-[#042970] transition">Log out</button>
-        </div>
       </div>
     </header>
 
@@ -1095,17 +1214,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/inspector.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script src="js/stock_ocr.js"></script>
-  <script src="js/copilot.js"></script>
-  <script src="js/company_ai.js"></script>
-  <script src="js/pdf_export.js"></script>
-  <script src="js/team.js"></script>
-  <script src="js/onboarding.js"></script>
-  <script src="js/main.js"></script>
-  <script src="js/ui.js"></script>
+  <script src="js/state.js?v=20261022"></script>
+  <script src="js/inspector.js?v=20261022"></script>
+  <script src="js/dashboard.js?v=20261022"></script>
+  <script src="js/stock_ocr.js?v=20261022"></script>
+  <script src="js/copilot.js?v=20261022"></script>
+  <script src="js/company_ai.js?v=20261022"></script>
+  <script src="js/pdf_export.js?v=20261022"></script>
+  <script src="js/team.js?v=20261022"></script>
+  <script src="js/onboarding.js?v=20261022"></script>
+  <script src="js/main.js?v=20261022"></script>
+  <script src="js/ui.js?v=20261022"></script>
+  <script src="js/auth.js?v=20261022"></script>
 </body>
 </html>
