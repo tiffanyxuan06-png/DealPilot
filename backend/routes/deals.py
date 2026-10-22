@@ -14,7 +14,15 @@ from backend.services.business import load_business
 from backend.services.clock import now_stamp, now_time_str
 from backend.services.customers import apply_tin, parse_tin, upsert_customer
 from backend.services.permissions import enforce, normalize_role, register_handler, require_owner
-from backend.services.pipeline import build_state, deal_commission, deal_margin_pct, follow_up_due_str, log, product_costs
+from backend.services.pipeline import (
+    CANCELLED_AFTER_WIN,
+    build_state,
+    deal_commission,
+    deal_margin_pct,
+    follow_up_due_str,
+    log,
+    product_costs,
+)
 
 router = APIRouter(tags=["Deals & Pipeline"])
 
@@ -29,6 +37,7 @@ ACTION_KEYS = {
     DealAction.PAUSE: "deal.pause",
     DealAction.RESUME: "deal.pause",
     DealAction.SET_TIN: "deal.set_tin",
+    DealAction.CANCEL_WON: "deal.cancel_won",  # Owner only: checked with require_owner, not in ACTIONS
 }
 
 
@@ -114,13 +123,27 @@ def api_create_deal(req: DealCreateRequest) -> ActionResponse:
 
 @router.post("/api/deals/{deal_id}/action", response_model=ActionResponse)
 def api_deal_action(deal_id: str, req: DealActionRequest) -> ActionResponse:
+    """Moves one deal along: send quote, follow up, mark won/lost, discount, pause/resume, set TIN, cancel a won order.
+
+    Checks run in this order: who may act (403), the deal exists (404), its stage allows the action (409), the
+    request is complete (400). Staff actions then pass `enforce()`, which may queue them for Owner approval
+    (e.g. a discount below the margin floor). Every change writes one activity-log line.
+    """
     role = normalize_role(req.role)
     act = req.action
+    # Cancelling a won order is Owner only and never configurable, so refuse Staff before touching the database:
+    # they get the same 403 whether or not the deal exists.
+    if act == DealAction.CANCEL_WON:
+        require_owner(req.role, "deal.cancel_won")
     with session_scope() as s:
         d = s.get(orm.Deal, deal_id)
         if not d:
             raise HTTPException(status_code=404, detail=f"Deal {deal_id} not found")
-        if d.stage in (Stage.WON.value, Stage.LOST.value) and act != DealAction.SET_TIN:
+        if act == DealAction.CANCEL_WON and d.stage != Stage.WON.value:
+            raise HTTPException(status_code=409, detail=f"#{deal_id} is not a won order, so there is nothing to cancel.")
+        # Won and lost deals are settled: only the TIN can still be added, and only a won order can be cancelled
+        # (checked just above). A cancelled order is LOST, so it is settled too.
+        if d.stage in (Stage.WON.value, Stage.LOST.value) and act not in (DealAction.SET_TIN, DealAction.CANCEL_WON):
             raise HTTPException(status_code=409, detail=f"#{deal_id} is already {d.stage.lower()}.")
 
         items = d.items
@@ -134,6 +157,8 @@ def api_deal_action(deal_id: str, req: DealActionRequest) -> ActionResponse:
             raise HTTPException(status_code=409, detail="Send the quote first.")
         if act == DealAction.MARK_LOST and not (req.reason or "").strip():
             raise HTTPException(status_code=400, detail="Choose a reason the deal was lost (e.g. price, timing, competitor, no reply).")
+        if act == DealAction.CANCEL_WON and not (req.reason or "").strip():
+            raise HTTPException(status_code=400, detail="Give a reason for cancelling this won order.")
         if act == DealAction.APPLY_DISCOUNT:
             new_discount = req.discount or 0
             if new_discount > subtotal(items):
@@ -155,6 +180,7 @@ def api_deal_action(deal_id: str, req: DealActionRequest) -> ActionResponse:
             DealAction.PAUSE: f"Pause follow-ups on {who}",
             DealAction.RESUME: f"Resume follow-ups on {who}",
             DealAction.SET_TIN: f"Set LHDN TIN {tin} for {d.customer}",
+            DealAction.CANCEL_WON: f"Cancel won order {d.order_no} {who}: {(req.reason or '').strip()}",
         }[act]
         gate = enforce(
             s,
@@ -198,6 +224,25 @@ def api_deal_action(deal_id: str, req: DealActionRequest) -> ActionResponse:
             d.stage = Stage.LOST.value
             d.loss_reason = (req.reason or "").strip()
             log(s, f"[{role}] Marked {who} lost: {d.loss_reason}.")
+        elif act == DealAction.CANCEL_WON:
+            # The order becomes LOST. order_no and won_at stay for history; the won-orders CSV and the rep's
+            # won RM / commission only count WON deals, so they drop it without any extra bookkeeping here.
+            reason = (req.reason or "").strip()
+            d.stage = Stage.LOST.value
+            d.loss_reason = f"{CANCELLED_AFTER_WIN}: {reason}"
+            commission = deal_commission(d.amount, rep.commission_pct) if rep else 0
+            # Commission is counted per calendar month (same test as build_state). A deal won in an earlier month
+            # was already counted then, so cancelling it now doesn't change this month's number.
+            this_month = (d.won_at or "").startswith(datetime.now().strftime("%Y-%m"))
+            log(
+                s,
+                f"[{role}] Cancelled won order {d.order_no} (#{deal_id}, {d.customer}): {reason}"
+                + (
+                    f" · est. commission RM {commission:,} reversed for {rep_name}."
+                    if this_month
+                    else f" · won in an earlier month, so this month's commission for {rep_name} is unchanged."
+                ),
+            )
         elif act == DealAction.APPLY_DISCOUNT:
             d.discount, d.amount = new_discount, new_amount
             log(s, f"[{role}] Discount RM {new_discount:,} on {who} → RM {new_amount:,}" + (" · below the margin floor (Owner)" if mandatory else "") + ".")

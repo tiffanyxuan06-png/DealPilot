@@ -14,11 +14,23 @@
 | Area | Done in the backend | Backend work still left (Phase 3, doc 11 §4) | Frontend work left |
 |---|---|---|---|
 | Data | Price list, reps, deals with stages, 48h follow-up timer, follow-up count + "suggest lost", loss reason, slip ref, complaint pause | — | — |
-| Sales logic | Mark won/lost, margin guard, commission, reassign, log inquiry, won-orders CSV, quote PDF with disclaimer, permissions, price-list import, "Ask AI" on the pipeline | Disclaimer and margin guard inside **WhatsApp replies**; customer memory scored from deals | Webapp pages (Phase 5) |
+| Sales logic | Mark won/lost, margin guard, commission, reassign, log inquiry, won-orders CSV, quote PDF with disclaimer, permissions, price-list import, "Ask AI" on the pipeline, customer memory scored from deals (data-layer refactor), dashboard numbers and cancel won order (gap fixes below) | Disclaimer and margin guard inside **WhatsApp replies** | Webapp pages (Phase 5) |
 | AI | — | New intents incl. discount request; prompt uses the price list (no stock); `/api/whatsapp/execute` creates and moves deals; photo → quote (`/api/whatsapp/photo-quote`) | — |
 | Privacy | — | **Backend half:** skip non-customers before calling the AI, don't save casual chats, `POST /api/customers` | **Extension half (Phase 4):** Analyse button only, "Add as customer" |
 | Extension | — | — | All of Phase 4 |
 | Webapp | — | — | All of Phase 5 |
+
+### Phase 1–2 gap fixes (22 Oct 2026, committed) / 第一、二阶段补漏
+
+Found by comparing Phases 1–2 with the dashboards in doc 08 and the overview page. Each was built by one agent and checked by a separate reviewer.
+
+| # | Gap | Status | What it adds | Proof |
+|---|---|---|---|---|
+| 1 | Numbers the dashboards need | ✅ Done, reviewed (APPROVE) | `reps[].potentialRm` (commission if open quotes close) and `rank` (by won RM this month, ties share a rank); `customers[].repId` (rep of the latest deal); `pipeline.lossReasons` (lost deals per reason; cancelled orders grouped as "Cancelled after win"); `deals[].atRisk` (open quote that is paused, past 3 follow-ups, or ≥ RM 3,000 in follow-up) | `test_dashboard_numbers.py` (11 tests) |
+| 2 | Cancel a won order | ✅ Done, reviewed (APPROVE) | Deal action `CANCEL_WON`: Owner only (Staff 403), reason required, deal → Lost with "Cancelled after win: …", order no. kept; commission reversed and logged (or "won in an earlier month" if so); drops out of the CSV | `test_cancel_won.py` (8 tests) |
+| 3 | Link each login to a rep; Staff see only their own numbers | ⏸ Parked | Built, but the access-control review found Staff could still see other reps' data (activity log, approvals, customer memory, quote PDF, `/api/client/memory`, WhatsApp TIN). Removed from the code; the work is saved as `.claude/parked/item3-rep-login.patch` (applies cleanly; not in git) with the reviewer's findings to fix before resuming | — |
+
+Tests after items 1–2: **97 passed, 2 failed** (`test_runpod.py::test_runpod_down_falls_back`, `test_security.py::test_uploads_must_be_small_images_or_pdfs`, both waiting on Phase 3).
 
 So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsApp routes, photo → quote, privacy). Phases 4–5 are frontend.
 后端还没做完：第三阶段（AI、WhatsApp 接口、照片报价、隐私）都是后端工作；第四、五阶段才是前端。
@@ -58,7 +70,7 @@ So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsAp
 | Quote PDF | ✅ | `/api/invoices/{id}/pdf`; needs the disclaimer and the "48h stock hold" wording removed | ✅ Done · `test_deals.py::test_quote_pdf_has_disclaimer` |
 | Owner approvals, permissions, audit log | ✅ | Complete, including append-only database triggers | ✅ Done · `test_permissions.py::test_owner_turns_action_off_and_change_is_logged`, `test_phase2_verification.py::test_approval_and_permission_changes_are_audited`, `test_permissions.py::test_audit_log_is_append_only` |
 | LHDN TIN collection | ✅ | Detects a TIN in chat and saves it on the customer (`backend/services/customers.py`) | Saving a TIN on a deal ✅ `test_deals.py::test_pause_and_tin`; detecting it in WhatsApp chat ⏳ Phase 3 (`test_customers_lhdn.py` 2 tests fail) |
-| Customer memory and rating | ⚠️ | Works, but scores from paid invoices and expired holds (`backend/services/memory.py`); needs won/lost | ⏳ Phase 3 · `backend/services/memory.py` still scores from invoices, not won/lost deals |
+| Customer memory and rating | ⚠️ | Works, but scores from paid invoices and expired holds (`backend/services/memory.py`); needs won/lost | ✅ Done (data-layer refactor) · `backend/services/memory.py` scores from won deals and "No reply" losses |
 | Price-list import (60-second setup) | ⚠️ | The stock-list import already reads SKU, name, cost and price (`backend/services/onboarding.py`); remove quantity and starting cash | ✅ Done · `test_onboarding.py::test_preview_and_apply` (creates one rep "Owner") |
 | "Ask AI" company Q&A | ⚠️ | Answers from net worth and stock (`backend/routes/company_ai.py`); needs to use the pipeline | ✅ Done · `test_phase2_verification.py::test_ask_ai_prompt_uses_pipeline_and_hides_costs` (no unit costs in prompt) |
 

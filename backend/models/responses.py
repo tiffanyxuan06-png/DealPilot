@@ -11,6 +11,8 @@ from backend.models.requests import OnboardingItem
 
 
 class AiServerStatus(BaseModel):
+    """Whether the AI server answered, and which models it offers."""
+
     connected: bool
     url: str
     models: List[str]
@@ -18,6 +20,8 @@ class AiServerStatus(BaseModel):
 
 
 class HealthResponse(ApiModel):
+    """GET /api/health: app, database type and AI server status."""
+
     status: str
     database: str  # the database type only, never the URL
     ai_provider: str
@@ -25,6 +29,8 @@ class HealthResponse(ApiModel):
 
 
 class ClientMemoryRating(ApiModel):
+    """A customer's trust rating as the extension shows it."""
+
     customer: str
     phone: str = ""
     tier: str
@@ -41,6 +47,8 @@ class ClientMemoryRating(ApiModel):
 
 
 class WhatsAppAnalyzeResponse(BaseModel):
+    """The AI's suggestion for a chat, with the prompt and raw output for checking."""
+
     source: str  # lmstudio | deterministic_fallback
     lmstudio_connected: bool
     model_used: Optional[str] = None
@@ -52,6 +60,8 @@ class WhatsAppAnalyzeResponse(BaseModel):
 
 
 class AgentAnswer(BaseModel):
+    """The company agent's answer, with the prompt for checking."""
+
     lmstudio_connected: bool
     answer: Optional[str] = None
     model_used: Optional[str] = None
@@ -61,14 +71,20 @@ class AgentAnswer(BaseModel):
 
 
 class PriceListItem(OnboardingItem):
+    """A price list line read from the setup file."""
+
     estimated: bool = False  # a price or cost column was missing; the Owner should check it
 
 
 class PriceListPreview(ApiModel):
+    """The lines read from the setup file and anything the Owner should check."""
+
     items: List[PriceListItem]
     warnings: List[str]
 
 
 class AuthConfig(ApiModel):
+    """What the WebApp needs to show the login (the public anon key only)."""
+
     url: str  # empty = login off
     anon_key: str

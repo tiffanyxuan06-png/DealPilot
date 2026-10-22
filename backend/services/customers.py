@@ -86,8 +86,18 @@ def apply_tin(session: Session, name: str, tin: str, ssm_brn: str, ts: str) -> L
 
 
 def customers_payload(session: Session) -> List[entities.Customer]:
+    """Every customer for the Customers page: TIN status, open deals, the ready-made TIN request, and their rep.
+
+    A customer's rep is the rep on their most recent deal, so after a reassign the customer follows the
+    deals that moved. Customers without any deal have no rep (None).
+    """
     company = session.get(orm.Setting, "company_name")
     company_name = company.value if company else "us"
+    # Newest deal first (id breaks ties within the same second), so the first deal seen per customer wins.
+    # Names are matched like everywhere else in this file: "Tan Bros (Phone Order)" is "Tan Bros".
+    latest_rep: dict = {}
+    for d in session.scalars(select(orm.Deal).order_by(orm.Deal.created_at.desc(), orm.Deal.id.desc())):
+        latest_rep.setdefault(customer_key(d.customer).lower(), d.rep_id)
     return [
         entities.Customer(
             name=c.name,
@@ -97,6 +107,7 @@ def customers_payload(session: Session) -> List[entities.Customer]:
             lhdn_ready=bool(c.tin),
             open_records=len(open_deal_ids(session, c.name)),
             tin_request_text="" if c.tin else tin_request_text(c.name, company_name),
+            rep_id=latest_rep.get(customer_key(c.name).lower()),
         )
         for c in session.scalars(select(orm.Customer).order_by(orm.Customer.name))
     ]

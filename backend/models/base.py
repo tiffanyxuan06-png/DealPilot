@@ -1,3 +1,4 @@
+"""Shared base for the API models: camelCase JSON, read straight from SQLAlchemy rows."""
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 

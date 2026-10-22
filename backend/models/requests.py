@@ -8,16 +8,22 @@ from backend.models.enums import DealAction
 
 
 class RoleRequest(ApiModel):
+    """Base for requests that say who is acting."""
+
     role: Optional[str] = None  # missing role = Staff (least privilege); with login on, the signed-in role wins
 
 
 class ChatMessage(ApiModel):
+    """One WhatsApp message read from the chat by the extension."""
+
     sender: str = "Them"
     text: str = ""
     is_me: Optional[bool] = None  # sent by the extension
 
 
 class WhatsAppAnalyzeRequest(RoleRequest):
+    """The open WhatsApp chat, sent for the AI to suggest a reply."""
+
     customer: str
     phone: Optional[str] = ""
     message: str
@@ -32,6 +38,8 @@ class WhatsAppAnalyzeRequest(RoleRequest):
 
 
 class WhatsAppExecuteRequest(RoleRequest):  # Phase 3 replaces the action list with deal actions
+    """Runs an action the AI suggested for a chat."""
+
     customer: str
     phone: Optional[str] = ""
     action_type: str
@@ -40,11 +48,15 @@ class WhatsAppExecuteRequest(RoleRequest):  # Phase 3 replaces the action list w
 
 
 class DealItemRequest(ApiModel):
+    """A SKU and quantity; the price comes from the price list, never the client."""
+
     sku: str = Field(min_length=1)
     qty: int = Field(1, ge=1)
 
 
 class DealCreateRequest(RoleRequest):
+    """A new quote, or an inquiry with `quote` False."""
+
     customer: str
     phone: Optional[str] = ""
     rep_id: Optional[int] = None  # missing = the rep for this login (see routes/deals.default_rep_id)
@@ -63,6 +75,8 @@ class DealCreateRequest(RoleRequest):
 
 
 class DealActionRequest(RoleRequest):
+    """One DealAction. Only the fields for that action are read."""
+
     action: DealAction
     discount: Optional[int] = Field(None, ge=0)  # APPLY_DISCOUNT: total discount on the deal (RM)
     deposit_ref: Optional[str] = ""  # MARK_WON: slip reference the customer gave (information only)
@@ -78,6 +92,8 @@ class DealActionRequest(RoleRequest):
 
 
 class RepUpsertRequest(RoleRequest):
+    """Add a rep (no id) or change one."""
+
     id: Optional[int] = None  # missing = add a new rep
     name: str = Field(min_length=1)
     commission_pct: float = Field(3.0, ge=0, le=50)
@@ -85,10 +101,14 @@ class RepUpsertRequest(RoleRequest):
 
 
 class ReassignRequest(RoleRequest):
+    """Move a rep's open deals to another rep."""
+
     to_rep_id: int
 
 
 class ProductUpsertRequest(RoleRequest):
+    """Add or change a price list line (matched by SKU)."""
+
     sku: str = Field(min_length=1)
     name: str = Field(min_length=1)
     sell_price: int = Field(ge=1)
@@ -96,6 +116,8 @@ class ProductUpsertRequest(RoleRequest):
 
 
 class SettingsUpdateRequest(RoleRequest):
+    """Owner settings; fields left out are unchanged."""
+
     framework: Optional[str] = None
     lmstudio_url: Optional[str] = None
     lmstudio_api_key: Optional[str] = None
@@ -103,21 +125,29 @@ class SettingsUpdateRequest(RoleRequest):
 
 
 class CompanyAgentAskRequest(ApiModel):
+    """A question for the company agent about the business data."""
+
     question: str
 
 
 class PermissionsUpdateRequest(RoleRequest):
+    """Owner changes to Staff modes, the follow-up timer or the margin floor."""
+
     staff_modes: Optional[Dict[str, str]] = None  # action key -> ALLOW | APPROVAL | DENY
     follow_up_hours: Optional[int] = Field(None, ge=1, le=720)
     margin_floor_pct: Optional[float] = Field(None, ge=0, le=90)
 
 
 class OnboardingPreviewRequest(RoleRequest):
+    """A price list file (Excel or CSV) to read before setup."""
+
     file_name: str
     file_base64: str  # data URL or plain base64
 
 
 class OnboardingItem(ApiModel):
+    """One price list line from the setup file."""
+
     sku: str
     name: str
     unit_cost: int = Field(0, ge=0)
@@ -125,6 +155,8 @@ class OnboardingItem(ApiModel):
 
 
 class OnboardingApplyRequest(RoleRequest):
+    """The 60-second setup: company name, timers and the checked price list."""
+
     company_name: str
     follow_up_hours: Optional[int] = Field(None, ge=1, le=720)  # missing = defaults.json
     margin_floor_pct: Optional[float] = Field(None, ge=0, le=90)
@@ -132,13 +164,19 @@ class OnboardingApplyRequest(RoleRequest):
 
 
 class ProfileSwitchRequest(RoleRequest):
+    """Load a demo business from the seeds."""
+
     preset: str  # a file name in backend/schema/seeds, e.g. aircond | fnb
 
 
 class FastForwardRequest(RoleRequest):
+    """Demo only: bring every follow-up due time this many hours earlier, as if the time had passed."""
+
     hours: int = Field(48, ge=1, le=240)
 
 
 class ApprovalDecisionRequest(RoleRequest):
+    """The Owner's answer to a pending approval."""
+
     decision: str  # APPROVE | REJECT
     note: Optional[str] = ""
