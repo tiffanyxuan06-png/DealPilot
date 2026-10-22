@@ -692,9 +692,10 @@ let currentRole = 'OWNER';
 
 
 // --- API BASE URL ---
-    const BACKEND_API_BASE = (window.location.protocol.startsWith('http') && (window.location.port === '8000' || window.location.port === ''))
+    window.BACKEND_API_BASE = (window.location.protocol.startsWith('http') && (window.location.port === '8000' || window.location.port === ''))
       ? window.location.origin
       : 'http://127.0.0.1:8000';
+    var BACKEND_API_BASE = window.BACKEND_API_BASE;
 
 
 // --- BACKEND SYNC ---
