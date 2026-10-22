@@ -13,8 +13,8 @@ let currentRole = 'OWNER';
       if (okBtn) {
         okBtn.textContent = okBtnText;
         okBtn.className = isDanger
-          ? 'px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md transition cursor-pointer'
-          : 'px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-md transition cursor-pointer';
+          ? 'cc-btn bg-red-600 hover:bg-red-700 text-white'
+          : 'cc-btn cc-btn-primary';
       }
       pendingUniversalConfirmFn = onConfirmCallback;
       document.getElementById('universal-confirm-modal').classList.remove('hidden');

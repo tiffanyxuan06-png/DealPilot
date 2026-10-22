@@ -9,20 +9,12 @@
         if (el) el.classList.toggle('hidden', p !== page);
 
         const nav = document.getElementById('nav-' + p);
-        if (nav && p !== 'wa') {
-          nav.className = p === page
-            ? 'w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-bold bg-[#0152FC] text-white shadow-sm transition'
-            : 'w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium text-white/85 hover:bg-white/10 transition';
-        }
+        if (nav) nav.classList.toggle('is-active', p === page);
       });
 
-      const waNav = document.getElementById('nav-wa');
-      if (waNav) {
-        waNav.className = page === 'wa'
-          ? 'w-full flex items-center justify-between px-3.5 py-3.5 rounded-xl text-sm font-bold bg-[#0152FC] border-2 border-[#01E3FB] text-white shadow-md transition'
-          : 'w-full flex items-center justify-between px-3.5 py-3.5 rounded-xl text-sm font-bold bg-[#073794] hover:bg-[#0152FC] border border-[#01E3FB]/50 text-white shadow-md transition';
-      }
-
+      document.body.dataset.page = page;
+      window.scrollTo({ top: 0 });
+      if (window.revealIn) window.revealIn(document.getElementById('page-' + page));
       renderAll();
     }
 
@@ -74,28 +66,17 @@
     // HELPER: BUILDS THE 1 BIG OBVIOUS ACTION BUTTON FOR ANY RECORD
     // =========================================================================
     function getBigActionButton(inv) {
-      if (inv.type === 'PENDING_VERIFY') {
-        return `<button onclick="openVerifyModal('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow-sm transition">🔍 Verify Receipt Against Bank</button>`;
-      }
-      if (inv.type === 'QUOTE_HOLD' && inv.status === 'HOLD_EXPIRED') {
-        return `<button onclick="releaseQuoteFromTable('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-sm transition">🔓 Release Expired 48h Hold</button>`;
-      }
-      if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') {
-        return `<button onclick="confirmQuoteFromTable('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">💰 Confirm Deposit & Deduct Stock</button>`;
-      }
+      const btn = (fn, label) => `<button onclick="${fn}('${inv.id}')" class="cc-btn cc-btn-primary">${label}</button>`;
+      if (inv.type === 'PENDING_VERIFY') return btn('openVerifyModal', 'Check bank receipt');
+      if (inv.type === 'QUOTE_HOLD' && inv.status === 'HOLD_EXPIRED') return btn('releaseQuoteFromTable', 'Release expired hold');
+      if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') return btn('confirmQuoteFromTable', 'Confirm deposit');
       if (inv.type === 'AFTERSALES') {
-        if (inv.status === 'REPLACEMENT_SENT' || inv.status === 'DISCOUNT_APPLIED') {
-          return `<button onclick="resolveAftersales('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition">✓ Mark Aftersales Resolved</button>`;
-        }
-        return `<button onclick="replaceFromTable('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-sm transition">📦 Send -1 Replacement Stock</button>`;
+        if (inv.status === 'REPLACEMENT_SENT' || inv.status === 'DISCOUNT_APPLIED') return btn('resolveAftersales', 'Mark resolved');
+        return btn('replaceFromTable', 'Send replacement');
       }
-      if (inv.type === 'PENDING') {
-        return `<button onclick="markInvoicePaid('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">🔍 Verify & Mark Paid (+RM ${inv.amount.toLocaleString()})</button>`;
-      }
-      if (inv.type === 'SUPPLIER_COST' && inv.status === 'UNPAID_PAYABLE') {
-        return `<button onclick="paySupplierBill('${inv.id}')" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">💳 Pay Supplier Bill (-RM ${inv.amount.toLocaleString()})</button>`;
-      }
-      return `<span class="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">✓ Completed</span>`;
+      if (inv.type === 'PENDING') return btn('markInvoicePaid', `Mark paid (+RM ${inv.amount.toLocaleString()})`);
+      if (inv.type === 'SUPPLIER_COST' && inv.status === 'UNPAID_PAYABLE') return btn('paySupplierBill', `Pay bill (−RM ${inv.amount.toLocaleString()})`);
+      return `<span class="cc-pill !bg-emerald-50 !text-emerald-700 !py-1.5 !px-3.5">✓ Completed</span>`;
     }
 
     // =========================================================================
@@ -159,11 +140,11 @@
             </div>
             <div class="text-xs text-[#324564]">${inv.itemsText}</div>
             <div class="flex flex-wrap items-center gap-3 pt-1">
-              <button onclick="openPdfForInvoice('${inv.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer">📄 Preview / Print PDF</button>
-              ${inv.receiptRef ? `<button onclick="viewReceiptCopy('${inv.id}')" class="text-xs font-bold text-purple-700 hover:underline cursor-pointer flex items-center gap-1"><span>🧾</span> View Receipt Copy (${inv.receiptRef})</button>` : ''}
-              ${inv.lhdn.includes('Missing TIN') ? `<button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline cursor-pointer">✏️ Key In Buyer TIN (or Set Consolidated)</button>` : ''}
-              ${inv.type === 'PENDING' ? `<button onclick="addExtraPipingAndLabor('${inv.id}')" class="text-xs font-semibold text-[#042970] hover:underline cursor-pointer">➕ Add Extra Piping & Labor</button>` : ''}
-              ${inv.type === 'AFTERSALES' ? `<button onclick="discountFromTable('${inv.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">💸 Or Give RM 180 Discount Instead</button>` : ''}
+              <button onclick="openPdfForInvoice('${inv.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer">Preview PDF</button>
+              ${inv.receiptRef ? `<button onclick="viewReceiptCopy('${inv.id}')" class="text-xs font-bold text-purple-700 hover:underline cursor-pointer flex items-center gap-1">View receipt (${inv.receiptRef})</button>` : ''}
+              ${inv.lhdn.includes('Missing TIN') ? `<button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline cursor-pointer">Add buyer TIN</button>` : ''}
+              ${inv.type === 'PENDING' ? `<button onclick="addExtraPipingAndLabor('${inv.id}')" class="text-xs font-semibold text-[#042970] hover:underline cursor-pointer">Add piping &amp; labour</button>` : ''}
+              ${inv.type === 'AFTERSALES' ? `<button onclick="discountFromTable('${inv.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">Or give RM 180 discount</button>` : ''}
             </div>
           </div>
 
@@ -955,5 +936,6 @@
 
     function setInvoiceFilter(f) {
       currentInvFilter = f;
+      document.querySelectorAll('#inv-filter-bar [data-filter]').forEach(b => b.classList.toggle('is-active', b.dataset.filter === f));
       renderWebAppView();
     }
