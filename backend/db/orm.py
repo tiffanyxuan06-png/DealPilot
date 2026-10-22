@@ -152,3 +152,17 @@ class ApprovalRequest(Base):
     decision_note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[str] = mapped_column(Text)
     decided_at: Mapped[Optional[str]] = mapped_column(Text, default=None)
+
+class Commitment(Base):
+    """Customer or rep promise tracked by the WhatsApp Sales Sidekick."""
+
+    __tablename__ = "commitments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    phone: Mapped[str] = mapped_column(Text, default="")
+    customer: Mapped[str] = mapped_column(Text, default="")
+    promise_text: Mapped[str] = mapped_column(Text)
+    due_date: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    party: Mapped[str] = mapped_column(Text, default="customer")
+    status: Mapped[str] = mapped_column(Text, default="pending")
+    created_at: Mapped[str] = mapped_column(Text)
+

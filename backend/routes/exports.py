@@ -134,39 +134,66 @@ def api_export_orders_csv(
 @router.get("/api/deals/{deal_id}/pdf", response_class=Response, responses={200: {"content": {"application/pdf": {}}, "description": "Quote or sales order PDF"}})
 def api_deal_pdf(deal_id: str) -> Response:
     """Quote PDF (or sales order once won) with prices from the price list and the availability disclaimer."""
+    return _generate_document_pdf(deal_id)
+
+
+@router.get("/api/invoices/{invoice_id}/pdf", response_class=Response, responses={200: {"content": {"application/pdf": {}}, "description": "Quote or tax invoice PDF"}})
+def api_invoice_pdf(invoice_id: str) -> Response:
+    """Invoice or Quote PDF endpoint matching webapp /api/invoices/{id}/pdf requests."""
+    return _generate_document_pdf(invoice_id)
+
+
+def _generate_document_pdf(doc_id: str) -> Response:
+    clean_id = doc_id.strip().replace("#", "")
     with session_scope() as s:
-        d = s.get(orm.Deal, deal_id)
+        d = s.get(orm.Deal, clean_id)
         if not d:
-            raise HTTPException(status_code=404, detail=f"Deal {deal_id} not found")
-        company = load_business(s).company_name
+            d = s.scalars(
+                select(orm.Deal).where(
+                    (orm.Deal.order_no == clean_id) | (orm.Deal.id.like(f"%{clean_id}%"))
+                )
+            ).first()
+
+        if not d:
+            raise HTTPException(status_code=404, detail=f"Deal {doc_id} not found")
+
+        biz = load_business(s)
+        company = biz.company_name or "CashChase Trading Sdn Bhd"
         rep = s.get(orm.Rep, d.rep_id) if d.rep_id is not None else None
         cust = get_customer(s, d.customer)
 
-    won = d.stage == Stage.WON.value
-    created = (d.created_at or "")[:10]
-    lines = [
-        f"{company} - {'SALES ORDER' if won else 'QUOTATION'}",
-        "======================================================================",
-        f"Document No   : {d.order_no if won else d.id}" + (f"  (quote {d.id})" if won else ""),
-        f"Quote date    : {created}",
-        f"Customer      : {d.customer} ({d.phone or '-'})",
-        f"Buyer TIN     : {(cust.tin if cust else '') or '-'}",
-        f"Sales rep     : {rep.name if rep else '-'}",
-        "----------------------------------------------------------------------",
-    ]
-    for i in d.items:
-        lines.append(f"  {i['qty']} x {i['name']} @ RM {i['unitPrice']:,}.00 = RM {i['qty'] * i['unitPrice']:,}.00")
-    if d.discount:
-        lines.append(f"  Discount: -RM {d.discount:,}.00")
-    lines += [
-        "----------------------------------------------------------------------",
-        f"TOTAL         : RM {d.amount:,}.00",
-        "======================================================================",
-        DISCLAIMER,
-    ]
-    filename = f"{d.order_no if won else d.id}_{d.customer.replace(' ', '_')}.pdf"
-    return Response(
-        content=build_valid_pdf_bytes(lines),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+        won = d.stage == Stage.WON.value
+        created = (d.created_at or "")[:10] or datetime.now().strftime("%Y-%m-%d")
+        doc_type = "SALES ORDER" if won else "QUOTATION"
+        doc_num = d.order_no if won else d.id
+
+        lines = [
+            f"{company} - {doc_type}",
+            "======================================================================",
+            f"Document No   : {doc_num}" + (f"  (quote {d.id})" if won else ""),
+            f"Quote date    : {created}",
+            f"Customer      : {d.customer} ({d.phone or '-'})",
+            f"Buyer TIN     : {(cust.tin if cust else '') or '-'}",
+            f"Sales rep     : {rep.name if rep else '-'}",
+            "----------------------------------------------------------------------",
+        ]
+
+        for i in d.items:
+            lines.append(f"  {i['qty']} x {i['name']} @ RM {i['unitPrice']:,}.00 = RM {i['qty'] * i['unitPrice']:,}.00")
+
+        if d.discount:
+            lines.append(f"  Discount: -RM {d.discount:,}.00")
+
+        lines += [
+            "----------------------------------------------------------------------",
+            f"TOTAL         : RM {d.amount:,}.00",
+            "======================================================================",
+            "Payment: Maybank 5140-1234-5678 (CashChase Trading) / DuitNow",
+            DISCLAIMER,
+        ]
+        filename = f"{doc_num}_{d.customer.replace(' ', '_')}.pdf"
+        return Response(
+            content=build_valid_pdf_bytes(lines),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )

@@ -119,3 +119,9 @@ def test_quote_pdf_has_disclaimer(client):
     r = client.get("/api/deals/QT-2026-103/pdf")
     assert r.status_code == 200 and r.content.startswith(b"%PDF") and b"Subject to stock availability" in r.content
     assert client.get("/api/deals/NOPE/pdf").status_code == 404
+
+    # Test /api/invoices/{id}/pdf route and payment instructions
+    r_inv = client.get("/api/invoices/QT-2026-103/pdf")
+    assert r_inv.status_code == 200 and r_inv.content.startswith(b"%PDF")
+    assert b"Payment: Maybank" in r_inv.content
+    assert client.get("/api/invoices/NOPE/pdf").status_code == 404

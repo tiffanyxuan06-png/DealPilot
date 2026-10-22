@@ -219,7 +219,17 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         merged = {**fallback, **{k: v for k, v in parsed.items() if v is not None and v != ""}, "clientMemory": mem}
 
         # Code, not the AI, decides the action and prices the quote
-        if fallback.get("intent") == "BUYING_INQUIRY":
+        if fallback.get("intent") == "PRODUCT_CONSULTATION" or parsed.get("intent") == "PRODUCT_CONSULTATION":
+            merged["intent"] = "PRODUCT_CONSULTATION"
+            merged["extActionType"] = "REPLY_ONLY"
+            merged["extBtnLabel"] = fallback.get("extBtnLabel", "💬 Reply with Product Consultation")
+            merged["sku"] = fallback.get("sku")
+            merged["qty"] = 0
+            merged["amount"] = 0
+            for k in ("extTitle", "extCheck", "extActionDesc"):
+                if k in fallback:
+                    merged[k] = fallback[k]
+        elif fallback.get("intent") == "BUYING_INQUIRY":
             merged["intent"] = "BUYING_INQUIRY"
             merged["extActionType"] = "CREATE_QUOTE"
             merged["extBtnLabel"] = fallback.get("extBtnLabel", "Send quote & insert reply")

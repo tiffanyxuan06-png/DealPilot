@@ -715,10 +715,70 @@ let currentRole = 'OWNER';
       const st = smeProfiles[backendPreset];
       st.name = data.company.name;
       if (data.company.framework) st.framework = data.company.framework;
-      st.cashOnHand = data.company.cashOnHand;
-      st.stock = data.stock;
-      st.invoices = data.invoices;
-      st.logs = data.logs;
+      if (typeof data.company.cashOnHand === 'number') st.cashOnHand = data.company.cashOnHand;
+
+      st.deals = data.deals || st.deals || [];
+      st.products = data.products || st.products || [];
+
+      // Map backend products and compute active quote holds
+      if (Array.isArray(data.products) && data.products.length > 0) {
+        const holdsBySku = {};
+        (data.deals || []).forEach(d => {
+          if (d.stage === 'QUOTED' || d.stage === 'FOLLOW_UP') {
+            (d.items || []).forEach(it => {
+              const sku = (it.sku || '').toUpperCase();
+              holdsBySku[sku] = (holdsBySku[sku] || 0) + (it.qty || 1);
+            });
+          }
+        });
+        st.stock = data.products.map(p => {
+          const sku = (p.sku || '').toUpperCase();
+          const existing = (st.stock || []).find(s => s.sku.toUpperCase() === sku);
+          const onHold = holdsBySku[sku] || 0;
+          return {
+            sku: p.sku,
+            name: p.name,
+            onHand: existing ? existing.onHand : 15,
+            onHold: onHold,
+            holdNote: onHold > 0 ? `${onHold} units in active quotes` : '-',
+            unitCost: (p.unit_cost !== null && p.unit_cost !== undefined) ? p.unit_cost : (existing ? existing.unitCost : Math.round(p.sell_price * 0.7)),
+            sellPrice: p.sell_price
+          };
+        });
+      }
+
+      // Map backend deals to invoices for Overview, Priority Queue & PDF Preview
+      if (Array.isArray(data.deals) && data.deals.length > 0) {
+        const mappedDeals = data.deals.map(d => {
+          const isWon = d.stage === 'WON';
+          const isLost = d.stage === 'LOST';
+          const itemsSummary = (d.items || []).map(i => `${i.qty}x ${i.name || i.sku}`).join(', ') || 'General Order';
+          const custTin = (data.customers || []).find(c => c.name === d.customer)?.tin;
+          return {
+            id: isWon ? (d.order_no || d.id) : d.id,
+            dealId: d.id,
+            type: isWon ? 'PAID' : (d.paused ? 'AFTERSALES' : 'QUOTE_HOLD'),
+            party: d.customer,
+            phone: d.phone || '-',
+            itemsText: itemsSummary,
+            amount: d.amount || 0,
+            status: isWon ? 'PAID' : (isLost ? 'LOST' : (d.paused ? 'AFTERSALES_PAUSED' : (d.stage === 'FOLLOW_UP' ? 'HOLD_EXPIRED' : 'ON_HOLD_48H'))),
+            lhdn: custTin ? `🟢 LHDN TIN: ${custTin}` : '🟢 LHDN Ready',
+            claimedAmount: d.deposit_amount || d.amount,
+            receiptRef: d.deposit_ref || '-'
+          };
+        });
+        const supplierBills = (st.invoices || []).filter(i => i.type === 'SUPPLIER_COST');
+        st.invoices = [...mappedDeals, ...supplierBills];
+
+        // Link active deals to chats
+        (st.chats || []).forEach(chat => {
+          const openDeal = data.deals.find(d => d.customer === chat.customer && (d.stage === 'QUOTED' || d.stage === 'FOLLOW_UP'));
+          if (openDeal) chat.dealId = openDeal.id;
+        });
+      }
+
+      if (data.logs) st.logs = data.logs;
       st.customers = data.customers || [];
       backendPermissions = data.permissions || backendPermissions;
       backendApprovals = data.approvals || [];
@@ -726,7 +786,14 @@ let currentRole = 'OWNER';
     }
 
     function backendSignature(data) {
-      return JSON.stringify([data.company, data.stock, data.invoices, data.logs, data.permissions, data.approvals]);
+      return JSON.stringify([
+        data.company,
+        data.products,
+        data.deals,
+        data.logs,
+        data.permissions,
+        data.approvals
+      ]);
     }
 
     // Permissions set by the Owner in Settings → Team & Permissions (enforced by the backend).

@@ -17,6 +17,7 @@ from backend.routes.exports import router as exports_router
 from backend.routes.deals import router as deals_router
 from backend.routes.team import router as team_router
 from backend.routes.onboarding import router as onboarding_router
+from backend.routes.sidekick import router as sidekick_router
 from backend.services.auth import auth_enabled, reset_current_role, role_from_claims, set_current_role, verify_token
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -93,6 +94,7 @@ app.include_router(exports_router)
 app.include_router(deals_router)
 app.include_router(team_router)
 app.include_router(onboarding_router)
+app.include_router(sidekick_router)
 
 # Mount webapp static directory, including /js and /css
 if WEBAPP_DIR.exists():

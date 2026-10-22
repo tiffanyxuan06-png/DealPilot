@@ -230,13 +230,16 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
         `Confirm Send PDF into WhatsApp`,
         `Attach and send ${currentPdfDocId}.pdf to ${chat.customer} on WhatsApp?`,
         () => {
+          const bodyText = chat.extDraft || `Hi ${chat.customer}! Attached is official quotation #${currentPdfDocId}. Prices valid for 7 days. Let us know if you would like to proceed!`;
+          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           chat.messages.push({
             from: 'staff',
-            time: '10:55 AM',
-            text: `📎 [Attached PDF: ${currentPdfDocId}.pdf] — ${chat.extDraft}`
+            time: timeStr,
+            text: `📎 [Attached PDF: ${currentPdfDocId}.pdf] — ${bodyText}`
           });
           closePdfModal();
           switchPage('wa');
+          if (typeof renderWhatsAppView === 'function') renderWhatsAppView();
           showToast(`Sent ${currentPdfDocId}.pdf directly into the WhatsApp chat!`);
         },
         '📎 Send PDF Now'

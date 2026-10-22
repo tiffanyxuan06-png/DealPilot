@@ -60,7 +60,13 @@ Prices, discounts and actions come ONLY from the price list, pricing framework a
 
 [MALAYSIAN SME SALES AGENT PLAYBOOK BY SCENARIO]:
 
-1. GENERAL INQUIRIES & DISCOVERY (e.g. "Hi, I want to ask about aircond", "Got stock?", "What models do you sell?"):
+1. PRODUCT CONSULTATION & ADVICE (e.g. "How good is Daikin aircond?", "Is Daikin reliable?", "Bagus ke Daikin?", "Which is better?"):
+   - Customer is asking for your expert opinion or product quality/features. DO NOT immediately push a quote or lock stock!
+   - Explain genuine product benefits (e.g. Japanese inverter power-saving up to 40%, ultra-quiet cooling, durable 100% copper coils, easy spare parts).
+   - Ask a qualifying question: what room size / space are they cooling so you can recommend the proper horsepower.
+   - Intent MUST be "PRODUCT_CONSULTATION". Action MUST be "REPLY_ONLY". Button label: "💬 Reply with Product Consultation".
+
+2. GENERAL INQUIRIES & DISCOVERY (e.g. "Hi, I want to ask about aircond", "Got stock?", "What models do you sell?"):
    - Greet warmly as "{clean_cust_req}" or "Boss".
    - Highlight 1-2 bestselling models from the [PRICE LIST] with prices so they have an immediate reference point.
    - Ask 1 qualifying sales discovery question (e.g. room size, horsepower, how many units, home or office).
@@ -117,7 +123,7 @@ CRITICAL: Option 1, Option 2, and Option 3 MUST be written in English/Manglish. 
 
 Return ONLY a valid JSON object with these keys:
 {{
-  "intent": "BUYING_INQUIRY" | "DISCOUNT_REQUEST" | "CUSTOMER_CONFIRMED" | "CUSTOMER_DECLINED" | "COMPLAINT" | "FOLLOW_UP_DUE" | "SAVE_LHDN_TIN" | "CASUAL_CHAT",
+  "intent": "PRODUCT_CONSULTATION" | "BUYING_INQUIRY" | "DISCOUNT_REQUEST" | "CUSTOMER_CONFIRMED" | "CUSTOMER_DECLINED" | "COMPLAINT" | "FOLLOW_UP_DUE" | "SAVE_LHDN_TIN" | "CASUAL_CHAT",
   "badge": "Short 2-3 word label (e.g. Buying Inquiry)",
   "extTitle": "Action card title",
   "extCheck": "Multi-line summary of items, calculation, and sales check",
@@ -430,6 +436,43 @@ def deterministic_fallback_analysis(
             "extBtnLabel": "💬 Insert Friendly Reply",
             "extActionType": "REPLY_ONLY",
             "sku": None,
+            "qty": 0,
+            "amount": 0,
+        }
+
+    # 5b. Product Consultation / Quality / Spec Question detection
+    consultation_tokens = [
+        "how good", "is it good", "bagus ke", "ok tak", "better", "difference", "review",
+        "durable", "tahan", "jimat", "feature", "kenapa", "why", "apa beza", "kelebihan",
+        "elok ke", "macam mana", "sesuai tak"
+    ]
+    is_consultation = any(k in msg_lower for k in consultation_tokens) and not any(
+        k in msg_lower for k in ["quote", "sebut harga", "harga berapa", "how much", "price", "order", "beli", "nak ambil", "nak pasang 2", "nak 2 unit", "invoice"]
+    )
+
+    if is_consultation:
+        p_name = primary_item.get("name", "Daikin Inverter")
+        opt1 = f"Hi {clean_cust}! Daikin is one of our top recommended brands in Malaysia—it uses Japanese inverter technology that saves up to 40% electricity, runs very quietly, and features durable 100% copper coils. Spare parts and warranty support are also excellent nationwide. What room size or area are you looking to cool? I can recommend the right horsepower for your space!"
+        opt2 = f"Daikin is very solid Boss! Reliable cooling, energy-saving, and easy spare parts in Malaysia. Are you looking to install in a bedroom (1.0HP) or living hall (1.5HP - 2.0HP)?"
+        opt3 = f"Daikin is definitely top-tier Boss. 5 years compressor warranty, super quiet operation, and durable build. How big is the space you are planning to cool? Can recommend the best fit for your layout."
+        opt4 = f"Daikin memang sangat bagus {clean_cust}! Teknologi inverter Jepun jimat elektrik sehingga 40%, sejuk pantas dan tahan lasak dengan gegelung tembaga. Senang dapat alat ganti di Malaysia. Boss nak pasang untuk bilik atau ruang tamu saiz apa? Boleh kami syorkan kapasiti HP yang tepat."
+
+        return {
+            "intent": "PRODUCT_CONSULTATION",
+            "badge": "Product Consultation",
+            "extTitle": f"💡 Product Advice: {p_name}",
+            "extCheck": "💡 Customer is asking about product quality & features.\nNo quote or deal hold created yet. Advise and qualify room size first.",
+            "extActionDesc": "Insert consultative product advice into reply box to help customer decide.",
+            "extDraft": opt1,
+            "replyOptions": [
+                {"label": "💡 Option 1: Consultative Benefits (Recommended)", "text": opt1},
+                {"label": "🤝 Option 2: Casual Boss Advice", "text": opt2},
+                {"label": "⭐ Option 3: Warranty & Durability Focus", "text": opt3},
+                {"label": "🇲🇾 Option 4: Bahasa Melayu (Kelebihan Produk)", "text": opt4},
+            ],
+            "extBtnLabel": "💬 Reply with Product Consultation",
+            "extActionType": "REPLY_ONLY",
+            "sku": primary_item.get("sku"),
             "qty": 0,
             "amount": 0,
         }
