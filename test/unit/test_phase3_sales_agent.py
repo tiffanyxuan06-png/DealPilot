@@ -68,6 +68,7 @@ def test_privacy_fix_casual_chat_not_saved_in_memories(client):
 
 def test_strict_ai_mode_rejects_offline_fallback(client, monkeypatch):
     monkeypatch.setenv("CASHCHASE_STRICT_AI", "1")
+    monkeypatch.setenv("LMSTUDIO_URL", "http://127.0.0.1:9/v1")
     # Calling analyze with strictAi=True when LM Studio is down raises 503
     r = client.post("/api/whatsapp/analyze", json={
         **STAFF,

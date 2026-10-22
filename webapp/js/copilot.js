@@ -535,579 +535,6 @@
     function executeExtensionAction() {
       const st = getState();
       const chat = st.chats[currentChatIndex];
-      const actionDesc = `${chat.extTitle || chat.extBtnLabel || 'Execute action'} for ${chat.customer}`;
-
-      askUserConfirm(
-        `Confirm WhatsApp Copilot Action`,
-        `${actionDesc}\n\nSelected Reply:\n"${chat.extDraft || ''}"`,
-        () => {
-          const inputBox = document.getElementById('wa-input-box');
-          if (inputBox && chat.extDraft) inputBox.value = chat.extDraft;
-
-          if (usesBackend()) {
-            chat.done = true;
-            backendAction('/api/whatsapp/execute', {
-              customer: chat.customer,
-              phone: (chat.phone || '').split(' · ')[0],
-              actionType: chat.extActionType,
-              dealId: chat.dealId || null,
-              items: chat.items || null,
-              discount: chat.discount || 0,
-              depositRef: chat.depositRef || null,
-              depositAmount: chat.depositAmount || null,
-              reason: chat.lossReasonSuggestion || chat.reason || 'Customer declined on WhatsApp',
-              note: chat.complaintNote || chat.note || null,
-              tin: chat.tin || null,
-              ssmBrn: chat.ssmBrn || null,
-              role: currentRole
-            }, `${chat.extTitle || 'Action'} executed successfully!`).then(d => {
-              if (!d) chat.done = false;
-            });
-            return;
-          }
-
-          chat.done = true;
-          renderWhatsAppView();
-          showToast('Action executed in demo mode!');
-        }
-      );
-    }=======================================================================
-    // WHATSAPP EXTENSION VIEW (1 GIANT OBVIOUS BUTTON)
-    // =========================================================================
-    function renderWhatsAppView() {
-      const st = getState();
-      if (currentChatIndex >= st.chats.length) currentChatIndex = 0;
-      const chatListEl = document.getElementById('wa-chat-list');
-
-      chatListEl.innerHTML = st.chats.map((c, idx) => {
-        const active = idx === currentChatIndex;
-        const last = c.messages && c.messages.length ? c.messages[c.messages.length - 1] : null;
-        const initials = String(c.customer).replace(/[^A-Za-z ]/g, '').split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('');
-        return `
-          <button onclick="selectChat(${idx})" class="wa-chat ${active ? 'is-active' : ''}" aria-current="${active}">
-            <span class="wa-avatar">${initials}</span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-center justify-between gap-2">
-                <span class="font-semibold text-sm text-[#042970] truncate">${escapeHtmlText(c.customer)}</span>
-                ${c.done ? '<svg class="w-4 h-4 text-emerald-600 shrink-0" aria-label="Done"><use href="#i-check"/></svg>' : `<span class="text-[11px] text-[#5B6B85] shrink-0">${last ? last.time : ''}</span>`}
-              </span>
-              <span class="block text-xs text-[#5B6B85] truncate">${escapeHtmlText(last ? last.text : '')}</span>
-              <span class="cc-pill !text-[11px] !py-0 mt-1">${escapeHtmlText(String(c.badge).replace(/^\d+\.\s*/, ''))}</span>
-            </span>
-          </button>
-        `;
-      }).join('');
-
-      const activeChat = st.chats[currentChatIndex];
-      document.getElementById('wa-active-name').textContent = activeChat.customer;
-      document.getElementById('wa-active-sub').textContent = activeChat.phone;
-      document.getElementById('wa-scenario-badge').textContent = activeChat.badge;
-
-      const msgContainer = document.getElementById('wa-messages');
-      msgContainer.innerHTML = activeChat.messages.map(m => {
-        const isStaff = m.from === 'staff';
-        const hasAtt = m.attachment;
-        return `
-          <div class="flex ${isStaff ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-xs space-y-1.5 ${
-              isStaff
-                ? 'wa-bubble-out'
-                : 'wa-bubble-in'
-            }">
-              ${hasAtt ? `
-                <div class="p-2.5 rounded-xl bg-white/70 border border-black/5 flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-lg bg-rose-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                    PDF
-                  </div>
-                  <div class="overflow-hidden text-left flex-1">
-                    <div class="font-bold truncate text-[#042970]">${escapeHtmlText(hasAtt.name || 'Document.pdf')}</div>
-                    <div class="text-[10px] text-[#5B6B85] flex items-center gap-2">
-                      <span>${escapeHtmlText(hasAtt.size || '142 KB')}</span>
-                      <span class="px-1.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Read by AI</span>
-                    </div>
-                  </div>
-                </div>
-              ` : ''}
-              <div>${escapeHtmlText(m.text)}</div>
-              <div class="text-[10px] opacity-75 text-right">${m.time}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      const extBody = document.getElementById('ext-panel-body');
-      const needsOwner = activeChat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' || activeChat.extActionType === 'AFTERSALES_REPLACE';
-      // Backend profile: follow the Owner's Team & Permissions settings; demo profiles keep the old Owner-only rule.
-      const execPermissionKey = { SAVE_LHDN_TIN: 'invoice.set_tin', CREATE_QUOTE_HOLD: 'quote.create', CONFIRM_DEPOSIT_DEDUCT: 'deposit.confirm', AFTERSALES_REPLACE: 'aftersales.replace', RELEASE_EXPIRED_HOLD: 'quote.release' }[activeChat.extActionType];
-      const roleMode = usesBackend() ? (execPermissionKey ? staffModeFor(execPermissionKey) : 'ALLOW') : (needsOwner && currentRole === 'STAFF' ? 'APPROVAL' : 'ALLOW');
-      const blockedByRole = roleMode !== 'ALLOW';
-      const replyOptions = getReplyOptionsForChat(activeChat);
-      const selectedIdx = typeof activeChat.selectedReplyIdx === 'number' ? activeChat.selectedReplyIdx : 0;
-      const selectedOpt = replyOptions[selectedIdx] || replyOptions[0];
-
-      // Primary button label follows the chosen aftersales option
-      let dynamicBtnLabel = activeChat.extBtnLabel;
-      if (activeChat.extActionType === 'AFTERSALES_REPLACE') {
-        const rebateVal = typeof activeChat.rebateAmount === 'number' ? activeChat.rebateAmount : 180;
-        const techTimeVal = activeChat.techVisitTime || 'before 3:00 PM today';
-        if (selectedIdx === 1 || (selectedOpt && selectedOpt.kind === 'REBATE')) {
-          dynamicBtnLabel = `Give RM ${rebateVal.toLocaleString()} rebate & reply`;
-        } else if (selectedIdx === 2 || (selectedOpt && selectedOpt.kind === 'TECH_VISIT')) {
-          dynamicBtnLabel = `Book technician & reply`;
-        } else {
-          dynamicBtnLabel = `Send replacement & reply`;
-        }
-      }
-
-      // Retrieve the real, persistent client memory for the active customer
-      if (!activeChat.memory) {
-        activeChat.memory = {
-          tier: 'Standard Client',
-          score: 75,
-          totalOrders: 1,
-          totalPaidRM: 1000,
-          notes: ['Direct communication via WhatsApp · Fast response'],
-          timeline: [{ time: 'Recent', note: 'Contact created in CashChase' }]
-        };
-      }
-      const mem = activeChat.memory;
-      const isRiskClient = (mem.score || 75) < 60;
-
-      // Panel copy comes from scenario data written with emoji; strip them so
-      // the panel uses its own icons instead
-      const plain = s => String(s || '')
-        .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍]/gu, '')
-        .replace(/\s+/g, ' ').trim();
-      const optName = label => plain(label).replace(/^Option \d+:\s*/i, '');
-      const btnText = label => plain(label)
-        .replace(/\s*&\s*Insert( Selected)? Reply/i, ' & reply')
-        .replace(/^(.)/, c => c.toUpperCase());
-      const checkIcon = '<svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"><use href="#i-check"/></svg>';
-      const infoDot = '<span class="cc-dot bg-[#01AAFC] mt-1.5 mx-1 shrink-0"></span>';
-      const checkLines = String(activeChat.extCheck || '').split('\n').filter(l => l.trim()).map(line => {
-        const isTotal = /total|received/i.test(line);
-        return `
-          <li class="flex items-start gap-2 ${isTotal ? 'pt-2 mt-1 border-t border-[#DCE4F2] font-semibold text-[#042970]' : ''}">
-            ${line.trim().startsWith('✅') ? checkIcon : infoDot}
-            <span class="min-w-0">${escapeHtmlText(plain(line))}</span>
-          </li>`;
-      }).join('');
-
-      const offerChips = [
-        ['5% VIP discount', 'Give 5% VIP Discount if deposit confirmed today'],
-        ['RM 150 off', 'Knock off RM 150 discount for immediate DuitNow transfer'],
-        ['Free delivery', 'Offer free delivery or install promo instead of price cut'],
-        ['Round down', 'Round down total to nearest hundred flat']
-      ];
-
-      // Customer rating: AI scores each customer from payment and chat behaviour
-      const score = Math.max(0, Math.min(100, mem.score || 75));
-      const rating = score >= 80
-        ? { label: 'Trusted', color: '#059669', bg: '#ECFDF5', fg: '#065F46' }
-        : score >= 60
-          ? { label: 'Good', color: '#0152FC', bg: '#E6EEFF', fg: '#042970' }
-          : { label: 'Watch closely', color: '#D97706', bg: '#FFFBEB', fg: '#92400E' };
-      const firstNote = (mem.notes || [])[0];
-
-      // Payment check: confirming an order needs the money seen in the bank first
-      const needsPaymentCheck = activeChat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && !activeChat.done;
-      const claimMatch = String(activeChat.extCheck || '').match(/RM\s*([\d,]+)/);
-      const claimedAmt = activeChat.amount
-        ? Number(activeChat.amount).toLocaleString()
-        : (claimMatch ? claimMatch[1] : '');
-      const lastCustomerMsg = [...(activeChat.messages || [])].reverse().find(m => m.from === 'customer');
-      const refMatch = lastCustomerMsg ? String(lastCustomerMsg.text).match(/Ref:?\s*([A-Z]{2}-[\d-]+)/i) : null;
-      const paymentBlocked = needsPaymentCheck && !activeChat.paymentSeen;
-
-      const primaryLabel = activeChat.done
-        ? 'Done · insert reply again'
-        : blockedByRole ? 'Send to owner for approval' : btnText(dynamicBtnLabel);
-
-      extBody.innerHTML = `
-        <!-- Customer rating, always visible; reasons and history on demand -->
-        <div id="ext-rating" class="ext-rating">
-          <div class="flex items-center gap-3">
-            <span class="ext-score" style="--score:${score * 3.6}deg; --score-color:${rating.color}" role="img" aria-label="Customer score ${score} out of 100">
-              <span>${score}</span>
-            </span>
-            <span class="flex-1 min-w-0">
-              <span class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold text-sm text-[#042970] truncate">${escapeHtmlText(activeChat.customer)}</span>
-                <span class="cc-pill" style="background:${rating.bg}; color:${rating.fg}">${rating.label}</span>
-              </span>
-              <span class="block text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(plain(mem.tier))} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
-            </span>
-          </div>
-          ${firstNote ? `<p class="text-xs text-[#324564] mt-2.5"><span class="font-semibold text-[#042970]">AI says:</span> ${escapeHtmlText(plain(firstNote))}</p>` : ''}
-          <details class="ext-customer group mt-2">
-            <summary class="flex items-center gap-1.5 cursor-pointer list-none text-xs font-semibold text-[#0152FC] !min-h-[32px]">
-              Why this score
-              <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </summary>
-            <div class="mt-1 space-y-3 text-xs">
-              <ul class="space-y-1 text-[#324564] list-disc pl-4">
-                ${(mem.notes || []).map(n => `<li>${escapeHtmlText(plain(n))}</li>`).join('')}
-              </ul>
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <span class="font-semibold text-[#042970]">Recent</span>
-                  <button onclick="promptAddMemoryNote()" class="font-semibold text-[#0152FC] hover:underline">Add note</button>
-                </div>
-                <div class="space-y-1 max-h-28 overflow-y-auto pr-1">
-                  ${(mem.timeline || []).map(t => `
-                    <div class="flex gap-2 text-[#5B6B85]">
-                      <span class="font-mono text-[#042970] shrink-0">${t.time}</span>
-                      <span>${escapeHtmlText(plain(t.note))}</span>
-                    </div>`).join('')}
-                </div>
-              </div>
-            </div>
-          </details>
-        </div>
-
-        <!-- What the customer wants + what CashChase checked -->
-        <div class="pt-4 border-t border-[#DCE4F2]">
-          <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
-          <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${escapeHtmlText(plain(activeChat.extTitle))}</div>
-          <ul class="mt-2 space-y-1 text-sm text-[#324564]">${checkLines}</ul>
-        </div>
-
-        ${needsPaymentCheck ? `
-          <!-- Check payment before the order is confirmed -->
-          <div id="ext-payment" class="ext-payment ${activeChat.paymentSeen ? 'is-ok' : ''}">
-            <div class="flex items-center gap-2 text-sm font-semibold text-[#042970]">
-              <svg class="w-4 h-4 text-purple-600"><use href="#i-wallet"/></svg> Check payment
-            </div>
-            <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs mt-2">
-              <dt class="text-[#5B6B85]">Customer says</dt><dd class="font-semibold text-[#042970]">RM ${claimedAmt || '—'} paid</dd>
-              ${refMatch ? `<dt class="text-[#5B6B85]">DuitNow ref</dt><dd class="font-mono font-semibold text-[#0152FC]">${refMatch[1]}</dd>` : ''}
-            </dl>
-            <label class="flex items-start gap-2.5 mt-3 cursor-pointer">
-              <input id="ext-payment-seen" type="checkbox" ${activeChat.paymentSeen ? 'checked' : ''} onchange="setPaymentSeen(this.checked)" class="w-4 h-4 mt-0.5 accent-[#0152FC]" />
-              <span class="text-sm text-[#042970]">I can see RM ${claimedAmt || 'this amount'} in our bank account</span>
-            </label>
-          </div>
-        ` : ''}
-
-        ${activeChat.isAILoading ? `
-          <div class="pt-4 border-t border-[#DCE4F2] flex flex-col items-center text-center gap-2 py-6" role="status">
-            <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-24 h-auto m-laptop" />
-            <div class="font-semibold text-sm text-[#042970]">Writing a reply…</div>
-            <div class="text-xs text-[#5B6B85]">Checking your prices and stock first.</div>
-          </div>
-        ` : `
-          <!-- Reply picker: pick one, the chosen reply shows in full -->
-          <div class="pt-4 border-t border-[#DCE4F2]">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-[#5B6B85]">Pick a reply</span>
-              <span class="text-xs text-[#5B6B85]">Goes into your reply box</span>
-            </div>
-            <div class="space-y-2" role="radiogroup" aria-label="Suggested replies">
-              ${replyOptions.map((opt, rIdx) => {
-                const isSelected = rIdx === selectedIdx;
-                const isRebateOpt = activeChat.extActionType === 'AFTERSALES_REPLACE' && (rIdx === 1 || opt.kind === 'REBATE');
-                const isTechOpt = activeChat.extActionType === 'AFTERSALES_REPLACE' && (rIdx === 2 || opt.kind === 'TECH_VISIT');
-                const rebateVal = typeof activeChat.rebateAmount === 'number' ? activeChat.rebateAmount : 180;
-                const techTimeVal = activeChat.techVisitTime || 'before 3:00 PM today';
-                return `
-                  <div class="ext-reply ${isSelected ? 'is-selected' : ''}">
-                    <button onclick="selectRecommendedReply(${rIdx})" role="radio" aria-checked="${isSelected}" class="w-full text-left flex items-start gap-2.5 p-3">
-                      <span class="ext-radio mt-0.5"></span>
-                      <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold text-[#042970]">${escapeHtmlText(optName(opt.label))}</span>
-                        ${isSelected
-                          ? `<span class="block text-sm text-[#324564] leading-relaxed mt-1" id="reply-opt-text-${rIdx}">${escapeHtmlText(opt.text)}</span>`
-                          : `<span class="block text-xs text-[#5B6B85] truncate mt-0.5">${escapeHtmlText(opt.text)}</span>`}
-                      </span>
-                    </button>
-                    ${isSelected && isRebateOpt ? `
-                      <div class="px-3 pb-3 pl-[38px] flex items-center gap-2">
-                        <label for="inline-rebate-input" class="text-xs font-semibold text-[#042970]">Rebate (RM)</label>
-                        <input id="inline-rebate-input" type="number" min="10" step="10" value="${rebateVal}" oninput="updateAftersalesRebate(this.value)" class="cc-input !w-28 !min-h-[36px] font-semibold" />
-                      </div>
-                    ` : ''}
-                    ${isSelected && isTechOpt ? `
-                      <div class="px-3 pb-3 pl-[38px]">
-                        <label for="inline-tech-time-input" class="block text-xs font-semibold text-[#042970] mb-1">Technician visit time</label>
-                        <input id="inline-tech-time-input" type="text" value="${escapeHtmlText(techTimeVal)}" oninput="updateAftersalesTechTime(this.value)" placeholder="e.g. tomorrow 10:30 AM" class="cc-input !min-h-[36px]" />
-                      </div>
-                    ` : ''}
-                  </div>`;
-              }).join('')}
-            </div>
-          </div>
-        `}
-
-        <!-- Adjust: custom instructions and offers, closed until needed -->
-        <details class="ext-adjust group" ${activeChat.lastCustomPrompt ? 'open' : ''}>
-          <summary class="flex items-center gap-2 cursor-pointer list-none text-sm font-semibold text-[#0152FC]">
-            <svg class="w-4 h-4"><use href="#i-sparkle"/></svg>
-            Adjust reply
-            <span class="text-xs font-normal text-[#5B6B85]">discount, terms, language</span>
-            <svg class="w-4 h-4 ml-auto text-[#5B6B85] transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="mt-3 space-y-2.5">
-            <div class="flex gap-2">
-              <label for="wa-custom-quote-prompt" class="sr-only">Tell AI how to change the reply</label>
-              <input id="wa-custom-quote-prompt" type="text" value="${escapeHtmlText(activeChat.lastCustomPrompt || '')}" onkeydown="if(event.key==='Enter') promptAiCustomQuote(this.value)" placeholder="e.g. 50% deposit, polite BM" class="cc-input !min-h-[38px]" />
-              <button onclick="promptAiCustomQuote(document.getElementById('wa-custom-quote-prompt').value)" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Rewrite</button>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              ${offerChips.map(([label, prompt]) => `<button onclick="promptAiCustomQuote('${prompt}')" class="cc-chip !min-h-[30px] !text-xs">${label}</button>`).join('')}
-            </div>
-          </div>
-        </details>
-
-        <!-- One main action, pinned while the panel scrolls -->
-        <div class="ext-footer">
-          ${blockedByRole ? `
-            <p class="flex items-center gap-1.5 text-xs text-amber-800 mb-2">
-              <svg class="w-3.5 h-3.5 shrink-0"><use href="#i-shield"/></svg>
-              ${roleMode === 'DENY' ? 'The owner turned this off for staff. Ask the owner to do it.' : 'Needs the owner\'s approval. Send it, and the owner will see it on the Dashboard.'}
-            </p>
-          ` : ''}
-          ${paymentBlocked ? `<p class="text-xs text-[#5B6B85] mb-2">Tick the payment check first.</p>` : ''}
-          <button id="ext-primary-action-btn" onclick="executeExtensionAction()" ${paymentBlocked ? 'disabled' : ''} class="cc-btn cc-btn-lg w-full ${activeChat.done ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'cc-btn-primary'}">
-            ${escapeHtmlText(primaryLabel)}
-          </button>
-          <button onclick="openPdfFromChat()" class="w-full mt-2 text-xs font-semibold text-[#0152FC] hover:underline flex items-center justify-center gap-1.5">
-            <svg class="w-3.5 h-3.5"><use href="#i-file"/></svg> Attach PDF document
-          </button>
-        </div>
-      `;
-
-      updatePromptPreview(activeChat);
-    }
-
-    function setPaymentSeen(seen) {
-      const chat = getState().chats[currentChatIndex];
-      chat.paymentSeen = !!seen;
-      renderWhatsAppView();
-      if (seen) showToast('Payment checked. You can confirm the order now.');
-    }
-
-    // Jump from a capability card to a chat that shows it, then point at the part
-    function showCapability(key) {
-      const typeFor = { reserve: 'CREATE_QUOTE_HOLD', reply: 'CREATE_QUOTE_HOLD', rating: 'CREATE_QUOTE_HOLD', confirm: 'CONFIRM_DEPOSIT_DEDUCT', payment: 'CONFIRM_DEPOSIT_DEDUCT' };
-      const chats = getState().chats;
-      const idx = chats.findIndex(c => c.extActionType === typeFor[key]);
-      if (idx >= 0) selectChat(idx);
-
-      const targets = {
-        reply: '.ext-adjust',
-        reserve: '#ext-primary-action-btn',
-        confirm: '#ext-primary-action-btn',
-        payment: '#ext-payment',
-        rating: '#ext-rating'
-      };
-
-      // The panel re-renders while the AI drafts a reply; wait for the target
-      let tries = 0;
-      const point = () => {
-        const chat = getState().chats[currentChatIndex];
-        const el = document.querySelector(targets[key]);
-        if ((!el || (chat && chat.isAILoading)) && tries++ < 30) return setTimeout(point, 100);
-        if (!el) return;
-        if (key === 'reply') el.open = true;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.remove('cc-spotlight');
-        void el.offsetWidth;
-        el.classList.add('cc-spotlight');
-        if (key === 'reply') {
-          const input = document.getElementById('wa-custom-quote-prompt');
-          if (input) setTimeout(() => input.focus({ preventScroll: true }), 400);
-        }
-      };
-      setTimeout(point, 120);
-    }
-
-    function updateAftersalesRebate(val) {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
-      const rebate = Math.max(0, parseInt(val || '0', 10));
-      chat.rebateAmount = rebate;
-      const inv = st.invoices.find(i => i.id === 'INV-201');
-      const baseAmt = inv ? inv.amount : 4800;
-      const revised = Math.max(0, baseAmt - rebate);
-
-      const newText = `Hi ${chat.customer}, sincere apologies for the leaking valve! If you prefer not to wait for a replacement, we can immediately deduct RM ${rebate.toLocaleString()} off #INV-201 (revised balance RM ${revised.toLocaleString()}).`;
-      if (chat.replyOptions && chat.replyOptions[1]) {
-        chat.replyOptions[1].label = `💸 Option 2: Offer RM ${rebate.toLocaleString()} Instant Credit Rebate`;
-        chat.replyOptions[1].text = newText;
-      }
-      chat.extDraft = newText;
-      const textEl = document.getElementById('reply-opt-text-1');
-      if (textEl) textEl.textContent = newText;
-      const inputBox = document.getElementById('wa-input-box');
-      if (inputBox) inputBox.value = newText;
-      const btnEl = document.getElementById('ext-primary-action-btn');
-      if (btnEl && !chat.done) {
-        btnEl.textContent = `Give RM ${rebate.toLocaleString()} rebate & reply`;
-      }
-    }
-
-    function updateAftersalesTechTime(val) {
-      const chat = getState().chats[currentChatIndex];
-      const timeStr = (val || 'before 3:00 PM today').trim();
-      chat.techVisitTime = timeStr;
-
-      const newText = `Sorry about that ${chat.customer}! Our technician is nearby and can drop by your clinic ${timeStr} to swap the faulty R32 cylinder on the spot.`;
-      if (chat.replyOptions && chat.replyOptions[2]) {
-        chat.replyOptions[2].text = newText;
-      }
-      chat.extDraft = newText;
-      const textEl = document.getElementById('reply-opt-text-2');
-      if (textEl) textEl.textContent = newText;
-      const inputBox = document.getElementById('wa-input-box');
-      if (inputBox) inputBox.value = newText;
-      const btnEl = document.getElementById('ext-primary-action-btn');
-      if (btnEl && !chat.done) {
-        btnEl.textContent = `Book technician & reply`;
-      }
-    }
-
-    function getReplyOptionsForChat(chat) {
-      if (Array.isArray(chat.replyOptions) && chat.replyOptions.length > 0) {
-        return chat.replyOptions;
-      }
-      const cleanCust = cleanCustomerName(chat.customer);
-      return [
-        { label: '💬 Option 1: Direct Reply', text: chat.extDraft },
-        { label: '🤝 Option 2: Friendly Boss Style', text: `Hi ${cleanCust}! ${chat.extDraft}` },
-        { label: '🇲🇾 Option 3: Bahasa Melayu', text: `Salam ${cleanCust}, ${chat.extDraft}` }
-      ];
-    }
-
-    async function triggerLiveAIForChat(chat, instruction = '') {
-      if (!chat) return;
-      const st = getState();
-      const lastMsg = (chat.messages && chat.messages.length > 0)
-        ? (chat.messages[chat.messages.length - 1].text || '')
-        : '';
-
-      chat.isAILoading = true;
-      if (instruction) chat.lastCustomPrompt = instruction;
-      const inputBox = document.getElementById('wa-input-box');
-      if (inputBox) {
-        inputBox.value = '';
-        inputBox.placeholder = '🤖 Generating live reply with AI Copilot...';
-        inputBox.disabled = true;
-      }
-      renderWhatsAppView();
-
-      try {
-        const res = await fetch(`${BACKEND_API_BASE}/api/whatsapp/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customer: chat.customer,
-            phone: chat.phone,
-            message: lastMsg,
-            userInstruction: instruction,
-            role: currentRole,
-            smePreset: currentSME,
-            companyName: st.name,
-            stock: st.stock,
-            framework: st.framework,
-            recentMessages: (chat.messages || []).map(m => ({
-              sender: m.from === 'customer' ? 'Them' : 'ME',
-              text: m.text
-            }))
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.analysis) {
-            const a = data.analysis;
-            chat.badge = a.badge || chat.badge;
-            chat.extTitle = a.extTitle || chat.extTitle;
-            chat.extCheck = a.extCheck || chat.extCheck;
-            chat.extDraft = a.extDraft || chat.extDraft;
-            if (Array.isArray(a.replyOptions) && a.replyOptions.length > 0) {
-              chat.replyOptions = a.replyOptions;
-            }
-            chat.extBtnLabel = a.extBtnLabel || chat.extBtnLabel;
-            chat.extActionType = a.extActionType || chat.extActionType;
-            if (a.sku) {
-              chat.sku = a.sku;
-              chat.qty = a.qty;
-              chat.extraSku = a.extraSku || null;
-              chat.extraQty = a.extraQty || 0;
-            }
-            if (a.amount) chat.amount = a.amount;
-            chat.tin = a.tin || null;
-            chat.ssmBrn = a.ssmBrn || null;
-            chat.selectedReplyIdx = 0;
-            if (a.clientMemory) {
-              chat.memory = {
-                tier: a.clientMemory.tier,
-                score: a.clientMemory.score,
-                totalOrders: a.clientMemory.totalOrders,
-                totalPaidRM: a.clientMemory.totalPaidRm,
-                notes: [a.clientMemory.styleSummary, a.clientMemory.paymentBehavior],
-                timeline: (chat.memory && chat.memory.timeline) || []
-              };
-            }
-          }
-          if (data.raw_prompt) {
-            agentInspectorData.whatsapp.prompt = data.raw_prompt;
-            agentInspectorData.whatsapp.output = data.raw_llm_output || JSON.stringify(data.analysis, null, 2);
-            if (currentInspectorAgent === 'whatsapp') {
-              renderAgentInspector();
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('AI prompt offline, keeping local options', err);
-      } finally {
-        chat.isAILoading = false;
-        const opts = getReplyOptionsForChat(chat);
-        const selIdx = typeof chat.selectedReplyIdx === 'number' ? chat.selectedReplyIdx : 0;
-        const inputBox = document.getElementById('wa-input-box');
-        if (inputBox) {
-          inputBox.disabled = false;
-          inputBox.placeholder = 'Type a message (or click the Big Button on the right)...';
-          if (opts[selIdx]) inputBox.value = opts[selIdx].text;
-        }
-        updatePromptPreview(chat);
-        renderWhatsAppView();
-      }
-    }
-
-    function applyCustomInstructionToChat(chat, instr) {
-      triggerLiveAIForChat(chat, instr);
-    }
-
-    function promptAiCustomQuote(instructionText) {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
-      triggerLiveAIForChat(chat, (instructionText || '').trim());
-    }
-
-    function selectRecommendedReply(rIdx) {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
-      const opts = getReplyOptionsForChat(chat);
-      if (!opts[rIdx]) return;
-      chat.selectedReplyIdx = rIdx;
-      chat.extDraft = opts[rIdx].text;
-      const inputBox = document.getElementById('wa-input-box');
-      if (inputBox) inputBox.value = opts[rIdx].text;
-      renderWhatsAppView();
-      showToast(`Selected "${opts[rIdx].label}" — ready in WhatsApp input box!`);
-    }
-
-    function selectChat(idx) {
-      currentChatIndex = idx;
-      const st = getState();
-      const chat = st.chats[idx];
-      triggerLiveAIForChat(chat);
-    }
-
-    function executeExtensionAction() {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
       const item1 = st.stock[0] || { sku: 'ITEM-1', name: 'Standard Item', onHand: 10, onHold: 0 };
       const item2 = st.stock[1] || null;
       const itemsLabel = item1.name + (item2 ? ` + ${item2.name}` : '');
@@ -1144,34 +571,34 @@
           const staffDeposit = !usesBackend() && chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
           if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
             const msgs = {
-              CREATE_QUOTE_HOLD: `Quote created for ${chat.customer}! Stock placed ON HOLD for 48h & reply filled into WhatsApp!`,
-              CONFIRM_DEPOSIT_DEDUCT: 'Deposit confirmed! Order confirmed & scheduled for delivery!',
-              AFTERSALES_REPLACE: `1x replacement dispatched as Aftersales Resolution for ${chat.customer}!`,
-              RELEASE_EXPIRED_HOLD: `Released ${chat.customer}'s expired reservation back to Available Stock!`,
+              CREATE_QUOTE: `Quote created for ${chat.customer} and logged in Pipeline!`,
+              CREATE_QUOTE_HOLD: `Quote created for ${chat.customer} and logged in Pipeline!`,
+              SEND_COUNTER_OFFER: `Counter-offer discount sent to ${chat.customer}!`,
+              ASK_OWNER: `Discount submitted to Owner for approval!`,
+              SEND_FOLLOW_UP: `Follow-up sent to ${chat.customer}!`,
+              MARK_WON: `Marked deal WON for ${chat.customer}! Order confirmed.`,
+              MARK_LOST: `Marked deal LOST for ${chat.customer}.`,
+              LOG_COMPLAINT: `Complaint logged and follow-ups paused for ${chat.customer}.`,
               SAVE_LHDN_TIN: `Saved LHDN TIN ${chat.tin || ''} for ${chat.customer}!`
             };
             chat.done = true;
-            const rebateChosen = chat.extActionType === 'AFTERSALES_REPLACE'
-              && (chat.selectedReplyIdx === 1 || (getReplyOptionsForChat(chat)[chat.selectedReplyIdx] || {}).kind === 'REBATE');
-            const aftersalesInv = st.invoices.find(i => i.type === 'AFTERSALES' && i.party.includes(cleanCustomerName(chat.customer)));
-            if (rebateChosen && aftersalesInv) {
-              const rebate = typeof chat.rebateAmount === 'number' ? chat.rebateAmount : 180;
-              backendAction(`/api/invoices/${encodeURIComponent(aftersalesInv.id)}/action`, { action: 'DISCOUNT', amount: rebate },
-                `Applied RM ${rebate.toLocaleString()} credit rebate on ${aftersalesInv.id}!`).then(d => { if (!d) chat.done = false; });
-              return;
-            }
             backendAction('/api/whatsapp/execute', {
               customer: chat.customer,
               phone: (chat.phone || '').split(' · ')[0],
               actionType: chat.extActionType,
+              dealId: chat.dealId || null,
+              items: chat.items || null,
               sku: chat.sku || item1.sku,
               qty: chat.qty || 1,
-              extraSku: chat.extraSku || null,
-              extraQty: chat.extraQty || 0,
-              amount: chat.amount || 0,
+              discount: chat.discount || 0,
+              depositRef: chat.depositRef || null,
+              depositAmount: chat.depositAmount || null,
+              reason: chat.lossReasonSuggestion || chat.reason || 'Customer declined on WhatsApp',
+              note: chat.complaintNote || chat.note || null,
               tin: chat.tin || null,
-              ssmBrn: chat.ssmBrn || null
-            }, msgs[chat.extActionType]).then(d => { if (!d) chat.done = false; });
+              ssmBrn: chat.ssmBrn || null,
+              role: currentRole
+            }, msgs[chat.extActionType] || `${chat.extTitle || 'Action'} executed!`).then(d => { if (!d) chat.done = false; });
             return;
           }
 
@@ -1434,17 +861,17 @@
       chat.done = false;
       const cleanCust = cleanCustomerName(chat.customer);
 
-      if (actionKey === 'BUYING_INQUIRY') {
+      if (actionKey === 'BUYING_INQUIRY' || actionKey === 'MSG_BUY_INQUIRY') {
         const msg = 'Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah? Need quote urgently.';
         chat.messages.push({ from: 'customer', time: 'Just Now', text: msg });
         showToast('💬 Simulated Customer asking for quote!');
         triggerLiveAIForChat(chat, 'Customer asks for 5x Daikin 1.5HP and 5x R32 gas quote');
-      } else if (actionKey === 'DISCOUNT_REQUEST') {
+      } else if (actionKey === 'DISCOUNT_REQUEST' || actionKey === 'MSG_DISCOUNT') {
         const msg = 'Boss, quote for 2 units Daikin 1.5HP can less or give discount sikit? Best price please.';
         chat.messages.push({ from: 'customer', time: 'Just Now', text: msg });
         showToast('💬 Simulated Customer asking for discount!');
         triggerLiveAIForChat(chat, 'Customer asks for discount on Daikin 1.5HP. Offer margin-safe counter-offer.');
-      } else if (actionKey === 'CUSTOMER_CONFIRMED') {
+      } else if (actionKey === 'CUSTOMER_CONFIRMED' || actionKey === 'MSG_DEPOSIT_PAID' || actionKey === 'PDF_DUITNOW') {
         const msg = 'Ok boss confirm order for QT-2026-101! Just bank in RM 2,000 deposit via DuitNow (Ref: DN-99281).';
         chat.messages.push({
           from: 'customer',
@@ -1464,7 +891,7 @@
         });
         showToast('⏰ Simulated 48h Follow-up SLA due!');
         triggerLiveAIForChat(chat, 'Follow-up due on open quote. Draft polite nudge.');
-      } else if (actionKey === 'COMPLAINT') {
+      } else if (actionKey === 'COMPLAINT' || actionKey === 'MSG_AFTERSALES') {
         const msg = 'Boss, 1 bottle R32 gas from last order valve leaking la. Very dangerous. Please check.';
         chat.messages.push({ from: 'customer', time: 'Just Now', text: msg });
         chat.complaintNote = 'R32 gas cylinder nozzle leaking';
@@ -1486,8 +913,9 @@
       }
     }
 
-    let currentPhotoItems = [];
-    let currentPhotoAnalysis = null;
+    // =========================================================================
+    // PHASE 3 COPILOT ENHANCEMENTS: SANDBOX, PHOTO-TO-QUOTE & SCENARIOS
+    // =========================================================================
 
     function createNewBlankChat() {
       const st = getState();
@@ -1524,6 +952,9 @@
       renderWhatsAppView();
       showToast(`Created blank chat for ${clean}! Type a message below to test live LLM.`);
     }
+
+    let currentPhotoItems = [];
+    let currentPhotoAnalysis = null;
 
     async function handleWhatsAppChatFileUpload(inputEl) {
       const file = inputEl.files && inputEl.files[0];

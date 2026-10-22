@@ -524,5 +524,14 @@ def check_ai_replies(merged: Dict[str, Any], fallback: Dict[str, Any], state: Di
         fixed.append({"field": "extDraft", "reason": problem})
         merged["extDraft"] = fallback.get("extDraft", "")
 
+    # Re-append disclaimer to quote and discount replies so AI cannot drop it (docs/11 §4.2)
+    if merged.get("intent") in ("BUYING_INQUIRY", "DISCOUNT_REQUEST"):
+        if "prices valid 7 days" not in (merged.get("extDraft") or ""):
+            merged["extDraft"] = ((merged.get("extDraft") or "").rstrip(". ") + ". " + DISCLAIMER).strip()
+        if isinstance(merged.get("replyOptions"), list):
+            for opt in merged["replyOptions"]:
+                if isinstance(opt, dict) and "prices valid 7 days" not in (opt.get("text") or ""):
+                    opt["text"] = ((opt.get("text") or "").rstrip(". ") + ". " + DISCLAIMER).strip()
+
     merged["replyCheck"] = {"checked": True, "fixed": fixed}
     return merged
