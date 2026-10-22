@@ -4,7 +4,11 @@ import sqlite3
 import pytest
 
 import backend.database as database
-from conftest import OWNER, STAFF, invoice
+from conftest import OWNER, STAFF
+
+
+def deal(state, deal_id):
+    return next((d for d in state["deals"] if d["id"] == deal_id), None)
 
 
 def test_missing_role_is_staff(client):
@@ -13,59 +17,57 @@ def test_missing_role_is_staff(client):
 
 
 def test_staff_routine_action_runs(client):
-    r = client.post("/api/invoices/INV-202/action", json={**STAFF, "action": "MARK_PAID"})
-    assert r.status_code == 200 and invoice(r.json()["state"], "INV-202")["status"] == "PAID"
+    r = client.post("/api/deals/QT-2026-101/action", json={**STAFF, "action": "SEND_FOLLOW_UP"})
+    assert r.status_code == 200 and deal(r.json()["state"], "QT-2026-101")["followUpCount"] == 2
 
 
-def test_staff_discount_goes_to_owner_and_runs_on_approval(client):
-    r = client.post("/api/invoices/INV-201/action", json={**STAFF, "action": "DISCOUNT", "amount": 180}).json()
+def test_approval_only_owner_decides_once(client):
+    r = client.post("/api/deals/QT-2026-103/action", json={**STAFF, "action": "APPLY_DISCOUNT", "discount": 500}).json()
     assert r["status"] == "pending_approval"
-    assert invoice(r["state"], "INV-201")["amount"] == 4800  # nothing changed yet
     ap = r["approvalId"]
     assert client.post(f"/api/approvals/{ap}/decide", json={**STAFF, "decision": "APPROVE"}).status_code == 403
-    s = client.post(f"/api/approvals/{ap}/decide", json={**OWNER, "decision": "APPROVE"}).json()["state"]
-    assert invoice(s, "INV-201")["amount"] == 4620
+    assert client.post(f"/api/approvals/{ap}/decide", json={**OWNER, "decision": "APPROVE"}).status_code == 200
     assert client.post(f"/api/approvals/{ap}/decide", json={**OWNER, "decision": "APPROVE"}).status_code == 409
 
 
 def test_rejected_request_changes_nothing(client):
-    r = client.post("/api/invoices/SUP-881/action", json={**STAFF, "action": "PAY_SUPPLIER"}).json()
-    assert r["status"] == "pending_approval" and "threshold" in r["reason"]  # RM 1,500 > RM 1,000
-    s = client.post(f"/api/approvals/{r['approvalId']}/decide", json={**OWNER, "decision": "REJECT", "note": "next week"}).json()["state"]
-    assert invoice(s, "SUP-881")["status"] == "UNPAID_PAYABLE"
+    r = client.post("/api/deals/QT-2026-103/action", json={**STAFF, "action": "APPLY_DISCOUNT", "discount": 500}).json()
+    s = client.post(f"/api/approvals/{r['approvalId']}/decide", json={**OWNER, "decision": "REJECT", "note": "too low"}).json()["state"]
+    assert deal(s, "QT-2026-103")["amount"] == 2300
     assert any("Rejected request" in line for line in s["logs"])
 
 
-def test_staff_money_out_under_threshold_runs(client):
-    r = client.post("/api/bills/apply", json={**STAFF, "kind": "expense", "party": "TNB", "ref": "EXP-9", "amount": 650}).json()
-    assert r["status"] == "ok"
-
-
 def test_owner_turns_action_off_and_change_is_logged(client):
-    s = client.post("/api/permissions", json={**OWNER, "staffModes": {"deposit.confirm": "DENY"}, "threshold": 2000}).json()["state"]
-    assert any("Permission changed" in line and "Confirm deposit" in line for line in s["logs"])
-    assert any("threshold: RM 1,000 → RM 2,000" in line for line in s["logs"])
-    assert client.post("/api/invoices/QT-102/action", json={**STAFF, "action": "CONFIRM_QUOTE"}).status_code == 403
-    assert client.post("/api/invoices/QT-102/action", json={**OWNER, "action": "CONFIRM_QUOTE"}).status_code == 200
+    s = client.post("/api/permissions", json={**OWNER, "staffModes": {"deal.won": "DENY"}, "marginFloorPct": 20}).json()["state"]
+    assert any("Permission changed" in line and "Mark deal won" in line for line in s["logs"])
+    assert any("Margin floor: 15% → 20%" in line for line in s["logs"])
+    assert s["company"]["marginFloorPct"] == 20
+    assert client.post("/api/deals/QT-2026-103/action", json={**STAFF, "action": "MARK_WON"}).status_code == 403
+    assert client.post("/api/deals/QT-2026-103/action", json={**OWNER, "action": "MARK_WON"}).status_code == 200
 
 
 def test_owner_sets_action_to_approval(client):
-    client.post("/api/permissions", json={**OWNER, "staffModes": {"quote.create": "APPROVAL"}})
-    r = client.post("/api/whatsapp/execute", json={**STAFF, "customer": "Tan Bros", "actionType": "CREATE_QUOTE_HOLD", "sku": "GAS-R32", "qty": 2, "amount": 360}).json()
+    client.post("/api/permissions", json={**OWNER, "staffModes": {"deal.create": "APPROVAL"}})
+    r = client.post("/api/deals", json={**STAFF, "customer": "Tan Bros Trading", "items": [{"sku": "GAS-R32", "qty": 2}]}).json()
     assert r["status"] == "pending_approval"
     s = client.post(f"/api/approvals/{r['approvalId']}/decide", json={**OWNER, "decision": "APPROVE"}).json()["state"]
-    assert any(i["party"] == "Tan Bros" and i["type"] == "QUOTE_HOLD" for i in s["invoices"])
+    assert any(d["customer"] == "Tan Bros Trading" and d["amount"] == 360 and d["stage"] == "QUOTED" for d in s["deals"])
 
 
-@pytest.mark.parametrize("key,mode", [("discount.apply", "ALLOW"), ("export.excel", "APPROVAL")])
-def test_mandatory_modes_cannot_be_loosened(client, key, mode):
+def test_owner_sets_follow_up_hours(client):
+    s = client.post("/api/permissions", json={**OWNER, "followUpHours": 24}).json()["state"]
+    assert s["company"]["followUpHours"] == 24 and s["permissions"]["followUpHours"] == 24
+
+
+@pytest.mark.parametrize("key,mode", [("discount.apply", "BOGUS"), ("no.such.action", "ALLOW")])
+def test_bad_permission_changes_are_refused(client, key, mode):
     assert client.post("/api/permissions", json={**OWNER, "staffModes": {key: mode}}).status_code == 400
 
 
 def test_owner_only_actions(client):
-    assert client.post("/api/permissions", json={**STAFF, "staffModes": {"deposit.confirm": "DENY"}}).status_code == 403
+    assert client.post("/api/permissions", json={**STAFF, "staffModes": {"deal.won": "DENY"}}).status_code == 403
     assert client.post("/api/settings", json={**STAFF, "framework": "x"}).status_code == 403
-    assert client.get("/api/export/xlsx?role=STAFF").status_code == 403
+    assert client.get("/api/export/orders.csv?role=STAFF").status_code == 403
 
 
 def test_audit_log_is_append_only(client):

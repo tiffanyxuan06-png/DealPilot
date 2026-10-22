@@ -1,6 +1,7 @@
-"""60-second setup: read a business's own stock list (.xlsx / .csv) and start CashChase with it.
+"""60-second setup: read a business's own price list (.xlsx / .csv) and start CashChase with it.
 
-Column names are matched in code (no AI): SKU / item code, item name, quantity, unit cost, selling price.
+Column names are matched in code (no AI): SKU / item code, item name, unit cost, selling price.
+A quantity column is ignored: quotes are "subject to stock availability".
 """
 import base64
 import csv
@@ -72,7 +73,7 @@ def decode_upload(file_base64: str) -> bytes:
     return base64.b64decode(payload)
 
 
-def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]], List[str]]:
+def parse_price_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Returns (items, warnings). Rows without a name or with no usable numbers are skipped."""
     rows = [r for r in read_rows(file_name, data) if any(str(c or "").strip() for c in r)]
     if not rows:
@@ -85,7 +86,7 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
             break
     if "name" not in cols:
         return [], ["Could not find an item name column (e.g. 'Item', 'Product', 'Description')."]
-    missing = [label for f, label in (("qty", "quantity"), ("unitCost", "unit cost"), ("sellPrice", "selling price")) if f not in cols]
+    missing = [label for f, label in (("unitCost", "unit cost"), ("sellPrice", "selling price")) if f not in cols]
     warnings = [f"No {', '.join(missing)} column found; please check those values below."] if missing else []
 
     items, used = [], set()
@@ -94,7 +95,7 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
         name = str(get("name") or "").strip()
         if not name:
             continue
-        qty, cost, price = _num(get("qty")), _num(get("unitCost")), _num(get("sellPrice"))
+        cost, price = _num(get("unitCost")), _num(get("sellPrice"))
         sku = str(get("sku") or "").strip().upper() or _make_sku(name, used)
         if sku in used:
             sku = _make_sku(name, used)
@@ -108,7 +109,6 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
             {
                 "sku": sku,
                 "name": name[:80],
-                "qty": max(0, int(qty or 0)),
                 "unitCost": max(0, int(round(cost or 0))),
                 "sellPrice": max(0, int(round(price or 0))),
                 "estimated": estimated,
@@ -126,8 +126,8 @@ def apply_onboarding(conn: sqlite3.Connection, setup: Dict[str, Any], ts: str) -
     """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it."""
     settings = {
         "company_name": setup["companyName"],
-        "follow_up_hours": str(int(setup["holdHours"])),
-        "owner_approval_threshold": str(int(setup["threshold"])),
+        "follow_up_hours": str(int(setup["followUpHours"])),
+        "margin_floor_pct": str(float(setup["marginFloorPct"])),
         "sme_preset": "custom",
         "framework": setup.get("framework") or "Quote from the price list. Prices are subject to stock availability.",
         "onboarding_json": json.dumps(setup),
@@ -141,11 +141,13 @@ def apply_onboarding(conn: sqlite3.Connection, setup: Dict[str, Any], ts: str) -
         "INSERT INTO products (sku, name, sell_price, unit_cost) VALUES (?, ?, ?, ?)",
         [(i["sku"], i["name"], i["sellPrice"], i["unitCost"]) for i in setup["items"]],
     )
+    # Deals need a rep: start with the Owner, who adds the sales team in Settings.
+    conn.execute("INSERT INTO reps (name, commission_pct) VALUES ('Owner', 0)")
     conn.execute(
         "INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)",
         (
             f"{ts} · [OWNER] Set up {setup['companyName']}: {len(setup['items'])} price-list items, "
-            f"follow-up after {int(setup['holdHours'])}h, RM {int(setup['threshold']):,} approval threshold.",
+            f"follow-up after {int(setup['followUpHours'])}h, {float(setup['marginFloorPct']):g}% margin floor.",
             ts,
         ),
     )

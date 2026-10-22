@@ -13,6 +13,7 @@ from backend.routes.state import router as state_router
 from backend.routes.whatsapp import router as whatsapp_router
 from backend.routes.company_ai import router as company_ai_router
 from backend.routes.exports import router as exports_router
+from backend.routes.deals import router as deals_router
 from backend.routes.team import router as team_router
 from backend.routes.onboarding import router as onboarding_router
 from backend.services.auth import auth_enabled, reset_current_role, role_from_claims, set_current_role, verify_token
@@ -25,7 +26,7 @@ init_db(force_reset=False)
 
 app = FastAPI(
     title="CashChase Orbyte API",
-    description="Intelligent WhatsApp Copilot & Real-Time Net Worth Engine for SMEs",
+    description="WhatsApp sales agent for Malaysian SMEs: quotes, follow-ups, pipeline and a won-orders CSV",
     version="2.0.0",
 )
 
@@ -78,6 +79,7 @@ app.include_router(state_router)
 app.include_router(whatsapp_router)
 app.include_router(company_ai_router)
 app.include_router(exports_router)
+app.include_router(deals_router)
 app.include_router(team_router)
 app.include_router(onboarding_router)
 

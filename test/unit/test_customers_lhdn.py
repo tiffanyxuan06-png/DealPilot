@@ -1,5 +1,4 @@
 """Customer records and LHDN e-Invoice TIN handling."""
-import io
 from unittest import mock
 
 import backend.routes.whatsapp as whatsapp_route
@@ -22,7 +21,7 @@ def test_parse_tin_and_ssm():
     assert parse_ssm("SSM 202401009921") == "202401009921"
 
 
-def test_customers_seeded_from_invoices(client):
+def test_customers_seeded_with_tins(client):
     s = client.get("/api/state").json()
     assert customer(s, "Restoran Selera Kampung")["tin"] == "C20449102"
     ah_seng = customer(s, "Kedai Runcit Ah Seng")
@@ -53,25 +52,3 @@ def test_customer_sends_tin_on_whatsapp(client):
 def test_bad_tin_rejected(client):
     r = client.post("/api/whatsapp/execute", json={**OWNER, "customer": "X", "actionType": "SAVE_LHDN_TIN", "tin": "hello"})
     assert r.status_code == 400
-
-
-def test_new_quote_uses_customer_tin_status(client):
-    known = client.post("/api/whatsapp/execute", json={**OWNER, "customer": "Tan Bros Trading", "actionType": "CREATE_QUOTE_HOLD", "sku": "GAS-R32", "qty": 1, "amount": 180}).json()
-    unknown = client.post("/api/whatsapp/execute", json={**OWNER, "customer": "New Shop", "actionType": "CREATE_QUOTE_HOLD", "sku": "GAS-R32", "qty": 1, "amount": 180}).json()
-    assert invoice(known["state"], known["createdId"])["lhdn"] == "🟢 LHDN TIN: C2088391020"
-    assert invoice(unknown["state"], unknown["createdId"])["lhdn"] == "🟡 Missing TIN"
-    assert customer(unknown["state"], "New Shop") is not None
-
-
-def test_set_tin_fills_customers_other_invoices(client):
-    client.post("/api/orders/walkin", json={**OWNER, "customerName": "Kedai Runcit Ah Seng", "sku": "GAS-R32", "qty": 1, "mode": "QUOTE_HOLD"})
-    s = client.post("/api/invoices/QT-101/action", json={**OWNER, "action": "SET_TIN", "tin": "C2588190021"}).json()["state"]
-    phone_quote = next(i for i in s["invoices"] if i["party"] == "Kedai Runcit Ah Seng (Phone Order)")
-    assert phone_quote["lhdn"] == "🟢 LHDN TIN: C2588190021"
-
-
-def test_excel_has_customers_sheet(client):
-    from openpyxl import load_workbook
-
-    wb = load_workbook(io.BytesIO(client.get("/api/export/xlsx?role=OWNER").content))
-    assert "5_Customers_LHDN" in wb.sheetnames

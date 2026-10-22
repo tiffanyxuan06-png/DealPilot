@@ -105,6 +105,14 @@ def deal_commission(amount: int, commission_pct: float) -> int:
     return round(amount * commission_pct / 100)
 
 
+def deal_margin_pct(items: List[Dict[str, Any]], amount: int, costs: Dict[str, int]) -> float:
+    """Margin % on the deal total after discount: (amount - unit cost x qty) / amount."""
+    if amount <= 0:
+        return -100.0
+    cost = sum(costs.get(i["sku"], 0) * i["qty"] for i in items)
+    return round((amount - cost) / amount * 100, 1)
+
+
 def resolve_active_ai_credentials(conn: Optional[sqlite3.Connection] = None) -> Dict[str, str]:
     should_close = False
     if conn is None:
@@ -130,6 +138,9 @@ def resolve_active_ai_credentials(conn: Optional[sqlite3.Connection] = None) -> 
             conn.close()
 
 
+FOLLOW_UPS_BEFORE_SUGGEST_LOST = 3
+
+
 def _deal_dict(r: sqlite3.Row) -> Dict[str, Any]:
     paused = bool(r["paused"])
     return {
@@ -145,6 +156,8 @@ def _deal_dict(r: sqlite3.Row) -> Dict[str, Any]:
         "followUpAt": r["follow_up_at"],
         "followUpText": follow_up_text(r["stage"], r["follow_up_at"], paused),
         "followUpCount": r["follow_up_count"],
+        # After 3 unanswered follow-ups the app suggests "mark as lost"; a person always decides.
+        "suggestLost": r["stage"] in PIPELINE_STAGES and r["follow_up_count"] >= FOLLOW_UPS_BEFORE_SUGGEST_LOST,
         "paused": paused,
         "lossReason": r["loss_reason"] or "",
         "depositRef": r["deposit_ref"] or "",
@@ -155,7 +168,11 @@ def _deal_dict(r: sqlite3.Row) -> Dict[str, Any]:
     }
 
 
-def build_state_payload() -> Dict[str, Any]:
+def build_state_payload(role: Optional[str] = None) -> Dict[str, Any]:
+    """Everything the WebApp and extension show. Staff never receive unit costs or margin %."""
+    from backend.services.permissions import normalize_role
+
+    is_owner = normalize_role(role) == "OWNER"
     conn = get_db()
     refresh_follow_ups(conn)
     conn.commit()
@@ -166,11 +183,18 @@ def build_state_payload() -> Dict[str, Any]:
     except ValueError:
         margin_floor = 15.0
 
+    product_rows = conn.execute("SELECT * FROM products ORDER BY sku").fetchall()
+    costs = {p["sku"]: p["unit_cost"] for p in product_rows}
     products = [
-        {"sku": p["sku"], "name": p["name"], "sellPrice": p["sell_price"], "unitCost": p["unit_cost"]}
-        for p in conn.execute("SELECT * FROM products ORDER BY sku").fetchall()
+        {"sku": p["sku"], "name": p["name"], "sellPrice": p["sell_price"], **({"unitCost": p["unit_cost"]} if is_owner else {})}
+        for p in product_rows
     ]
     deals = [_deal_dict(r) for r in conn.execute("SELECT * FROM deals ORDER BY created_at DESC").fetchall()]
+    for d in deals:
+        pct = deal_margin_pct(d["items"], d["amount"], costs)
+        d["marginOk"] = pct >= margin_floor
+        if is_owner:
+            d["marginPct"] = pct
 
     def overdue(d: Dict[str, Any]) -> bool:
         return d["stage"] == "FOLLOW_UP" and not d["paused"]
@@ -365,7 +389,6 @@ def seed_default_data(conn: sqlite3.Connection, preset: str = "aircond") -> None
         "sme_preset": preset,
         "follow_up_hours": "48",
         "margin_floor_pct": "15",
-        "owner_approval_threshold": "1000",
         "lmstudio_url": DEFAULT_LMSTUDIO_URL,
         "lmstudio_api_key": DEFAULT_LMSTUDIO_API_KEY,
         "lmstudio_model": DEFAULT_LMSTUDIO_MODEL,

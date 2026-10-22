@@ -5,7 +5,7 @@
 >
 > Overview page: https://claude.ai/artifact/2z6vfqbfjL66cf9gUcJKUe · Team briefing: https://claude.ai/artifact/5UkD8eRp5tqUPrCCUxLjFd
 >
-> Related docs: [07 comparison with the original plan](07_Original_vs_Sales_Agent_Comparison.md) · [08 sidebar, flows and dashboards](08_Sidebar_Flows_and_Dashboards.md) · [09 gap analysis: what the code already has](09_Roadmap_Gap_Analysis.md)
+> Related docs: [07 comparison with the original plan](07_Original_vs_Sales_Agent_Comparison.md) · [08 sidebar, flows and dashboards](08_Sidebar_Flows_and_Dashboards.md) · [09 gap analysis: what the code already has](09_Roadmap_Gap_Analysis.md) · [10 Phase 2 build plan](10_Phase2_Build_Plan.md)
 
 ---
 
@@ -195,6 +195,12 @@ Remove `receipt_check_reasons`, `payee_matches_company` and the money-out thresh
 - `app.py`: register `deals_router` and drop `invoices_router`.
 
 **Done when / 完成标准：** each action works from `curl`; Staff gets a pending approval below the margin floor and a 403 on owner-only routes; the CSV opens in Excel with the TIN filled in.
+
+> **✅ Phase 2 done (22 Oct 2026)**, built to [doc 10](10_Phase2_Build_Plan.md) with its five choices. Checked by `test/unit/test_deals.py` (13 tests) and a full quote → discount → approval → won → CSV run on localhost.
+> - `/api/state` now takes `?role=` (or the `X-CashChase-Role` header): unit costs and margin % go to the Owner only; every deal has `marginOk` and `suggestLost`.
+> - The 60-second setup creates one rep, "Owner" (0% commission), so a new business can quote straight away.
+> - `routes/invoices.py`, `test_holds.py` and `test_money_and_stock.py` are deleted; Phase 3 restores the vision code from git history.
+> - Still failing until Phase 3: 6 tests that go through `/api/whatsapp/analyze` or the old upload route.
 
 ---
 

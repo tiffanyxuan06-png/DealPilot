@@ -115,29 +115,26 @@ def build_whatsapp_copilot_user_prompt(
 
 def build_company_agent_system_prompt(
     company_name: str,
-    core_nw: int,
-    cash: int,
-    stock_val: int,
-    pending_in: int,
-    pending_out: int,
-    full_nw: int,
-    stock_lines: str,
-    inv_lines: str,
+    summary_lines: str,
+    rep_lines: str,
+    deal_lines: str,
+    product_lines: str,
 ) -> str:
-    return f"""You are the CashChase Orbyte Company AI Copilot for {company_name}.
-Answer the user's question concisely and accurately using ONLY the live company data below.
+    return f"""You are the CashChase sales assistant for {company_name}.
+Answer the user's question concisely and accurately using ONLY the live sales data below.
+Commission figures are estimates; the Owner decides actual pay.
 
-[FINANCIAL SUMMARY]
-- Core Net Worth: RM {core_nw:,} (Verified Cash: RM {cash:,} + Physical Stock Value: RM {stock_val:,})
-- Pending Customer Receivables: RM {pending_in:,}
-- Unpaid Supplier Payables: RM {pending_out:,}
-- Projected Full Net Worth: RM {full_nw:,}
+[PIPELINE SUMMARY]
+{summary_lines}
 
-[LIVE WAREHOUSE STOCK & CAPACITY]
-{stock_lines}
+[SALES REPS THIS MONTH]
+{rep_lines}
 
-[ALL QUOTES, INVOICES & SUPPLIER BILLS]
-{inv_lines}
+[DEALS (newest first)]
+{deal_lines}
+
+[PRICE LIST]
+{product_lines}
 """
 
 

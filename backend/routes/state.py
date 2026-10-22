@@ -36,8 +36,9 @@ def api_health() -> Dict[str, Any]:
 
 
 @router.get("/api/state")
-def api_get_state() -> Dict[str, Any]:
-    return build_state_payload()
+def api_get_state(role: Optional[str] = None, x_cashchase_role: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Unit costs and margin % are only included for the Owner (with login on, the signed-in role decides)."""
+    return build_state_payload(role or x_cashchase_role)
 
 
 @router.post("/api/reset")
@@ -56,7 +57,7 @@ def api_reset_db(
         apply_onboarding(conn, json.loads(setup_json), now_time_str())
         conn.commit()
         conn.close()
-    return {"status": "reset_complete", "state": build_state_payload()}
+    return {"status": "reset_complete", "state": build_state_payload((req.role if req else None) or x_cashchase_role)}
 
 
 @router.post("/api/profile")
@@ -71,7 +72,7 @@ def api_switch_profile(req: ProfileSwitchRequest) -> Dict[str, Any]:
     add_log(conn, f"[OWNER] Switched SME profile to {PROFILE_NAMES[preset]} (demo data loaded).")
     conn.commit()
     conn.close()
-    return {"status": "ok", "state": build_state_payload()}
+    return {"status": "ok", "state": build_state_payload(req.role)}
 
 
 @router.post("/api/settings")
@@ -90,4 +91,4 @@ def api_update_settings(req: SettingsUpdateRequest) -> Dict[str, Any]:
         set_setting(conn, "lmstudio_model", req.lmstudioModel.strip())
     conn.commit()
     conn.close()
-    return {"status": "updated", "state": build_state_payload()}
+    return {"status": "updated", "state": build_state_payload(req.role)}

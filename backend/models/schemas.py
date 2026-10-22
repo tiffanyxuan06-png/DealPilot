@@ -18,7 +18,7 @@ class WhatsAppAnalyzeRequest(BaseModel):
     framework: Optional[str] = None
 
 
-class WhatsAppExecuteRequest(BaseModel):
+class WhatsAppExecuteRequest(BaseModel):  # Phase 3 replaces this with deal actions
     customer: str
     phone: Optional[str] = "+60 12-345 6789"
     actionType: str
@@ -34,29 +34,52 @@ class WhatsAppExecuteRequest(BaseModel):
     role: Optional[str] = None  # missing role = Staff (least privilege)
 
 
-class WalkInOrderRequest(BaseModel):
-    customerName: str
-    buyerTin: Optional[str] = ""
+class DealItem(BaseModel):
     sku: str
     qty: int = 1
-    mode: str = "PAID_NOW"  # PAID_NOW or QUOTE_HOLD
+
+
+class DealCreateRequest(BaseModel):
+    customer: str
+    phone: Optional[str] = ""
+    repId: Optional[int] = None  # missing = the rep for this login (see deals.default_rep_id)
+    items: List[DealItem]
+    discount: int = 0
+    quote: bool = True  # False = log an inquiry only (no quote sent yet)
+    notes: Optional[str] = ""
+    role: Optional[str] = None  # missing role = Staff (least privilege)
+
+
+class DealActionRequest(BaseModel):
+    action: str  # SEND_QUOTE | SEND_FOLLOW_UP | MARK_WON | MARK_LOST | APPLY_DISCOUNT | PAUSE | RESUME | SET_TIN
+    discount: Optional[int] = None  # APPLY_DISCOUNT: total discount on the deal (RM)
+    depositRef: Optional[str] = ""  # MARK_WON: slip reference the customer gave (information only)
+    depositAmount: Optional[int] = None  # MARK_WON: amount the customer says they paid (information only)
+    reason: Optional[str] = ""  # MARK_LOST
+    note: Optional[str] = ""  # PAUSE / RESUME
+    tin: Optional[str] = ""  # SET_TIN
     role: Optional[str] = None
 
 
-class VerifyReceiptRequest(BaseModel):
-    decision: str  # FULL, PARTIAL, CONFIRM, REJECT
-    paidAmount: Optional[int] = None  # amount actually seen in the bank; defaults to the claimed amount
-    role: Optional[str] = None  # missing role = Staff (least privilege)
+class RepUpsertRequest(BaseModel):
+    id: Optional[int] = None  # missing = add a new rep
+    name: str
+    commissionPct: float = 3.0
+    active: bool = True
+    role: Optional[str] = None
 
 
-class InvoiceActionRequest(BaseModel):
-    action: str
-    tin: Optional[str] = ""
-    amount: Optional[int] = None  # DISCOUNT rebate, ATTACH_RECEIPT claimed amount
-    ref: Optional[str] = ""  # ATTACH_RECEIPT reference
-    sku: Optional[str] = None  # REPLACE_ONE / ADD_PIPE_LABOR item
-    payee: Optional[str] = None  # ATTACH_RECEIPT: who the receipt says was paid
-    role: Optional[str] = None  # missing role = Staff (least privilege)
+class ReassignRequest(BaseModel):
+    toRepId: int
+    role: Optional[str] = None
+
+
+class ProductUpsertRequest(BaseModel):
+    sku: str
+    name: str
+    sellPrice: int
+    unitCost: int
+    role: Optional[str] = None
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -65,49 +88,6 @@ class SettingsUpdateRequest(BaseModel):
     lmstudioApiKey: Optional[str] = None
     lmstudioModel: Optional[str] = None
     role: Optional[str] = None
-
-
-class AddStockRequest(BaseModel):
-    sku: str
-    name: str
-    qty: int = 1
-    unitCost: int = 100
-    sellPrice: int = 150
-    payWithCash: bool = True  # False = opening stock / already paid, no cash change
-    role: Optional[str] = None  # missing role = Staff (least privilege)
-
-
-class BillApplyRequest(BaseModel):
-    kind: str  # supplier | expense | customer
-    party: str
-    ref: Optional[str] = ""
-    amount: int
-    qty: int = 1
-    sku: Optional[str] = None  # supplier bill: existing SKU
-    newSkuName: Optional[str] = None  # supplier bill: create this SKU if `sku` does not exist
-    newSellPrice: Optional[int] = None
-    invoiceId: Optional[str] = None  # customer receipt: invoice to attach to
-    payee: Optional[str] = None  # customer receipt: who the receipt says was paid
-    role: Optional[str] = None  # missing role = Staff (least privilege)
-
-
-class OcrExtractRequest(BaseModel):
-    fileName: str
-    imageBase64: Optional[str] = None
-    customer: Optional[str] = None
-    extractedText: Optional[str] = None
-    pdfText: Optional[str] = None  # text the WebApp already decoded from the PDF
-
-
-class ReceiptSaveRequest(BaseModel):
-    invoiceId: Optional[str] = ""
-    customer: str
-    fileName: str
-    fileType: Optional[str] = "pdf"
-    ref: Optional[str] = ""
-    amount: Optional[int] = 0
-    imageBase64: Optional[str] = ""
-    ocrSummary: Optional[str] = ""
 
 
 class CompanyAgentAskRequest(BaseModel):
@@ -122,8 +102,8 @@ class RoleRequest(BaseModel):
 class PermissionsUpdateRequest(BaseModel):
     role: Optional[str] = None
     staffModes: Optional[Dict[str, str]] = None  # action key -> ALLOW | APPROVAL | DENY
-    threshold: Optional[int] = None  # Owner approval threshold for Staff money-out (RM)
-    holdHours: Optional[int] = None  # how long a quote holds stock
+    followUpHours: Optional[int] = None  # how long a quote waits for a reply before a follow-up is due
+    marginFloorPct: Optional[float] = None  # Staff need approval below this margin
 
 
 class OnboardingPreviewRequest(BaseModel):
@@ -135,7 +115,6 @@ class OnboardingPreviewRequest(BaseModel):
 class OnboardingItem(BaseModel):
     sku: str
     name: str
-    qty: int = 0
     unitCost: int = 0
     sellPrice: int = 0
 
@@ -143,15 +122,14 @@ class OnboardingItem(BaseModel):
 class OnboardingApplyRequest(BaseModel):
     role: Optional[str] = None
     companyName: str
-    startingCash: int = 0
-    holdHours: int = 48
-    threshold: int = 1000
+    followUpHours: int = 48
+    marginFloorPct: float = 15
     items: List[OnboardingItem]
 
 
 class ProfileSwitchRequest(BaseModel):
     role: Optional[str] = None
-    preset: str  # aircond | software | fnb
+    preset: str  # aircond | fnb
 
 
 class FastForwardRequest(BaseModel):

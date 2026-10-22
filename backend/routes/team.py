@@ -22,7 +22,7 @@ from backend.services.permissions import (
     DENY,
     HANDLERS,
     MODE_LABELS,
-    approval_threshold,
+    margin_floor,
     permissions_payload,
     require_owner,
     staff_mode,
@@ -74,15 +74,15 @@ def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
             f"[OWNER] Permission changed · Staff · {ACTIONS[key]['label']}: {MODE_LABELS[old]} → {MODE_LABELS[mode]}.",
         )
 
-    if req.threshold is not None:
-        new_threshold = max(0, int(req.threshold))
-        old_threshold = approval_threshold(conn)
-        if new_threshold != old_threshold:
-            set_setting(conn, "owner_approval_threshold", str(new_threshold))
-            add_log(conn, f"[OWNER] Permission changed · Approval threshold: RM {old_threshold:,} → RM {new_threshold:,}.")
+    if req.marginFloorPct is not None:
+        new_floor = round(min(90.0, max(0.0, float(req.marginFloorPct))), 1)
+        old_floor = margin_floor(conn)
+        if new_floor != old_floor:
+            set_setting(conn, "margin_floor_pct", str(new_floor))
+            add_log(conn, f"[OWNER] Setting changed · Margin floor: {old_floor:g}% → {new_floor:g}%.")
 
-    if req.holdHours is not None:
-        new_hours = min(720, max(1, int(req.holdHours)))
+    if req.followUpHours is not None:
+        new_hours = min(720, max(1, int(req.followUpHours)))
         old_hours = follow_up_hours(conn)
         if new_hours != old_hours:
             set_setting(conn, "follow_up_hours", str(new_hours))
@@ -90,7 +90,7 @@ def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
 
     conn.commit()
     conn.close()
-    return {"status": "ok", "state": build_state_payload()}
+    return {"status": "ok", "state": build_state_payload(req.role)}
 
 
 @router.post("/api/demo/fast-forward")
@@ -110,7 +110,7 @@ def api_demo_fast_forward(req: FastForwardRequest) -> Dict[str, Any]:
     add_log(conn, f"[OWNER] Demo: fast-forwarded the clock {hours}h for all follow-ups.")
     conn.commit()
     conn.close()
-    return {"status": "ok", "state": build_state_payload()}
+    return {"status": "ok", "state": build_state_payload(req.role)}
 
 
 @router.post("/api/approvals/{approval_id}/decide")
@@ -135,7 +135,7 @@ def api_decide_approval(approval_id: int, req: ApprovalDecisionRequest) -> Dict[
         add_log(conn, f"[OWNER] Rejected request #AP-{approval_id} from Staff: {row['summary']}" + (f" ({note})" if note else "") + ".")
         conn.commit()
         conn.close()
-        return {"status": "ok", "state": build_state_payload()}
+        return {"status": "ok", "state": build_state_payload(req.role)}
     if decision != "APPROVE":
         conn.close()
         raise HTTPException(status_code=400, detail="decision must be APPROVE or REJECT")
@@ -169,4 +169,4 @@ def api_decide_approval(approval_id: int, req: ApprovalDecisionRequest) -> Dict[
     conn.close()
     if status == "FAILED":
         raise HTTPException(status_code=409, detail=f"Approved, but the action could not run: {detail}")
-    return {"status": "ok", "state": build_state_payload()}
+    return {"status": "ok", "state": build_state_payload(req.role)}
