@@ -15,11 +15,11 @@
             <span class="wa-avatar">${initials}</span>
             <span class="min-w-0 flex-1">
               <span class="flex items-center justify-between gap-2">
-                <span class="font-semibold text-sm text-[#042970] truncate">${c.customer}</span>
+                <span class="font-semibold text-sm text-[#042970] truncate">${escapeHtmlText(c.customer)}</span>
                 ${c.done ? '<svg class="w-4 h-4 text-emerald-600 shrink-0" aria-label="Done"><use href="#i-check"/></svg>' : `<span class="text-[11px] text-[#5B6B85] shrink-0">${last ? last.time : ''}</span>`}
               </span>
-              <span class="block text-xs text-[#5B6B85] truncate">${last ? last.text : ''}</span>
-              <span class="cc-pill !text-[11px] !py-0 mt-1">${String(c.badge).replace(/^\d+\.\s*/, '')}</span>
+              <span class="block text-xs text-[#5B6B85] truncate">${escapeHtmlText(last ? last.text : '')}</span>
+              <span class="cc-pill !text-[11px] !py-0 mt-1">${escapeHtmlText(String(c.badge).replace(/^\d+\.\s*/, ''))}</span>
             </span>
           </button>
         `;
@@ -47,15 +47,15 @@
                     PDF
                   </div>
                   <div class="overflow-hidden text-left flex-1">
-                    <div class="font-bold truncate text-[#042970]">${hasAtt.name || 'Document.pdf'}</div>
+                    <div class="font-bold truncate text-[#042970]">${escapeHtmlText(hasAtt.name || 'Document.pdf')}</div>
                     <div class="text-[10px] text-[#5B6B85] flex items-center gap-2">
-                      <span>${hasAtt.size || '142 KB'}</span>
+                      <span>${escapeHtmlText(hasAtt.size || '142 KB')}</span>
                       <span class="px-1.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Read by AI</span>
                     </div>
                   </div>
                 </div>
               ` : ''}
-              <div>${m.text}</div>
+              <div>${escapeHtmlText(m.text)}</div>
               <div class="text-[10px] opacity-75 text-right">${m.time}</div>
             </div>
           </div>
@@ -116,7 +116,7 @@
         return `
           <li class="flex items-start gap-2 ${isTotal ? 'pt-2 mt-1 border-t border-[#DCE4F2] font-semibold text-[#042970]' : ''}">
             ${line.trim().startsWith('✅') ? checkIcon : infoDot}
-            <span class="min-w-0">${plain(line)}</span>
+            <span class="min-w-0">${escapeHtmlText(plain(line))}</span>
           </li>`;
       }).join('');
 
@@ -159,13 +159,13 @@
             </span>
             <span class="flex-1 min-w-0">
               <span class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold text-sm text-[#042970] truncate">${activeChat.customer}</span>
+                <span class="font-semibold text-sm text-[#042970] truncate">${escapeHtmlText(activeChat.customer)}</span>
                 <span class="cc-pill" style="background:${rating.bg}; color:${rating.fg}">${rating.label}</span>
               </span>
-              <span class="block text-xs text-[#5B6B85] mt-0.5">${plain(mem.tier)} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
+              <span class="block text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(plain(mem.tier))} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
             </span>
           </div>
-          ${firstNote ? `<p class="text-xs text-[#324564] mt-2.5"><span class="font-semibold text-[#042970]">AI says:</span> ${plain(firstNote)}</p>` : ''}
+          ${firstNote ? `<p class="text-xs text-[#324564] mt-2.5"><span class="font-semibold text-[#042970]">AI says:</span> ${escapeHtmlText(plain(firstNote))}</p>` : ''}
           <details class="ext-customer group mt-2">
             <summary class="flex items-center gap-1.5 cursor-pointer list-none text-xs font-semibold text-[#0152FC] !min-h-[32px]">
               Why this score
@@ -173,7 +173,7 @@
             </summary>
             <div class="mt-1 space-y-3 text-xs">
               <ul class="space-y-1 text-[#324564] list-disc pl-4">
-                ${(mem.notes || []).map(n => `<li>${plain(n)}</li>`).join('')}
+                ${(mem.notes || []).map(n => `<li>${escapeHtmlText(plain(n))}</li>`).join('')}
               </ul>
               <div>
                 <div class="flex items-center justify-between mb-1">
@@ -184,7 +184,7 @@
                   ${(mem.timeline || []).map(t => `
                     <div class="flex gap-2 text-[#5B6B85]">
                       <span class="font-mono text-[#042970] shrink-0">${t.time}</span>
-                      <span>${plain(t.note)}</span>
+                      <span>${escapeHtmlText(plain(t.note))}</span>
                     </div>`).join('')}
                 </div>
               </div>
@@ -195,7 +195,7 @@
         <!-- What the customer wants + what CashChase checked -->
         <div class="pt-4 border-t border-[#DCE4F2]">
           <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
-          <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${plain(activeChat.extTitle)}</div>
+          <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${escapeHtmlText(plain(activeChat.extTitle))}</div>
           <ul class="mt-2 space-y-1 text-sm text-[#324564]">${checkLines}</ul>
         </div>
 
@@ -241,10 +241,10 @@
                     <button onclick="selectRecommendedReply(${rIdx})" role="radio" aria-checked="${isSelected}" class="w-full text-left flex items-start gap-2.5 p-3">
                       <span class="ext-radio mt-0.5"></span>
                       <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold text-[#042970]">${optName(opt.label)}</span>
+                        <span class="block text-sm font-semibold text-[#042970]">${escapeHtmlText(optName(opt.label))}</span>
                         ${isSelected
-                          ? `<span class="block text-sm text-[#324564] leading-relaxed mt-1" id="reply-opt-text-${rIdx}">${opt.text}</span>`
-                          : `<span class="block text-xs text-[#5B6B85] truncate mt-0.5">${opt.text}</span>`}
+                          ? `<span class="block text-sm text-[#324564] leading-relaxed mt-1" id="reply-opt-text-${rIdx}">${escapeHtmlText(opt.text)}</span>`
+                          : `<span class="block text-xs text-[#5B6B85] truncate mt-0.5">${escapeHtmlText(opt.text)}</span>`}
                       </span>
                     </button>
                     ${isSelected && isRebateOpt ? `
@@ -256,7 +256,7 @@
                     ${isSelected && isTechOpt ? `
                       <div class="px-3 pb-3 pl-[38px]">
                         <label for="inline-tech-time-input" class="block text-xs font-semibold text-[#042970] mb-1">Technician visit time</label>
-                        <input id="inline-tech-time-input" type="text" value="${techTimeVal}" oninput="updateAftersalesTechTime(this.value)" placeholder="e.g. tomorrow 10:30 AM" class="cc-input !min-h-[36px]" />
+                        <input id="inline-tech-time-input" type="text" value="${escapeHtmlText(techTimeVal)}" oninput="updateAftersalesTechTime(this.value)" placeholder="e.g. tomorrow 10:30 AM" class="cc-input !min-h-[36px]" />
                       </div>
                     ` : ''}
                   </div>`;
@@ -276,7 +276,7 @@
           <div class="mt-3 space-y-2.5">
             <div class="flex gap-2">
               <label for="wa-custom-quote-prompt" class="sr-only">Tell AI how to change the reply</label>
-              <input id="wa-custom-quote-prompt" type="text" value="${activeChat.lastCustomPrompt || ''}" onkeydown="if(event.key==='Enter') promptAiCustomQuote(this.value)" placeholder="e.g. 50% deposit, polite BM" class="cc-input !min-h-[38px]" />
+              <input id="wa-custom-quote-prompt" type="text" value="${escapeHtmlText(activeChat.lastCustomPrompt || '')}" onkeydown="if(event.key==='Enter') promptAiCustomQuote(this.value)" placeholder="e.g. 50% deposit, polite BM" class="cc-input !min-h-[38px]" />
               <button onclick="promptAiCustomQuote(document.getElementById('wa-custom-quote-prompt').value)" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Rewrite</button>
             </div>
             <div class="flex flex-wrap gap-1.5">
@@ -295,7 +295,7 @@
           ` : ''}
           ${paymentBlocked ? `<p class="text-xs text-[#5B6B85] mb-2">Tick the payment check first.</p>` : ''}
           <button id="ext-primary-action-btn" onclick="executeExtensionAction()" ${paymentBlocked ? 'disabled' : ''} class="cc-btn cc-btn-lg w-full ${activeChat.done ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'cc-btn-primary'}">
-            ${primaryLabel}
+            ${escapeHtmlText(primaryLabel)}
           </button>
           <button onclick="openPdfFromChat()" class="w-full mt-2 text-xs font-semibold text-[#0152FC] hover:underline flex items-center justify-center gap-1.5">
             <svg class="w-3.5 h-3.5"><use href="#i-file"/></svg> Attach PDF document

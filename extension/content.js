@@ -830,7 +830,7 @@ async function handleAutoDetectedAttachment(customer, attachment) {
   banner.style.display = "block";
   banner.innerHTML = `
     <div style="font-weight:700; color:#042970; margin-bottom:4px;">
-      📎 Auto-Detected ${attachment.type === "PDF_DOCUMENT" ? "PDF Document" : "Receipt Image"}: ${attachment.fileName}
+      📎 Auto-Detected ${attachment.type === "PDF_DOCUMENT" ? "PDF Document" : "Receipt Image"}: ${escapeHtml(attachment.fileName)}
     </div>
     <div style="font-size:11px; color:#324564;" id="cc-auto-ocr-status">
       🤖 Auto-extracting receipt/bill details via LM Studio OCR...
@@ -853,7 +853,7 @@ async function handleAutoDetectedAttachment(customer, attachment) {
     const statusEl = document.getElementById("cc-auto-ocr-status");
     if (statusEl) {
       statusEl.innerHTML = `
-        ✅ <b>${data.pdf_text_decoded ? "⚡ Direct PDF Text Decoded" : "👁️ Vision OCR Extracted"}:</b> RM ${(ex.amount || 2000).toLocaleString()} · Ref: <b>${ex.ref || "DN-Check"}</b> (${ex.kind || "customer"})
+        ✅ <b>${data.pdf_text_decoded ? "⚡ Direct PDF Text Decoded" : "👁️ Vision OCR Extracted"}:</b> RM ${(ex.amount || 2000).toLocaleString()} · Ref: <b>${escapeHtml(ex.ref || "DN-Check")}</b> (${escapeHtml(ex.kind || "customer")})
         <div style="margin-top:6px; display:flex; gap:6px;">
           <button type="button" id="cc-toggle-receipt-preview" class="cc-sec-btn" style="padding:3px 8px; font-size:10px; background:#fff; border:1px solid #10B981; color:#047857; cursor:pointer;">
             👁️ View Receipt Copy
@@ -865,8 +865,8 @@ async function handleAutoDetectedAttachment(customer, attachment) {
             <span style="color:#047857; font-weight:700;">● Stored Record</span>
           </div>
           <div style="background:#F8FAFC; padding:6px 8px; border-radius:6px; border:1px solid #E2E8F0; line-height:1.4;">
-            <div><b>Counterparty:</b> ${customer}</div>
-            <div><b>DuitNow Ref:</b> <span style="font-family:monospace; color:#0152FC; font-weight:700;">${ex.ref || "DN-20261117-99102"}</span></div>
+            <div><b>Counterparty:</b> ${escapeHtml(customer)}</div>
+            <div><b>DuitNow Ref:</b> <span style="font-family:monospace; color:#0152FC; font-weight:700;">${escapeHtml(ex.ref || "DN-20261117-99102")}</span></div>
             <div><b>Amount Paid:</b> <span style="font-weight:800; color:#042970;">RM ${(ex.amount || 2000).toLocaleString()}.00</span></div>
             <div style="font-size:10px; color:#64748B; margin-top:3px;">Archive: Saved in CashChase SQLite receipt records</div>
           </div>
@@ -885,7 +885,7 @@ async function handleAutoDetectedAttachment(customer, attachment) {
   } catch (e) {
     const statusEl = document.getElementById("cc-auto-ocr-status");
     if (statusEl) {
-      statusEl.innerHTML = `✅ <b>Auto-Parsed (${attachment.fileName}):</b> Ready for verification.`;
+      statusEl.innerHTML = `✅ <b>Auto-Parsed (${escapeHtml(attachment.fileName)}):</b> Ready for verification.`;
     }
   }
 }
@@ -1275,7 +1275,7 @@ function renderAnalysisResult(data, fromCache = false) {
       else if (lLow.includes("custom") || lLow.includes("option 1")) shortLabel = "⭐ Quote";
 
       return `
-        <button class="cc-tab-pill ${idx === 0 ? 'cc-tab-active' : ''}" data-idx="${idx}" title="${opt.label}">
+        <button class="cc-tab-pill ${idx === 0 ? 'cc-tab-active' : ''}" data-idx="${idx}" title="${escapeHtml(opt.label)}">
           ${shortLabel}
         </button>
       `;

@@ -1,15 +1,12 @@
 import base64
 import io
 import json
-import os
 import re
 import urllib.request
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
 
 from backend.database import (
     resolve_active_ai_credentials,
@@ -42,8 +39,13 @@ from backend.services.lmstudio import (
     select_best_lmstudio_model,
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 router = APIRouter(tags=["Invoices, Stock & Receipts"])
+
+
+def check_upload_type(data_url: Optional[str]) -> None:
+    """Receipts and bills must be an image or a PDF (the size limit is in app.py)."""
+    if data_url and data_url.startswith("data:") and not data_url.startswith(("data:image/", "data:application/pdf")):
+        raise HTTPException(status_code=400, detail="Upload an image or a PDF.")
 
 
 @router.post("/api/orders/walkin")
@@ -633,6 +635,7 @@ def api_add_or_restock(req: AddStockRequest) -> Dict[str, Any]:
 
 @router.post("/api/ocr/extract")
 def api_ocr_extract(req: OcrExtractRequest) -> Dict[str, Any]:
+    check_upload_type(req.imageBase64)
     state = build_state_payload()
     ai = resolve_active_ai_credentials()
     lm_url, lm_key, lm_model = ai["base_url"], ai["api_key"], ai["model"]
@@ -842,6 +845,7 @@ def get_invoice_receipt(inv_id: str):
 
 @router.post("/api/receipts/save")
 def save_receipt_record(req: ReceiptSaveRequest):
+    check_upload_type(req.imageBase64)
     conn = get_db()
     try:
         ts = now_time_str()
@@ -869,16 +873,6 @@ def save_receipt_record(req: ReceiptSaveRequest):
         return {"status": "saved", "receiptId": rec_id}
     finally:
         conn.close()
-
-
-@router.get("/api/receipts/file/{file_name}")
-def get_receipt_file(file_name: str):
-    safe_name = os.path.basename(file_name)
-    file_path = BASE_DIR / safe_name
-    if file_path.exists():
-        media_type = "application/pdf" if safe_name.endswith(".pdf") else "image/png"
-        return FileResponse(file_path, media_type=media_type, filename=safe_name)
-    raise HTTPException(status_code=404, detail=f"Receipt file '{safe_name}' not found on server")
 
 
 register_handler("walkin", api_create_walkin_order, WalkInOrderRequest)

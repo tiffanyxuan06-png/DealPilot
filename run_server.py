@@ -26,4 +26,6 @@ if __name__ == "__main__":
     print(f"   - Interactive API Docs : http://localhost:{port}/docs")
     print(f"   - LM Studio Bridge URL : {lm_url}")
     print("=" * 72)
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=port, reload=False)
+    # Only this computer can reach the server. Set HOST=0.0.0.0 in .env to open it to the Wi-Fi (e.g. a phone demo).
+    host = os.getenv("HOST", "127.0.0.1")
+    uvicorn.run("backend.app:app", host=host, port=port, reload=False)

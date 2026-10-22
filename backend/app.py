@@ -30,13 +30,26 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# Only pages served from this machine may call the API from a browser. The extension's background
+# worker is not limited by CORS (it has host_permissions), and logins travel as a Bearer header, not cookies.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Uploads arrive as base64 inside JSON: 15 MB of JSON is about a 10 MB file.
+MAX_REQUEST_BYTES = 15 * 1024 * 1024
+
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    # ponytail: trusts Content-Length (browsers and the extension always send it); a chunked body is not counted
+    if int(request.headers.get("content-length") or 0) > MAX_REQUEST_BYTES:
+        return JSONResponse({"detail": "File too large (max 10 MB)."}, status_code=413)
+    return await call_next(request)
 
 PUBLIC_API_PATHS = {"/api/auth/config"}  # the login page needs this before anyone is signed in
 

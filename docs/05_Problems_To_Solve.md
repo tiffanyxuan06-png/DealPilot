@@ -5,7 +5,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 
 **How #1/#2 were fixed:** the aircond profile now loads from `GET /api/state`, every WebApp button calls its backend route, and the page re-checks the backend every 4 s so actions from the WhatsApp extension appear. All three SME profiles now live in the backend (#27).
 
-**Team decision (21 Oct):** this is a hackathon demo on a laptop, so the security items are **skipped** for now. Revisit them before anything is put on a public URL.
+**Security (22 Oct):** the items skipped on 21 Oct are now fixed (#22 only reduced). Before a public URL, still add HTTPS and a real file store for receipts.
 
 ---
 
@@ -22,18 +22,19 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 | 7 | Quote-hold rule clash: the live AI prompt said "don't hold stock until deposit"; the plan says quotes hold stock 48h. **Decision: quotes hold stock for 48h; the deposit deducts it.** Code (not the AI) now picks `CREATE_QUOTE_HOLD` when every item is available, and `/api/whatsapp/execute` refuses to hold more than is available (409) | `backend/services/prompts.py` | 20 min | ✅ |
 | 8 | `openpyxl` and `pypdf` missing from `requirements.txt` → Excel export / PDF reading fail on a fresh install | `requirements.txt` | 5 min | ✅ |
 
-## Security (⏭️ skipped for the hackathon demo)
+## Security
 
 | # | Problem | Where | Status |
 |---|---|---|---|
-| 9 | `/api/receipts/file/.env` downloads the secrets file | `backend/routes/invoices.py` | ⏭️ |
-| 10 | Server open to the whole Wi-Fi (`0.0.0.0`) | `run_server.py` | ⏭️ |
-| 11 | CORS `*` with credentials — any website can call the API | `backend/app.py` | ⏭️ |
-| 12 | `POST /api/reset` unprotected | `backend/routes/state.py` | ⏭️ |
-| 13 | `POST /api/settings` can redirect the AI URL | `backend/routes/state.py` | ⏭️ |
-| 14 | AI / chat text rendered into `innerHTML` unescaped | `webapp/js/company_ai.js`, `webapp/js/copilot.js` | ⏭️ |
-| 21 | No size / type limit on uploaded files | `/api/receipts/save`, `/api/ocr/extract` | ⏭️ |
-| 22 | Customer chat text can steer the AI (prompt injection) | `backend/services/prompts.py` | ⏭️ |
+| 9 | `/api/receipts/file/.env` downloads the secrets file. **Fixed:** the route is removed (nothing used it) | `backend/routes/invoices.py` | ✅ |
+| 10 | Server open to the whole Wi-Fi (`0.0.0.0`). **Fixed:** listens on `127.0.0.1`; set `HOST=0.0.0.0` in `.env` to open it on purpose | `run_server.py` | ✅ |
+| 11 | CORS `*` with credentials — any website can call the API. **Fixed:** only `localhost` / `127.0.0.1` pages, no credentials (login is a Bearer token); the extension is unaffected | `backend/app.py` | ✅ |
+| 12 | `POST /api/reset` unprotected. **Fixed:** Owner only, and the role now comes from the Supabase login | `backend/routes/state.py` | ✅ |
+| 13 | `POST /api/settings` can redirect the AI URL. **Fixed:** Owner only, role from the login | `backend/routes/state.py` | ✅ |
+| 14 | AI / chat text rendered into `innerHTML` unescaped. **Fixed:** customer, AI, upload and backend text is escaped (`escapeHtmlText`) in every WebApp template and in the extension sidebar | `webapp/js/*.js`, `extension/content.js` | ✅ |
+| 21 | No size / type limit on uploaded files. **Fixed:** requests over 15 MB (≈10 MB file) get 413; receipts / bills must be an image or PDF | `backend/app.py`, `/api/receipts/save`, `/api/ocr/extract` | ✅ |
+| 22 | Customer chat text can steer the AI (prompt injection). **Reduced:** customer text is fenced in `<customer_message>` / `<chat_history>` tags it cannot close, with a rule that it is data, not instructions; the reply check still catches wrong amounts and threats, and every action needs a click. No AI prompt is fully injection-proof | `backend/services/prompts.py` | ⚠️ |
+| — | The Owner/Staff role was chosen by the user. **Fixed:** Supabase login for the WebApp, backend and extension; the role comes from the account (`app_metadata.role`) | `backend/services/auth.py` | ✅ |
 
 ## P1 — "people stay in control"
 

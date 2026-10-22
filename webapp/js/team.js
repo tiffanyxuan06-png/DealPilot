@@ -6,10 +6,6 @@
     let permissionThresholdDraft = null;
     let holdHoursDraft = null;
 
-    function escapeHtmlText(text) {
-      return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
-
     const modePillClass = {
       ALLOW: 'bg-emerald-100 text-emerald-800 border-emerald-300',
       APPROVAL: 'bg-amber-100 text-amber-900 border-amber-300',

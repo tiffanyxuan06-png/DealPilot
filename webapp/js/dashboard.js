@@ -104,10 +104,10 @@
             <div class="space-y-1 max-w-xl">
               <div class="flex items-center gap-2">
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${pillStyle}">${inv.id}</span>
-                <span class="font-bold text-sm text-[#042970]">${inv.party}</span>
+                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
                 <span class="font-bold text-sm text-[#0152FC]">· RM ${inv.amount.toLocaleString()}</span>
               </div>
-              <div class="text-xs text-[#324564]">${inv.itemsText}</div>
+              <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
             </div>
             <div class="flex items-center gap-2">
               ${getBigActionButton(inv)}
@@ -121,7 +121,7 @@
       if (skuSelect) {
         const prevVal = skuSelect.value;
         skuSelect.innerHTML = st.stock.map((s, idx) =>
-          `<option value="${idx}">${s.name} (RM ${s.sellPrice}) — ${Math.max(0, s.onHand - s.onHold)} Avail</option>`
+          `<option value="${idx}">${escapeHtmlText(s.name)} (RM ${s.sellPrice}) — ${Math.max(0, s.onHand - s.onHold)} Avail</option>`
         ).join('');
         if (prevVal && st.stock[prevVal]) skuSelect.value = prevVal;
       }
@@ -135,10 +135,10 @@
           <div class="space-y-1 max-w-xl">
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-              <span class="font-bold text-sm text-[#042970]">${inv.party}</span>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${inv.lhdn}</span>
+              <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
             </div>
-            <div class="text-xs text-[#324564]">${inv.itemsText}</div>
+            <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
             <div class="flex flex-wrap items-center gap-3 pt-1">
               <button onclick="openPdfForInvoice('${inv.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer">Preview PDF</button>
               ${inv.receiptRef ? `<button onclick="viewReceiptCopy('${inv.id}')" class="text-xs font-bold text-purple-700 hover:underline cursor-pointer flex items-center gap-1">View receipt (${inv.receiptRef})</button>` : ''}
@@ -178,7 +178,7 @@
                        ? 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100'
                        : 'bg-[#F2F6FF] border-[#D5DFEE] text-[#042970] hover:bg-[#E6EEFF]'
                    }">
-                     <span>👤 <b>${h.inv.party}</b> · ${h.heldQty}x (${h.inv.id})</span>
+                     <span>👤 <b>${escapeHtmlText(h.inv.party)}</b> · ${h.heldQty}x (${h.inv.id})</span>
                      <span class="text-xs px-1.5 py-0.2 rounded ${h.inv.status === 'HOLD_EXPIRED' ? 'bg-red-200 text-red-900 font-bold' : 'bg-[#E6EEFF] text-[#0152FC]'}">${h.inv.holdTimer || (h.inv.status === 'HOLD_EXPIRED' ? '⚠️ Expired' : '⏳ 48h Hold')}</span>
                    </button>
                  `).join('')}
@@ -190,8 +190,8 @@
 
         return `
           <tr class="hover:bg-[#F2F6FF] transition align-top">
-            <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${s.sku}</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">${s.name}</td>
+            <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${escapeHtmlText(s.sku)}</td>
+            <td class="py-3.5 px-4 font-bold text-[#042970]">${escapeHtmlText(s.name)}</td>
             <td class="py-3.5 px-4 font-bold text-[#042970]">${s.onHand} units</td>
             <td class="py-3.5 px-4">${holdersHtml}</td>
             <td class="py-3.5 px-4 font-bold text-emerald-700">${avail} Available</td>
@@ -241,13 +241,13 @@
                 <div class="space-y-1.5 max-w-2xl">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                    <span class="font-bold text-sm text-[#042970]">👤 ${inv.party}</span>
-                    ${inv.phone ? `<span class="text-xs text-[#64748B] font-medium">📞 ${inv.phone}</span>` : ''}
+                    <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
+                    ${inv.phone ? `<span class="text-xs text-[#64748B] font-medium">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
                     <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${inv.lhdn}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
                   </div>
                   <div class="text-xs font-semibold text-[#042970]">
-                    📦 Holding: <span class="text-[#0152FC]">${inv.itemsText}</span> · Quote Value: <b>RM ${inv.amount.toLocaleString()}</b>
+                    📦 Holding: <span class="text-[#0152FC]">${escapeHtmlText(inv.itemsText)}</span> · Quote Value: <b>RM ${inv.amount.toLocaleString()}</b>
                   </div>
                   <!-- Quick Access Bar -->
                   <div class="flex flex-wrap items-center gap-3 pt-1">
@@ -282,7 +282,7 @@
       // 4. Audit Log (Dashboard preview)
       const logList = document.getElementById('audit-log-list');
       logList.innerHTML = st.logs.map(l => `
-        <div class="p-2.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#324564]">${l}</div>
+        <div class="p-2.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#324564]">${escapeHtmlText(l)}</div>
       `).join('');
 
       // 5. Page 4: ALL DATA & MASTER LEDGER ("SEE EVERYTHING" VIEW)
@@ -317,7 +317,7 @@
           if (inv.type === 'AFTERSALES') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-bold text-xs whitespace-nowrap shadow-xs">⚠️ Aftersales Claim</span>`;
           if (inv.type === 'SUPPLIER_COST') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-bold text-xs whitespace-nowrap shadow-xs">🚚 Supplier / Expense</span>`;
 
-          let statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">${inv.status}</span>`;
+          let statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">${escapeHtmlText(inv.status)}</span>`;
           if (inv.status === 'PENDING_BANK_VERIFY') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 font-bold text-[11px] border border-purple-200 whitespace-nowrap">Bank Verification</span>`;
           else if (inv.status === 'HOLD_EXPIRED') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200 whitespace-nowrap">Hold Expired</span>`;
           else if (inv.status === 'ON_HOLD_48H') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-[11px] border border-amber-200 whitespace-nowrap">48h Hold Active</span>`;
@@ -339,10 +339,10 @@
                 <button onclick="openPdfForInvoice('${inv.id}')" class="hover:underline">${inv.id} 📄</button>
               </td>
               <td class="py-3 px-4 whitespace-nowrap">${catBadge}</td>
-              <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${inv.party}</td>
-              <td class="py-3 px-4 text-[#324564]">${inv.itemsText}</td>
+              <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(inv.party)}</td>
+              <td class="py-3 px-4 text-[#324564]">${escapeHtmlText(inv.itemsText)}</td>
               <td class="py-3 px-4 whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${inv.lhdn}</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(inv.lhdn)}</span>
               </td>
               <td class="py-3 px-4 whitespace-nowrap">${statusBadge}</td>
               <td class="py-3 px-4 text-right whitespace-nowrap">${cashEffectHtml}</td>
@@ -391,7 +391,7 @@
 
         custTbody.innerHTML = parties.map(p => `
           <tr class="hover:bg-[#F2F6FF] transition">
-            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${p.party}</td>
+            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(p.party)}</td>
             <td class="py-3 px-4 whitespace-nowrap">
               ${p.isSupplier
                 ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-700 font-bold border border-red-200 text-xs whitespace-nowrap shadow-xs">🏭 Supplier / Vendor</span>'
@@ -399,7 +399,7 @@
               }
             </td>
             <td class="py-3 px-4 whitespace-nowrap">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${p.lhdn}</span>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(p.lhdn)}</span>
             </td>
             <td class="py-3 px-4 font-bold text-[#324564] whitespace-nowrap">${p.count} record(s)</td>
             <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">RM ${p.totalRM.toLocaleString()}</td>
@@ -423,7 +423,7 @@
       if (masterLogList) {
         if (masterLogCount) masterLogCount.textContent = `${st.logs.length} Events Logged`;
         masterLogList.innerHTML = st.logs.map(l => `
-          <div class="p-3 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#042970]">${l}</div>
+          <div class="p-3 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#042970]">${escapeHtmlText(l)}</div>
         `).join('');
       }
     }
@@ -569,7 +569,7 @@
       if (holders.length === 0) {
         listEl.innerHTML = `
           <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-xs text-[#64748B] text-center">
-            No active customer quotes are holding <b>${s.name}</b> right now.
+            No active customer quotes are holding <b>${escapeHtmlText(s.name)}</b> right now.
           </div>
         `;
       } else {
@@ -582,16 +582,16 @@
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                  <span class="font-bold text-sm text-[#042970]">👤 ${inv.party}</span>
-                  ${inv.phone ? `<span class="text-xs text-[#64748B]">📞 ${inv.phone}</span>` : ''}
+                  <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
+                  ${inv.phone ? `<span class="text-xs text-[#64748B]">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
                 </div>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
               </div>
 
               <div class="text-xs text-[#324564] flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-lg border border-[#D5DFEE]">
                 <div>
-                  <b>Holding this SKU:</b> <span class="text-[#0152FC] font-bold">${h.heldQty} units (${s.sku})</span>
-                  <div class="text-[#64748B] mt-0.5">Full Quote Scope: ${inv.itemsText}</div>
+                  <b>Holding this SKU:</b> <span class="text-[#0152FC] font-bold">${h.heldQty} units (${escapeHtmlText(s.sku)})</span>
+                  <div class="text-[#64748B] mt-0.5">Full Quote Scope: ${escapeHtmlText(inv.itemsText)}</div>
                 </div>
                 <div class="text-right">
                   <div class="text-[#64748B]">Quote Total</div>

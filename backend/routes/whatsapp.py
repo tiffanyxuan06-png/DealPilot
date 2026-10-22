@@ -20,6 +20,7 @@ from backend.services.customers import apply_tin, get_customer, lhdn_for, tin_re
 from backend.services.memory import clean_customer_name, compute_client_memory_rating
 from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.prompts import (
+    as_customer_text,
     check_ai_replies,
     build_whatsapp_copilot_system_prompt,
     build_whatsapp_copilot_user_prompt,
@@ -85,7 +86,7 @@ def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
     )
 
     recent_context_str = "\n".join(
-        f"  [{m.get('sender', 'Them')}]: {m.get('text', '')}"
+        f"  [{as_customer_text(m.get('sender', 'Them'))}]: {as_customer_text(m.get('text', ''))}"
         for m in (req.recentMessages or [])[-8:]
     ) or "  (First message in current view)"
 

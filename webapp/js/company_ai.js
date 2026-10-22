@@ -26,7 +26,7 @@
             m.role === 'user'
               ? 'bg-[#0152FC] text-white font-semibold'
               : 'bg-[#F2F6FF] border border-[#D5DFEE] text-[#042970]'
-          }">${m.text}</div>
+          }">${escapeHtmlText(m.text)}</div>
         </div>
       `).join('');
       box.scrollTop = box.scrollHeight;

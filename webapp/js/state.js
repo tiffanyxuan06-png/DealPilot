@@ -1,4 +1,10 @@
 let currentRole = 'OWNER';
+
+    // Text from customers, the AI, uploads or the backend goes through this before it is put into innerHTML.
+    function escapeHtmlText(text) {
+      return String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
     let currentSME = 'aircond';
     let currentChatIndex = 0;
     let currentInvFilter = 'ALL';

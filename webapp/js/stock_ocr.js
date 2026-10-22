@@ -122,14 +122,14 @@
       }
 
       const skuOptions = st.stock.map((s, idx) =>
-        `<option value="${idx}" ${idx === defaultSkuIdx ? 'selected' : ''}>Restock Existing: ${s.sku} · ${s.name} (Cost RM ${s.unitCost})</option>`
+        `<option value="${idx}" ${idx === defaultSkuIdx ? 'selected' : ''}>Restock Existing: ${escapeHtmlText(s.sku)} · ${escapeHtmlText(s.name)} (Cost RM ${s.unitCost})</option>`
       ).join('') + `<option value="NEW_SKU">➕ Add Brand-New Product SKU from Supplier Bill</option>`;
 
       box.innerHTML = `
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#0152FC]/20 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-0.5 rounded-full bg-[#0152FC] text-white text-xs font-bold" id="ocr-source-badge">
-              ${fileMeta ? `📄 Uploaded: ${fileMeta.fileName}` : '🤖 AI Vision OCR Extracted Fields (Editable)'}
+              ${fileMeta ? `📄 Uploaded: ${escapeHtmlText(fileMeta.fileName)}` : '🤖 AI Vision OCR Extracted Fields (Editable)'}
             </span>
             <span class="text-xs text-[#324564]">Verify or edit any number below before saving:</span>
           </div>
@@ -140,7 +140,7 @@
           <div class="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-[#D5DFEE]">
             <img src="${fileMeta.dataUrl}" alt="Uploaded Receipt" class="h-16 w-auto rounded-lg border border-[#D5DFEE] object-contain" />
             <div class="text-xs text-[#324564]">
-              <div class="font-bold text-[#042970]">Uploaded Image Preview (${fileMeta.fileName})</div>
+              <div class="font-bold text-[#042970]">Uploaded Image Preview (${escapeHtmlText(fileMeta.fileName)})</div>
               <div>Review extracted fields below and click the button to update Stock & Cash.</div>
             </div>
           </div>
@@ -157,7 +157,7 @@
           </div>
           <div>
             <label class="block font-bold text-[#042970] mb-1">2. Supplier / Customer Name</label>
-            <input id="ocr-party-input" type="text" value="${defaultParty}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-semibold text-[#042970]" />
+            <input id="ocr-party-input" type="text" value="${escapeHtmlText(defaultParty)}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-semibold text-[#042970]" />
           </div>
           <div>
             <label class="block font-bold text-[#042970] mb-1">Paid To (receipts only)</label>
@@ -165,7 +165,7 @@
           </div>
           <div>
             <label class="block font-bold text-[#042970] mb-1">3. Bill # / DuitNow Ref #</label>
-            <input id="ocr-ref-input" type="text" value="${defaultRef}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-mono font-bold text-[#0152FC]" />
+            <input id="ocr-ref-input" type="text" value="${escapeHtmlText(defaultRef)}" class="w-full bg-white border border-[#D5DFEE] rounded-xl px-2.5 py-2 font-mono font-bold text-[#0152FC]" />
           </div>
           <div>
             <label class="block font-bold text-[#042970] mb-1">4. Stock SKU (Existing or New)</label>
@@ -571,12 +571,12 @@
               </div>
               <div class="text-right">
                 <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[9px]">TAX INVOICE</span>
-                <div class="font-mono font-bold text-xs mt-0.5 text-[#042970]">${ref}</div>
+                <div class="font-mono font-bold text-xs mt-0.5 text-[#042970]">${escapeHtmlText(ref)}</div>
                 <div class="text-[9px] text-[#64748B]">17 Nov 2026</div>
               </div>
             </div>
             <div class="bg-[#F8FAFC] p-2 rounded-lg border border-[#E2E8F0] text-[10px]">
-              <span class="text-[#64748B]">Billed To: </span><b class="text-[#042970]">${st.name}</b>
+              <span class="text-[#64748B]">Billed To: </span><b class="text-[#042970]">${escapeHtmlText(st.name)}</b>
             </div>
             <table class="w-full text-left text-[10px] border-collapse">
               <thead>
@@ -588,7 +588,7 @@
               </thead>
               <tbody>
                 <tr class="border-b border-[#F8FAFC]">
-                  <td class="py-1 font-medium text-[#042970]">${inv.itemsText}</td>
+                  <td class="py-1 font-medium text-[#042970]">${escapeHtmlText(inv.itemsText)}</td>
                   <td class="text-center py-1">${inv.qty || 10}</td>
                   <td class="text-right py-1 font-bold">RM ${inv.amount.toLocaleString()}</td>
                 </tr>
@@ -628,7 +628,7 @@
           <div class="space-y-1 text-[10px]">
             <div class="flex justify-between">
               <span class="text-[#64748B]">DuitNow Ref:</span>
-              <span class="font-mono font-bold text-[#0152FC]">${ref}</span>
+              <span class="font-mono font-bold text-[#0152FC]">${escapeHtmlText(ref)}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-[#64748B]">Date & Time:</span>
@@ -636,11 +636,11 @@
             </div>
             <div class="flex justify-between">
               <span class="text-[#64748B]">From Account:</span>
-              <span class="font-bold text-[#042970]">${inv.party} (Maybank xxxx4410)</span>
+              <span class="font-bold text-[#042970]">${escapeHtmlText(inv.party)} (Maybank xxxx4410)</span>
             </div>
             <div class="flex justify-between">
               <span class="text-[#64748B]">To Account:</span>
-              <span class="font-bold text-[#042970]">${st.name} (CIMB xxxx8899)</span>
+              <span class="font-bold text-[#042970]">${escapeHtmlText(st.name)} (CIMB xxxx8899)</span>
             </div>
             <div class="flex justify-between">
               <span class="text-[#64748B]">Payment Ref:</span>
@@ -649,7 +649,7 @@
           </div>
 
           <div class="p-1.5 bg-amber-50 rounded-lg border border-amber-200 text-[9px] text-amber-900 leading-tight">
-            ℹ️ Compare this Reference ID (${ref}) with your Maybank/CIMB BizChannel statement.
+            ℹ️ Compare this Reference ID (${escapeHtmlText(ref)}) with your Maybank/CIMB BizChannel statement.
           </div>
         </div>
       `;
