@@ -44,8 +44,45 @@ function setFieldError(id, message) {
 
 function setFormError(message) {
   const el = document.getElementById('login-form-error');
-  el.textContent = message || '';
+  document.getElementById('login-form-error-text').textContent = message || '';
   el.hidden = !message;
+  if (message) {
+    const form = document.getElementById('login-form');
+    form.classList.remove('is-shaking');
+    void form.offsetWidth;
+    form.classList.add('is-shaking');
+  }
+}
+
+// Returns an error message for a field, or '' when it is fine
+function fieldProblem(id) {
+  const value = document.getElementById(id).value;
+  if (id === 'login-email') {
+    const email = value.trim();
+    if (!email) return 'Enter your email.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter an email like you@company.my.';
+    return '';
+  }
+  if (!value) return 'Enter your password.';
+  if (value.length < 6) return 'Use at least 6 characters.';
+  return '';
+}
+
+// Check a field when the person leaves it, but only once they have typed something
+function validateField(id) {
+  if (!document.getElementById(id).value) return;
+  setFieldError(id, fieldProblem(id));
+}
+
+function clearFieldError(id) {
+  const input = document.getElementById(id);
+  if (input.classList.contains('is-invalid') && !fieldProblem(id)) setFieldError(id, '');
+  setFormError('');
+}
+
+function checkCapsLock(event) {
+  if (!event.getModifierState) return;
+  document.getElementById('login-password-caps').hidden = !event.getModifierState('CapsLock');
 }
 
 // Simulates a server check; returns the account or an error message
@@ -68,13 +105,11 @@ async function handleLogin(event) {
 
   setFormError('');
   let firstBad = null;
-  if (!email) { setFieldError('login-email', 'Enter your email.'); firstBad = firstBad || 'login-email'; }
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFieldError('login-email', 'Enter an email like you@company.my.'); firstBad = firstBad || 'login-email'; }
-  else setFieldError('login-email', '');
-
-  if (!password) { setFieldError('login-password', 'Enter your password.'); firstBad = firstBad || 'login-password'; }
-  else if (password.length < 6) { setFieldError('login-password', 'Use at least 6 characters.'); firstBad = firstBad || 'login-password'; }
-  else setFieldError('login-password', '');
+  for (const id of ['login-email', 'login-password']) {
+    const problem = fieldProblem(id);
+    setFieldError(id, problem);
+    if (problem && !firstBad) firstBad = id;
+  }
 
   if (firstBad) { document.getElementById(firstBad).focus(); return; }
 
@@ -83,14 +118,23 @@ async function handleLogin(event) {
   btn.innerHTML = '<span class="login-spinner" aria-hidden="true"></span> Signing in…';
 
   const result = await checkLogin(email, password);
-  btn.disabled = false;
-  btn.textContent = 'Sign in';
 
   if (result.error) {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
     setFormError(result.error);
     return;
   }
-  enterApp({ email, ...result.account }, remember);
+
+  // Brief success state, then fade into the app
+  btn.classList.add('is-success');
+  btn.innerHTML = '<svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Signed in';
+  setTimeout(() => {
+    enterApp({ email, ...result.account }, remember);
+    btn.disabled = false;
+    btn.classList.remove('is-success');
+    btn.textContent = 'Sign in';
+  }, 450);
 }
 
 function demoLogin(role) {
@@ -105,14 +149,23 @@ function demoLogin(role) {
 function enterApp(session, remember) {
   writeSession(session, remember);
   if (typeof currentRole !== 'undefined' && currentRole !== session.role) toggleRole();
-  document.getElementById('login-screen').hidden = true;
-  document.body.classList.remove('is-locked');
-  showToast(`Welcome back, ${session.name}.`);
+  const screen = document.getElementById('login-screen');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const finish = () => {
+    screen.hidden = true;
+    screen.classList.remove('is-leaving');
+    document.body.classList.remove('is-locked');
+    showToast(`Welcome back, ${session.name}.`);
+  };
+  if (reduce) return finish();
+  screen.classList.add('is-leaving');
+  setTimeout(finish, 300);
 }
 
 function logout() {
   clearSession();
   document.getElementById('login-password').value = '';
+  document.getElementById('login-password-caps').hidden = true;
   setFormError('');
   document.getElementById('login-screen').hidden = false;
   document.body.classList.add('is-locked');
@@ -126,6 +179,7 @@ function togglePasswordVisibility() {
   input.type = show ? 'text' : 'password';
   btn.setAttribute('aria-pressed', String(show));
   btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  input.focus();
 }
 
 function forgotPassword() {
