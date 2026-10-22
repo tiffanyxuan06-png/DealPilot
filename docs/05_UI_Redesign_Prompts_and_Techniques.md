@@ -4,7 +4,8 @@ This document records the CashChase web app redesign, so anyone can rebuild, ext
 
 1. The prompts used for each part of the work, rewritten so you can reuse them.
 2. Every technique used: design tokens, components, layout, motion and accessibility.
-3. Every image, with where it is used, its motion and a prompt to recreate it.
+3. How the WhatsApp demo shows what the CashChase extension does.
+4. Every image, with where it is used, its motion and a prompt to recreate it.
 
 The design follows `DESIGN-GUIDE.md`: IBM Plex Sans, the Orbyte colours, a soft ocean glow and frosted cards, with motion in plain CSS.
 
@@ -85,7 +86,38 @@ no script errors and no broken images, then zip it for Netlify Drop or
 `npx vercel`.
 ```
 
-### 1.5 Tried and rejected
+### 1.5 WhatsApp demo redesign
+
+```text
+The WhatsApp Demo page (#page-wa in webapp/index.html, rendered by
+renderWhatsAppView() in webapp/js/copilot.js) is not user friendly. Redesign it
+a bit so it clearly shows what the CashChase extension does. It is still a demo;
+it will become a real agent later.
+
+The extension does five jobs:
+1. Change reply: prompt AI to rewrite the reply (discount, terms, language).
+2. Reserve stock: a quote holds stock for 48 hours.
+3. Confirm order: deposit in, stock out, invoice made.
+4. Check payment: make sure the money was really transferred.
+5. Rate customer: AI scores each customer from how they pay and reply.
+
+Build:
+- A top card with one tile per job. Tapping a tile opens a chat that shows it,
+  scrolls to that part of the extension and gives it a short blue spotlight.
+  Add a 3-step guide: Pick a chat, Pick a reply, Press the blue button.
+- A "web.whatsapp.com" window holding the chat list (initials, name, last
+  message, scenario pill) and the conversation (white incoming bubbles, green
+  outgoing bubbles, beige background, round green send button). Fold the
+  "Play the customer" test tools away under one line with plain labels.
+- In the extension: an always-visible customer rating (score ring, label
+  Trusted / Good / Watch closely, one "AI says" line, "Why this score" folded).
+- On deposit chats, a "Check payment" box (amount claimed, DuitNow ref, and a
+  tick box "I can see RM X in our bank account"). The Confirm button stays
+  disabled until it is ticked.
+Keep every existing handler and element ID.
+```
+
+### 1.6 Tried and rejected
 
 **Grouped sidebar.** An Ant Design-style sidebar with collapsible Business, WhatsApp and Settings groups was built and then rejected. It was reverted, and the flat sidebar was kept.
 
@@ -107,7 +139,7 @@ no script errors and no broken images, then zip it for Netlify Drop or
 - `webapp/js/ui.js` (new)
 - `webapp/js/dashboard.js`: page switching, filter chips and action buttons.
 - `webapp/js/state.js`: confirm button style.
-- `webapp/js/copilot.js`: extension panel.
+- `webapp/js/copilot.js`: extension panel and WhatsApp demo (chat list, bubbles, rating, payment check, `showCapability`, `setPaymentSeen`).
 - `backend/app.py`: `/img` mount.
 - `webapp/img/*`
 
@@ -164,6 +196,13 @@ All tokens live on `:root` in `style.css`.
 | `.cc-overlay`, `.cc-modal`, `.cc-close` | Blurred navy overlay, white dialog (20px radius) and 36px close button. |
 | `.cc-fab` | Floating "Ask AI" button with the happy mascot. |
 | `.ext-reply`, `.ext-radio`, `.ext-footer` | Extension panel reply rows, custom radio and pinned action bar. |
+| `.ext-rating`, `.ext-score` | Customer rating card with a conic-gradient score ring (`--score` in degrees, `--score-color`). |
+| `.ext-payment` (+ `.is-ok`) | Payment check box: purple until ticked, green once the money is seen. |
+| `.cap-card`, `.cap-icon`, `.cap-title`, `.cap-text` | The five job tiles on the WhatsApp demo. |
+| `.step-num` | Navy numbered circle for the 3-step guide. |
+| `.wa-window`, `.wa-titlebar`, `.wa-list`, `.wa-chat`, `.wa-avatar` | The neutral WhatsApp Web frame and its chat list. |
+| `.wa-messages`, `.wa-bubble-in`, `.wa-bubble-out`, `.wa-send` | Beige chat background, white and green bubbles, round green send button. |
+| `.cc-spotlight` | Short blue ring that points at a part of the extension. |
 
 **Layout:**
 - Content sits in a centred column up to 1150px wide.
@@ -175,11 +214,47 @@ All tokens live on `:root` in `style.css`.
 
 ---
 
-## 5. Motion
+## 5. WhatsApp demo page
+
+The page shows WhatsApp Web on the left and the CashChase extension docked on the right. WhatsApp is kept neutral (greys, white and green bubbles) so the blue extension stands out as the product.
+
+### 5.1 The five jobs and where each one shows
+
+| Job | Tile text | Opens | Points at |
+|---|---|---|---|
+| Change reply | Tell AI how to rewrite: discount, terms, language. | First quote chat | "Adjust reply" (opened, cursor in the input) |
+| Reserve stock | A quote holds stock for 48 hours. | First quote chat (`CREATE_QUOTE_HOLD`) | The main button, "Hold Stock (48h) & reply" |
+| Confirm order | Deposit in, stock out, invoice made. | First deposit chat (`CONFIRM_DEPOSIT_DEDUCT`) | The main button |
+| Check payment | Make sure the money is really in the bank. | First deposit chat | The "Check payment" box |
+| Rate customer | AI scores each customer from how they pay and reply. | First quote chat | The rating card |
+
+`showCapability(key)` finds the first chat with the matching `extActionType`, so it works for every business profile (air-cond, software, F&B). The panel re-renders while the AI drafts a reply, so the function retries every 100ms (up to 3 seconds) until the target is on screen, then scrolls to it and adds `.cc-spotlight`.
+
+### 5.2 Customer rating
+
+- The score comes from the customer's memory (`memory.score`, 0-100).
+- **80 and above:** Trusted (green ring). **60 to 79:** Good (blue). **Below 60:** Watch closely (amber).
+- The first memory note is shown as "AI says: …". "Why this score" opens all notes, the recent timeline and "Add note".
+- In the demo the score is sample data. In the real agent, it should be worked out from payment speed, deposits kept or missed, disputes and reply behaviour.
+
+### 5.3 Payment check
+
+- Only on chats that confirm a deposit (`CONFIRM_DEPOSIT_DEDUCT`), and only until the chat is done.
+- It shows the amount the customer says they paid (from `chat.amount`, or the first `RM` value in the check text) and the DuitNow reference from their last message.
+- The main button is `disabled`, with "Tick the payment check first." above it, until the tick box is checked. `setPaymentSeen()` stores `chat.paymentSeen` and re-renders.
+- In the demo this is a manual tick. In the real agent, connect it to the bank feed or to the receipt reader, so the box ticks itself when the money arrives.
+
+### 5.4 Play the customer
+
+The test tools are folded under one line, so the page reads as the real product first. Labels: Asks for a quote · Says "paid deposit" · Sends a DuitNow receipt · Asks for a discount · Reports a problem · Writes in Malay · Supplier sends a bill. There's also a file attach button and a free-text "Send as customer" box. The sample-PDF download buttons were removed from this page; `downloadSamplePdfTemplate()` still exists.
+
+---
+
+## 6. Motion
 
 All motion is plain CSS. One rule turns it all off for people who choose "reduce motion".
 
-### 5.1 Page-level motion
+### 6.1 Page-level motion
 
 | Name | What you see | How it works | Where |
 |---|---|---|---|
@@ -189,11 +264,14 @@ All motion is plain CSS. One rule turns it all off for people who choose "reduce
 | Logo hover | The logo tilts and grows | `rotate(12deg) scale(1.1)` over 0.25s | Sidebar brand |
 | Dialog open | Dialogs ease up into place | `modal-in`: from `opacity:0`, `translateY(12px) scale(.98)`, 0.28s | `.cc-modal` |
 | Floating button hover | The AI button rises | `translateY(-3px)` and the colour changes to blue | `.cc-fab` |
-| Fold arrows | The arrow flips when a section opens | `rotate(180deg)` with `group-open` | Extension customer and "Adjust reply" sections |
+| Fold arrows | The arrow flips when a section opens | `rotate(180deg)` with `group-open` | "Why this score", "Adjust reply", "Play the customer" |
+| Job tile lift | A job tile rises with a shadow | `translateY(-4px)` plus `--shadow-md` over 0.2s | `.cap-card` on the WhatsApp demo |
+| Spotlight | A blue ring glows around the part a job tile points at, then fades | `spotlight` 1.6s: 4px `rgba(1,82,252,.35)` ring held for 60%, then fading to clear | `.cc-spotlight`, added by `showCapability()` |
+| Payment tick | The payment box turns from purple to green | Background and border colour transition over 0.2s | `.ext-payment.is-ok` |
 
 `translate` (not `transform`) is used for the scroll reveal, so it never clashes with the hover `transform` on the same card.
 
-### 5.2 Mascot motion (one per pose)
+### 6.2 Mascot motion (one per pose)
 
 | Class | Motion | Keyframes | Used on |
 |---|---|---|---|
@@ -204,20 +282,20 @@ All motion is plain CSS. One rule turns it all off for people who choose "reduce
 | `.m-float` | Gentle floating | `m-float` 4s: translateY 0 ↔ -6px | WhatsApp hero (question), floating AI button and Ask AI dialog (happy) |
 | `.m-run` | Fast footstep bounce | `m-step` 0.45s: translateY 0 ↔ -3px | Defined but not used yet |
 
-### 5.3 Icon hover motion
+### 6.3 Icon hover motion
 
 Each icon reacts in its own way when its button is hovered. Each lasts about half a second.
 
 | Class | Motion | Used on |
 |---|---|---|
-| `.i-hop` | Hops up 4px | Dashboard and Stock nav, stat cards, upload, download and export buttons |
+| `.i-hop` | Hops up 4px | Dashboard and Stock nav, stat cards, upload, download and export buttons, "Reserve stock" tile |
 | `.i-flip` | Flips around (rotateY 360°) | Invoices and Ledger nav |
-| `.i-wiggle` | Wiggles ±10° | WhatsApp Demo nav |
-| `.i-swipe` | Swipes sideways 3px | Send and Ask buttons |
-| `.i-pulse` | Heartbeat pulse (scale 1.18) | Net worth card, Scan supplier invoice |
+| `.i-wiggle` | Wiggles ±10° | WhatsApp Demo nav, "Change reply" tile |
+| `.i-swipe` | Swipes sideways 3px | Send and Ask buttons, "Check payment" tile |
+| `.i-pulse` | Heartbeat pulse (scale 1.18) | Net worth card, Scan supplier invoice, "Confirm order" and "Rate customer" tiles |
 | `.i-spin` | Turns 90° | Settings |
 
-### 5.4 Reduced motion
+### 6.4 Reduced motion
 
 ```css
 @media (prefers-reduced-motion: reduce) {
@@ -231,7 +309,7 @@ Each icon reacts in its own way when its button is hovered. Each lasts about hal
 
 ---
 
-## 6. Accessibility
+## 7. Accessibility
 
 - Keyboard focus shows a 3px blue outline (`:focus-visible`).
 - Every form field has a visible label, or a screen-reader-only label where space is tight.
@@ -242,10 +320,12 @@ Each icon reacts in its own way when its button is hovered. Each lasts about hal
 - Decorative images and the glow layer have `alt=""` and `aria-hidden="true"`.
 - Image sizes are set with `width`/`height`, so the page doesn't jump while loading.
 - Buttons and nav items are at least 40-44px tall.
+- The score ring has `role="img"` with an `aria-label` ("Customer score 94 out of 100"). The active chat has `aria-current`.
+- The Confirm button uses the real `disabled` attribute until the payment check is ticked, and a visible line says why.
 
 ---
 
-## 7. Copy style
+## 8. Copy style
 
 - Headlines say one thing:
   - Dashboard: "Here is your business today."
@@ -255,12 +335,14 @@ Each icon reacts in its own way when its button is hovered. Each lasts about hal
   - WhatsApp Demo: "AI suggests. Rules check. You decide."
 - Buttons say what happens: "Check bank receipt", "Confirm deposit", "Mark paid (+RM 1,650)", "Send replacement & reply".
 - Use words people know, not system words: "What's happening" instead of "Auto-Cached", and a tier pill instead of "Persistent Memory".
+- Job tiles say the job in two words, then one plain sentence: "Check payment · Make sure the money is really in the bank."
+- Test tools say what the customer does: "Says 'paid deposit'", "Writes in Malay".
 
 ---
 
-## 8. Images
+## 9. Images
 
-### 8.1 How the images were made
+### 9.1 How the images were made
 
 - **Source:** one character sheet (1536×1024, transparent background) and the logo (363×372).
 - **Cutting:** Python Pillow.
@@ -270,13 +352,13 @@ Each icon reacts in its own way when its button is hovered. Each lasts about hal
 - **Logo:** trimmed to its content and scaled to fit 192×192.
 - **Standalone prototype copies:** scaled to fit 240px, reduced to 256 colours and inlined as base64. About 140KB in total.
 
-### 8.2 Shared character description
+### 9.2 Shared character description
 
 Use this base description in every pose prompt below, so the poses stay consistent:
 
 > A cute chibi 3D mascot built from the CashChase logo shapes: a glossy, soft-plastic toy look with a rounded white face and body. A thick navy (#042970) C-shaped block wraps over the top and left of the head like a helmet. A rounded royal blue (#0152FC) block sits on the right side like an ear. Small square sky-blue (#01AAFC) to cyan (#01E3FB) jelly gems sit on the forehead, the left cheek and the chest. It has black oval eyes, a small curved smile and light blue blush. The arms and legs are navy, with royal blue mitten hands. Soft studio lighting, gentle shadows, a transparent background, centred, with no text.
 
-### 8.3 Image catalogue
+### 9.3 Image catalogue
 
 #### Logo
 
@@ -323,7 +405,7 @@ Use this base description in every pose prompt below, so the poses stay consiste
 
 ![Question](../webapp/img/mascot-question.png)
 
-- **Used on:** WhatsApp Demo hero (motion: `.m-float`), the confirm dialog (still).
+- **Used on:** WhatsApp demo top card, next to the five job tiles (motion: `.m-float`); the confirm dialog (still).
 - **Prompt:**
   > [Shared character description]. A curious thinking pose with one hand on the chin, eyes looking up, and a sky-blue question mark floating above the right side of the head. Upper body.
 
@@ -354,7 +436,7 @@ Use this base description in every pose prompt below, so the poses stay consiste
 
 ---
 
-## 9. Rebuilding the standalone prototype
+## 10. Rebuilding the standalone prototype
 
 1. Copy `index.html`.
 2. Swap the Tailwind script to `https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11/dist/index.global.js`.
