@@ -353,8 +353,7 @@ main button.rounded-xl, main button.rounded-lg { min-height: 36px; }
 .divide-\[\#D5DFEE\] > * + * { border-color: var(--line-soft) !important; }
 .cc-table tbody td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 
-/* WhatsApp chat surface */
-#wa-messages { background: linear-gradient(180deg, rgba(242,246,255,0.6), rgba(227,246,255,0.5)) !important; }
+
 
 /* -------------------------------------------------------------------------
    Motion
@@ -452,3 +451,96 @@ main span.rounded-full, main span.rounded, .cc-pill { white-space: nowrap; }
 
 /* The extension has its own AI; keep the floating helper off its action button */
 body[data-page="wa"] .cc-fab { display: none; }
+
+/* -------------------------------------------------------------------------
+   WhatsApp demo page
+   ------------------------------------------------------------------------- */
+/* Capability cards: what the extension does */
+.cap-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem;
+  padding: 1rem; border-radius: 14px; text-align: left;
+  background: rgba(255, 255, 255, 0.82); border: 1px solid var(--line-soft);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s, border-color 0.2s;
+}
+.cap-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: #C3D3F0; }
+.cap-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.cap-icon svg { width: 18px; height: 18px; }
+.cap-title { font-size: 0.9375rem; font-weight: 600; color: var(--navy); margin-top: 0.25rem; }
+.cap-text { font-size: 0.8125rem; line-height: 1.45; color: var(--ink-soft); }
+
+.step-num {
+  width: 22px; height: 22px; border-radius: 9999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--navy); color: #fff; font-size: 0.75rem; font-weight: 600;
+}
+
+/* WhatsApp Web window, kept neutral so the CashChase panel stands out */
+.wa-window {
+  background: #fff;
+  border: 1px solid #E3E8EF;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.wa-titlebar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  background: #F0F2F5; border-bottom: 1px solid #E3E8EF;
+}
+.wa-dots { display: inline-flex; gap: 6px; }
+.wa-dots i { width: 10px; height: 10px; border-radius: 9999px; background: #D5DAE1; }
+.wa-list { border-right: 1px solid #E3E8EF; background: #fff; }
+@media (max-width: 767px) { .wa-list { border-right: 0; border-bottom: 1px solid #E3E8EF; } }
+
+.wa-chat {
+  width: 100%; display: flex; align-items: flex-start; gap: 0.625rem;
+  padding: 0.625rem; border-radius: 10px; text-align: left;
+  transition: background-color 0.15s;
+}
+.wa-chat:hover { background: #F5F6F6; }
+.wa-chat.is-active { background: #F0F2F5; }
+.wa-avatar {
+  width: 36px; height: 36px; border-radius: 9999px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #DFE5E7; color: #54656F; font-size: 0.75rem; font-weight: 600;
+}
+.wa-chat.is-active .wa-avatar { background: var(--surface-3); color: var(--blue); }
+
+.wa-messages { background: #EFEAE2; }
+.wa-bubble-in { background: #fff; color: #111B21; border-radius: 4px 14px 14px 14px; }
+.wa-bubble-out { background: #D9FDD3; color: #111B21; border-radius: 14px 4px 14px 14px; }
+.wa-sim[open] .wa-sim-arrow { transform: rotate(180deg); }
+.wa-sim summary::-webkit-details-marker { display: none; }
+.wa-send {
+  width: 40px; height: 40px; border-radius: 9999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #00A884; color: #fff; transition: background-color 0.2s;
+}
+.wa-send:hover { background: #008F72; }
+.wa-send svg { width: 18px; height: 18px; }
+
+/* Extension: customer rating */
+.ext-rating { padding: 0.875rem; border-radius: 14px; background: var(--surface-1); border: 1px solid var(--line-soft); }
+.ext-score {
+  width: 48px; height: 48px; border-radius: 9999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: conic-gradient(var(--score-color) var(--score), #DCE4F2 0);
+}
+.ext-score span {
+  width: 38px; height: 38px; border-radius: 9999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; color: var(--navy); font-size: 0.875rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Extension: payment check */
+.ext-payment { padding: 0.875rem; border-radius: 14px; background: #FAF5FF; border: 1px solid #E9D5FF; transition: background-color 0.2s, border-color 0.2s; }
+.ext-payment.is-ok { background: #ECFDF5; border-color: #A7F3D0; }
+#ext-primary-action-btn:disabled { background: #C9D5EA; color: #fff; box-shadow: none; cursor: not-allowed; }
+
+/* Spotlight after jumping from a capability card */
+.cc-spotlight { animation: spotlight 1.6s var(--ease); border-radius: 14px; }
+@keyframes spotlight {
+  0%, 60% { box-shadow: 0 0 0 4px rgba(1, 82, 252, 0.35); }
+  100% { box-shadow: 0 0 0 4px rgba(1, 82, 252, 0); }
+}

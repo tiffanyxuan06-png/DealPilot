@@ -8,17 +8,19 @@
 
       chatListEl.innerHTML = st.chats.map((c, idx) => {
         const active = idx === currentChatIndex;
+        const last = c.messages && c.messages.length ? c.messages[c.messages.length - 1] : null;
+        const initials = String(c.customer).replace(/[^A-Za-z ]/g, '').split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('');
         return `
-          <button onclick="selectChat(${idx})" class="w-full text-left p-3 rounded-xl border transition ${
-            active
-              ? 'bg-[#E6EEFF] border-[#0152FC] text-[#042970]'
-              : 'bg-[#F2F6FF] border-[#D5DFEE] hover:bg-[#E6EEFF]/60'
-          }">
-            <div class="flex items-center justify-between">
-              <span class="font-semibold text-sm text-[#042970]">${c.customer}</span>
-              ${c.done ? '<span class="text-xs text-emerald-700 font-bold">✓ Done</span>' : ''}
-            </div>
-            <div class="text-xs text-[#0152FC] font-bold mt-0.5">${c.badge}</div>
+          <button onclick="selectChat(${idx})" class="wa-chat ${active ? 'is-active' : ''}" aria-current="${active}">
+            <span class="wa-avatar">${initials}</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-sm text-[#042970] truncate">${c.customer}</span>
+                ${c.done ? '<svg class="w-4 h-4 text-emerald-600 shrink-0" aria-label="Done"><use href="#i-check"/></svg>' : `<span class="text-[11px] text-[#5B6B85] shrink-0">${last ? last.time : ''}</span>`}
+              </span>
+              <span class="block text-xs text-[#5B6B85] truncate">${last ? last.text : ''}</span>
+              <span class="cc-pill !text-[11px] !py-0 mt-1">${String(c.badge).replace(/^\d+\.\s*/, '')}</span>
+            </span>
           </button>
         `;
       }).join('');
@@ -36,19 +38,19 @@
           <div class="flex ${isStaff ? 'justify-end' : 'justify-start'}">
             <div class="max-w-[85%] rounded-2xl px-4 py-2.5 text-xs shadow-xs space-y-1.5 ${
               isStaff
-                ? 'bg-[#0152FC] text-white'
-                : 'bg-white border border-[#D5DFEE] text-[#042970]'
+                ? 'wa-bubble-out'
+                : 'wa-bubble-in'
             }">
               ${hasAtt ? `
-                <div class="p-2.5 rounded-xl ${isStaff ? 'bg-white/10 border border-white/20' : 'bg-[#F2F6FF] border border-[#D5DFEE]'} flex items-center gap-3">
+                <div class="p-2.5 rounded-xl bg-white/70 border border-black/5 flex items-center gap-3">
                   <div class="w-9 h-9 rounded-lg bg-rose-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
                     PDF
                   </div>
                   <div class="overflow-hidden text-left flex-1">
-                    <div class="font-bold truncate ${isStaff ? 'text-white' : 'text-[#042970]'}">${hasAtt.name || 'Document.pdf'}</div>
-                    <div class="text-[10px] ${isStaff ? 'text-white/80' : 'text-[#64748B]'} flex items-center gap-2">
+                    <div class="font-bold truncate text-[#042970]">${hasAtt.name || 'Document.pdf'}</div>
+                    <div class="text-[10px] text-[#5B6B85] flex items-center gap-2">
                       <span>${hasAtt.size || '142 KB'}</span>
-                      <span class="px-1.5 py-0.2 rounded-full ${isStaff ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'} font-bold">⚡ Stage 1 Direct PDF Decoded</span>
+                      <span class="px-1.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Read by AI</span>
                     </div>
                   </div>
                 </div>
@@ -122,47 +124,70 @@
         ['Round down', 'Round down total to nearest hundred flat']
       ];
 
+      // Customer rating: AI scores each customer from payment and chat behaviour
+      const score = Math.max(0, Math.min(100, mem.score || 75));
+      const rating = score >= 80
+        ? { label: 'Trusted', color: '#059669', bg: '#ECFDF5', fg: '#065F46' }
+        : score >= 60
+          ? { label: 'Good', color: '#0152FC', bg: '#E6EEFF', fg: '#042970' }
+          : { label: 'Watch closely', color: '#D97706', bg: '#FFFBEB', fg: '#92400E' };
+      const firstNote = (mem.notes || [])[0];
+
+      // Payment check: confirming an order needs the money seen in the bank first
+      const needsPaymentCheck = activeChat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && !activeChat.done;
+      const claimMatch = String(activeChat.extCheck || '').match(/RM\s*([\d,]+)/);
+      const claimedAmt = activeChat.amount
+        ? Number(activeChat.amount).toLocaleString()
+        : (claimMatch ? claimMatch[1] : '');
+      const lastCustomerMsg = [...(activeChat.messages || [])].reverse().find(m => m.from === 'customer');
+      const refMatch = lastCustomerMsg ? String(lastCustomerMsg.text).match(/Ref:?\s*([A-Z]{2}-[\d-]+)/i) : null;
+      const paymentBlocked = needsPaymentCheck && !activeChat.paymentSeen;
+
       const primaryLabel = activeChat.done
         ? 'Done · insert reply again'
         : blockedByRole ? 'Send to owner for approval' : btnText(dynamicBtnLabel);
 
       extBody.innerHTML = `
-        <!-- Customer: one summary line, history on demand -->
-        <details class="ext-customer group">
-          <summary class="flex items-center gap-3 cursor-pointer list-none">
-            <span class="w-10 h-10 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-sm flex items-center justify-center shrink-0">
-              ${plain(activeChat.customer).split(' ').map(w => w[0]).slice(0, 2).join('')}
+        <!-- Customer rating, always visible; reasons and history on demand -->
+        <div id="ext-rating" class="ext-rating">
+          <div class="flex items-center gap-3">
+            <span class="ext-score" style="--score:${score * 3.6}deg; --score-color:${rating.color}" role="img" aria-label="Customer score ${score} out of 100">
+              <span>${score}</span>
             </span>
             <span class="flex-1 min-w-0">
               <span class="flex items-center gap-2 flex-wrap">
                 <span class="font-semibold text-sm text-[#042970] truncate">${activeChat.customer}</span>
-                <span class="cc-pill ${isRiskClient ? '!bg-amber-50 !text-amber-800' : ''}">${plain(mem.tier)}</span>
+                <span class="cc-pill" style="background:${rating.bg}; color:${rating.fg}">${rating.label}</span>
               </span>
-              <span class="block text-xs text-[#5B6B85] mt-0.5">
-                ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid · score ${mem.score}/100
-              </span>
+              <span class="block text-xs text-[#5B6B85] mt-0.5">${plain(mem.tier)} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
             </span>
-            <svg class="w-4 h-4 text-[#5B6B85] shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-          </summary>
-          <div class="mt-3 pl-[52px] space-y-3 text-xs">
-            <ul class="space-y-1 text-[#324564] list-disc pl-4">
-              ${(mem.notes || []).map(n => `<li>${plain(n)}</li>`).join('')}
-            </ul>
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <span class="font-semibold text-[#042970]">Recent</span>
-                <button onclick="promptAddMemoryNote()" class="font-semibold text-[#0152FC] hover:underline">Add note</button>
-              </div>
-              <div class="space-y-1 max-h-28 overflow-y-auto pr-1">
-                ${(mem.timeline || []).map(t => `
-                  <div class="flex gap-2 text-[#5B6B85]">
-                    <span class="font-mono text-[#042970] shrink-0">${t.time}</span>
-                    <span>${plain(t.note)}</span>
-                  </div>`).join('')}
+          </div>
+          ${firstNote ? `<p class="text-xs text-[#324564] mt-2.5"><span class="font-semibold text-[#042970]">AI says:</span> ${plain(firstNote)}</p>` : ''}
+          <details class="ext-customer group mt-2">
+            <summary class="flex items-center gap-1.5 cursor-pointer list-none text-xs font-semibold text-[#0152FC] !min-h-[32px]">
+              Why this score
+              <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <div class="mt-1 space-y-3 text-xs">
+              <ul class="space-y-1 text-[#324564] list-disc pl-4">
+                ${(mem.notes || []).map(n => `<li>${plain(n)}</li>`).join('')}
+              </ul>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-semibold text-[#042970]">Recent</span>
+                  <button onclick="promptAddMemoryNote()" class="font-semibold text-[#0152FC] hover:underline">Add note</button>
+                </div>
+                <div class="space-y-1 max-h-28 overflow-y-auto pr-1">
+                  ${(mem.timeline || []).map(t => `
+                    <div class="flex gap-2 text-[#5B6B85]">
+                      <span class="font-mono text-[#042970] shrink-0">${t.time}</span>
+                      <span>${plain(t.note)}</span>
+                    </div>`).join('')}
+                </div>
               </div>
             </div>
-          </div>
-        </details>
+          </details>
+        </div>
 
         <!-- What the customer wants + what CashChase checked -->
         <div class="pt-4 border-t border-[#DCE4F2]">
@@ -170,6 +195,23 @@
           <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${plain(activeChat.extTitle)}</div>
           <ul class="mt-2 space-y-1 text-sm text-[#324564]">${checkLines}</ul>
         </div>
+
+        ${needsPaymentCheck ? `
+          <!-- Check payment before the order is confirmed -->
+          <div id="ext-payment" class="ext-payment ${activeChat.paymentSeen ? 'is-ok' : ''}">
+            <div class="flex items-center gap-2 text-sm font-semibold text-[#042970]">
+              <svg class="w-4 h-4 text-purple-600"><use href="#i-wallet"/></svg> Check payment
+            </div>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs mt-2">
+              <dt class="text-[#5B6B85]">Customer says</dt><dd class="font-semibold text-[#042970]">RM ${claimedAmt || '—'} paid</dd>
+              ${refMatch ? `<dt class="text-[#5B6B85]">DuitNow ref</dt><dd class="font-mono font-semibold text-[#0152FC]">${refMatch[1]}</dd>` : ''}
+            </dl>
+            <label class="flex items-start gap-2.5 mt-3 cursor-pointer">
+              <input id="ext-payment-seen" type="checkbox" ${activeChat.paymentSeen ? 'checked' : ''} onchange="setPaymentSeen(this.checked)" class="w-4 h-4 mt-0.5 accent-[#0152FC]" />
+              <span class="text-sm text-[#042970]">I can see RM ${claimedAmt || 'this amount'} in our bank account</span>
+            </label>
+          </div>
+        ` : ''}
 
         ${activeChat.isAILoading ? `
           <div class="pt-4 border-t border-[#DCE4F2] flex flex-col items-center text-center gap-2 py-6" role="status">
@@ -248,7 +290,8 @@
               Only the owner can do this. Switch role at the top, or send it for approval.
             </p>
           ` : ''}
-          <button id="ext-primary-action-btn" onclick="executeExtensionAction()" class="cc-btn cc-btn-lg w-full ${activeChat.done ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'cc-btn-primary'}">
+          ${paymentBlocked ? `<p class="text-xs text-[#5B6B85] mb-2">Tick the payment check first.</p>` : ''}
+          <button id="ext-primary-action-btn" onclick="executeExtensionAction()" ${paymentBlocked ? 'disabled' : ''} class="cc-btn cc-btn-lg w-full ${activeChat.done ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'cc-btn-primary'}">
             ${primaryLabel}
           </button>
           <button onclick="openPdfFromChat()" class="w-full mt-2 text-xs font-semibold text-[#0152FC] hover:underline flex items-center justify-center gap-1.5">
@@ -258,6 +301,48 @@
       `;
 
       updatePromptPreview(activeChat);
+    }
+
+    function setPaymentSeen(seen) {
+      const chat = getState().chats[currentChatIndex];
+      chat.paymentSeen = !!seen;
+      renderWhatsAppView();
+      if (seen) showToast('Payment checked. You can confirm the order now.');
+    }
+
+    // Jump from a capability card to a chat that shows it, then point at the part
+    function showCapability(key) {
+      const typeFor = { reserve: 'CREATE_QUOTE_HOLD', reply: 'CREATE_QUOTE_HOLD', rating: 'CREATE_QUOTE_HOLD', confirm: 'CONFIRM_DEPOSIT_DEDUCT', payment: 'CONFIRM_DEPOSIT_DEDUCT' };
+      const chats = getState().chats;
+      const idx = chats.findIndex(c => c.extActionType === typeFor[key]);
+      if (idx >= 0) selectChat(idx);
+
+      const targets = {
+        reply: '.ext-adjust',
+        reserve: '#ext-primary-action-btn',
+        confirm: '#ext-primary-action-btn',
+        payment: '#ext-payment',
+        rating: '#ext-rating'
+      };
+
+      // The panel re-renders while the AI drafts a reply; wait for the target
+      let tries = 0;
+      const point = () => {
+        const chat = getState().chats[currentChatIndex];
+        const el = document.querySelector(targets[key]);
+        if ((!el || (chat && chat.isAILoading)) && tries++ < 30) return setTimeout(point, 100);
+        if (!el) return;
+        if (key === 'reply') el.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.remove('cc-spotlight');
+        void el.offsetWidth;
+        el.classList.add('cc-spotlight');
+        if (key === 'reply') {
+          const input = document.getElementById('wa-custom-quote-prompt');
+          if (input) setTimeout(() => input.focus({ preventScroll: true }), 400);
+        }
+      };
+      setTimeout(point, 120);
     }
 
     function updateAftersalesRebate(val) {

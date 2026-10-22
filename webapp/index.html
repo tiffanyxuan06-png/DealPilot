@@ -537,85 +537,130 @@
       <!-- ================================================================= -->
       <div id="page-wa" class="hidden space-y-6">
 
-        <section class="cc-card cc-hero reveal">
-          <div>
-            <span class="cc-pill !bg-emerald-50 !text-emerald-800">Demo</span>
-            <h1 class="cc-h1 mt-2">AI suggests. Rules check. You decide.</h1>
-            <p class="cc-sub mt-1">Pick a chat, act like the customer, and watch the CashChase extension reply.</p>
-            <div class="flex flex-wrap items-center gap-2 mt-4">
-              <button onclick="openSettingsModal(); setTimeout(() => { const el = document.getElementById('multi-agent-inspector-card'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 150);" class="cc-btn cc-btn-ghost">
-                <svg><use href="#i-search"/></svg> See agent prompts
-              </button>
-              <span class="text-xs font-semibold text-[#5B6B85] ml-1">Sample PDFs:</span>
-              <button onclick="downloadSamplePdfTemplate('DUITNOW')" class="cc-chip">DuitNow receipt</button>
-              <button onclick="downloadSamplePdfTemplate('SUPPLIER')" class="cc-chip">Supplier bill</button>
-              <button onclick="downloadSamplePdfTemplate('QUOTE')" class="cc-chip">Quote</button>
+        <!-- What the extension does: each card jumps to a live example -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <span class="cc-pill !bg-emerald-50 !text-emerald-800">Demo</span>
+              <h1 class="cc-h1 mt-2">AI suggests. Rules check. You decide.</h1>
+              <p class="cc-sub mt-1">The CashChase extension sits beside WhatsApp Web and does five jobs. Tap one to see it.</p>
             </div>
+            <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-20 md:w-24 h-auto m-float shrink-0 hidden sm:block" aria-hidden="true" />
           </div>
-          <img src="img/mascot-question.png" alt="" width="240" height="246" class="cc-hero-art m-float hidden sm:block" aria-hidden="true" />
+
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+            <button onclick="showCapability('reply')" class="cap-card i-wiggle">
+              <span class="cap-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
+              <span class="cap-title">Change reply</span>
+              <span class="cap-text">Tell AI how to rewrite: discount, terms, language.</span>
+            </button>
+            <button onclick="showCapability('reserve')" class="cap-card i-hop">
+              <span class="cap-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-box"/></svg></span>
+              <span class="cap-title">Reserve stock</span>
+              <span class="cap-text">A quote holds stock for 48 hours.</span>
+            </button>
+            <button onclick="showCapability('confirm')" class="cap-card i-pulse">
+              <span class="cap-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
+              <span class="cap-title">Confirm order</span>
+              <span class="cap-text">Deposit in, stock out, invoice made.</span>
+            </button>
+            <button onclick="showCapability('payment')" class="cap-card i-swipe">
+              <span class="cap-icon bg-purple-50 text-purple-600"><svg><use href="#i-wallet"/></svg></span>
+              <span class="cap-title">Check payment</span>
+              <span class="cap-text">Make sure the money is really in the bank.</span>
+            </button>
+            <button onclick="showCapability('rating')" class="cap-card i-pulse col-span-2 md:col-span-1">
+              <span class="cap-icon bg-amber-50 text-amber-600"><svg><use href="#i-users"/></svg></span>
+              <span class="cap-title">Rate customer</span>
+              <span class="cap-text">AI scores each customer from how they pay and reply.</span>
+            </button>
+          </div>
+
+          <ol class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 pt-4 border-t border-[#DCE4F2] text-sm text-[#324564]">
+            <li class="flex items-center gap-2"><span class="step-num">1</span>Pick a chat</li>
+            <li class="flex items-center gap-2"><span class="step-num">2</span>Pick a reply in the extension</li>
+            <li class="flex items-center gap-2"><span class="step-num">3</span>Press the blue button</li>
+            <li class="flex items-center gap-2 ml-auto">
+              <button onclick="openSettingsModal(); setTimeout(() => { const el = document.getElementById('multi-agent-inspector-card'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 150);" class="text-sm font-semibold text-[#0152FC] hover:underline">See agent prompts</button>
+            </li>
+          </ol>
         </section>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-          <!-- Chats -->
-          <section class="lg:col-span-3 cc-card p-4 space-y-3">
-            <div class="flex items-center justify-between pb-2 border-b border-[#DCE4F2]">
-              <span class="text-sm font-semibold text-[#042970]">Chats</span>
-              <span class="text-xs text-[#5B6B85]">4 scenarios</span>
+          <!-- WhatsApp Web window: chat list + conversation -->
+          <section class="lg:col-span-8 wa-window" aria-label="WhatsApp Web">
+            <div class="wa-titlebar">
+              <span class="wa-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="text-xs font-semibold text-[#5B6B85]">web.whatsapp.com</span>
             </div>
-            <div id="wa-chat-list" class="space-y-2"></div>
-          </section>
 
-          <!-- Conversation -->
-          <section class="lg:col-span-5 cc-card flex flex-col overflow-hidden">
-            <div class="px-4 py-3 border-b border-[#DCE4F2] flex items-center justify-between bg-white/60">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"><svg class="w-4 h-4"><use href="#i-chat"/></svg></span>
-                <div class="min-w-0">
-                  <div id="wa-active-name" class="font-semibold text-sm text-[#042970] truncate">Tan Bros Trading</div>
-                  <div id="wa-active-sub" class="text-xs text-[#5B6B85]">+60 12-345 6789</div>
+            <div class="grid grid-cols-1 md:grid-cols-[260px_1fr]">
+              <!-- Chats -->
+              <div class="wa-list">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-[#E3E8EF]">
+                  <span class="text-sm font-semibold text-[#042970]">Chats</span>
+                  <span class="text-xs text-[#5B6B85]">4 scenarios</span>
+                </div>
+                <div id="wa-chat-list" class="p-2 space-y-1"></div>
+              </div>
+
+              <!-- Conversation -->
+              <div class="flex flex-col min-w-0">
+                <div class="px-4 py-3 border-b border-[#E3E8EF] flex items-center justify-between gap-3 bg-[#F7F8FA]">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"><svg class="w-4 h-4"><use href="#i-chat"/></svg></span>
+                    <div class="min-w-0">
+                      <div id="wa-active-name" class="font-semibold text-sm text-[#042970] truncate">Tan Bros Trading</div>
+                      <div id="wa-active-sub" class="text-xs text-[#5B6B85] truncate">+60 12-345 6789</div>
+                    </div>
+                  </div>
+                  <span id="wa-scenario-badge" class="cc-pill">Flow 1</span>
+                </div>
+
+                <div id="wa-messages" class="wa-messages p-4 space-y-3 min-h-[320px] max-h-[420px] overflow-y-auto" aria-live="polite"></div>
+
+                <!-- Play the customer -->
+                <details class="wa-sim border-t border-[#E3E8EF]">
+                  <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer list-none text-xs font-semibold text-[#5B6B85]">
+                    <svg class="w-3.5 h-3.5"><use href="#i-users"/></svg> Play the customer
+                    <span class="font-normal">· send a test message</span>
+                    <svg class="w-4 h-4 ml-auto transition-transform wa-sim-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </summary>
+                  <div class="px-4 pb-3 space-y-2">
+                    <div id="sim-buttons-container" class="flex flex-wrap gap-1.5">
+                      <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="cc-chip !min-h-[30px] !text-xs">Asks for a quote</button>
+                      <button onclick="simulateCustomerAction('MSG_DEPOSIT_PAID')" class="cc-chip !min-h-[30px] !text-xs">Says "paid deposit"</button>
+                      <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="cc-chip !min-h-[30px] !text-xs">Sends a DuitNow receipt</button>
+                      <button onclick="simulateCustomerAction('MSG_DISCOUNT')" class="cc-chip !min-h-[30px] !text-xs">Asks for a discount</button>
+                      <button onclick="simulateCustomerAction('MSG_AFTERSALES')" class="cc-chip !min-h-[30px] !text-xs">Reports a problem</button>
+                      <button onclick="simulateCustomerAction('MSG_BM')" class="cc-chip !min-h-[30px] !text-xs">Writes in Malay</button>
+                      <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="cc-chip !min-h-[30px] !text-xs">Supplier sends a bill</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label class="cc-close cursor-pointer border border-[#DCE4F2] bg-white" title="Attach a receipt or PDF as the customer">
+                        <svg><use href="#i-clip"/></svg><span class="sr-only">Attach file as customer</span>
+                        <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleWhatsAppChatFileUpload(this)" />
+                      </label>
+                      <label for="wa-test-customer-msg" class="sr-only">Customer message</label>
+                      <input id="wa-test-customer-msg" type="text" placeholder="Type as the customer, e.g. Boss, got stock?" class="cc-input !min-h-[38px]" />
+                      <button onclick="simulateCustomerMessageWithLMStudio()" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Send as customer</button>
+                    </div>
+                  </div>
+                </details>
+
+                <!-- Your reply -->
+                <div class="p-3 border-t border-[#E3E8EF] bg-[#F7F8FA] flex items-center gap-2">
+                  <label for="wa-input-box" class="sr-only">Your reply</label>
+                  <input id="wa-input-box" type="text" placeholder="Your reply appears here when you pick one" class="cc-input !min-h-[40px] !rounded-full !px-4" />
+                  <button onclick="sendWhatsAppInput()" class="wa-send i-swipe" aria-label="Send reply"><svg><use href="#i-send"/></svg></button>
                 </div>
               </div>
-              <span id="wa-scenario-badge" class="cc-pill">Flow 1</span>
-            </div>
-
-            <div class="px-4 py-3 border-b border-[#DCE4F2] bg-white/40">
-              <div class="text-xs font-semibold text-[#5B6B85] mb-2">Act as the customer:</div>
-              <div id="sim-buttons-container" class="flex flex-wrap gap-1.5">
-                <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="cc-chip !min-h-[30px] !text-xs">Sends DuitNow receipt</button>
-                <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="cc-chip !min-h-[30px] !text-xs">Sends supplier bill</button>
-                <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="cc-chip !min-h-[30px] !text-xs">Asks for a quote</button>
-                <button onclick="simulateCustomerAction('MSG_DEPOSIT_PAID')" class="cc-chip !min-h-[30px] !text-xs">"Paid deposit"</button>
-                <button onclick="simulateCustomerAction('MSG_AFTERSALES')" class="cc-chip !min-h-[30px] !text-xs">Reports an issue</button>
-                <button onclick="simulateCustomerAction('MSG_DISCOUNT')" class="cc-chip !min-h-[30px] !text-xs">"Can give discount?"</button>
-                <button onclick="simulateCustomerAction('MSG_BM')" class="cc-chip !min-h-[30px] !text-xs">"Salam, sebut harga"</button>
-              </div>
-            </div>
-
-            <div id="wa-messages" class="p-4 space-y-3 min-h-[300px] max-h-[400px] overflow-y-auto" aria-live="polite"></div>
-
-            <div class="p-3 border-t border-[#DCE4F2] bg-white/60 space-y-2">
-              <div class="flex items-center gap-2">
-                <label class="cc-close cursor-pointer border border-[#DCE4F2] bg-white" title="Attach a receipt or PDF as the customer">
-                  <svg><use href="#i-clip"/></svg><span class="sr-only">Attach file as customer</span>
-                  <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleWhatsAppChatFileUpload(this)" />
-                </label>
-                <label for="wa-test-customer-msg" class="sr-only">Customer message</label>
-                <input id="wa-test-customer-msg" type="text" placeholder="Type as the customer, e.g. Boss, got stock?" class="cc-input !min-h-[38px]" />
-                <button onclick="simulateCustomerMessageWithLMStudio()" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Customer sends</button>
-              </div>
-              <div class="flex items-center gap-2">
-                <label for="wa-input-box" class="sr-only">Your reply</label>
-                <input id="wa-input-box" type="text" placeholder="Your reply (pick one from the extension)" class="cc-input !min-h-[38px]" />
-                <button onclick="sendWhatsAppInput()" class="cc-btn !min-h-[38px] bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 i-swipe">
-                  <svg><use href="#i-send"/></svg> Send
-                </button>
-              </div>
             </div>
           </section>
 
-          <!-- Extension -->
-          <section class="lg:col-span-4 cc-card !border-[#0152FC]/40" style="box-shadow: var(--shadow-md)">
+          <!-- CashChase extension, docked beside WhatsApp -->
+          <section class="lg:col-span-4 cc-card !border-[#0152FC]/40" style="box-shadow: var(--shadow-md)" aria-label="CashChase extension">
             <div class="bg-[#042970] text-white px-4 py-3 flex items-center gap-3 rounded-t-2xl">
               <img src="img/logo.png" alt="" width="28" height="29" class="w-7 h-auto bg-white rounded-lg p-0.5" />
               <div>
