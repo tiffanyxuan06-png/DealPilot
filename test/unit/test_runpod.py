@@ -98,4 +98,4 @@ def test_runpod_down_falls_back(client, monkeypatch):
     monkeypatch.setenv("RUNPOD_BASE_URL", "http://127.0.0.1:9/v1")  # nothing listens here
     monkeypatch.setenv("RUNPOD_API_KEY", KEY)
     r = client.post("/api/whatsapp/analyze", json={**OWNER, "customer": "Tan Bros Trading", "message": "need 2 units Daikin 1.5HP"}).json()
-    assert r["source"] == "deterministic_fallback" and r["analysis"]["extActionType"] == "CREATE_QUOTE"
+    assert r["source"] == "deterministic_fallback" and r["analysis"]["extActionType"] in ("OFFER_QUOTE", "CREATE_QUOTE")

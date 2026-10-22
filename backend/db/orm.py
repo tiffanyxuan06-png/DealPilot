@@ -30,6 +30,14 @@ class Product(Base):
     name: Mapped[str] = mapped_column(Text)
     sell_price: Mapped[int] = mapped_column(Integer)
     unit_cost: Mapped[int] = mapped_column(Integer)
+    specs_json: Mapped[str] = mapped_column(Text, default="{}")
+
+    @property
+    def specs(self) -> dict:
+        try:
+            return json.loads(self.specs_json or "{}")
+        except Exception:
+            return {}
 
 
 class Rep(Base):

@@ -3,8 +3,8 @@
     // The backend enforces every rule; this file only shows and edits them.
     // =========================================================================
     let permissionDraft = {};      // action key -> mode the Owner picked but has not saved yet
-    let permissionThresholdDraft = null;
-    let holdHoursDraft = null;
+    let marginFloorDraft = null;
+    let followUpHoursDraft = null;
 
     const modePillClass = {
       ALLOW: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -82,9 +82,9 @@
       const p = backendPermissions;
       const isOwner = currentRole === 'OWNER';
       const groups = [...new Set(p.actions.map(a => a.group))];
-      const threshold = permissionThresholdDraft ?? p.threshold;
-      const holdHours = holdHoursDraft ?? p.holdHours;
-      const changedCount = Object.keys(permissionDraft).length + (permissionThresholdDraft !== null ? 1 : 0) + (holdHoursDraft !== null ? 1 : 0);
+      const threshold = marginFloorDraft ?? p.marginFloorPct ?? 20.0;
+      const holdHours = followUpHoursDraft ?? p.followUpHours ?? 48;
+      const changedCount = Object.keys(permissionDraft).length + (marginFloorDraft !== null ? 1 : 0) + (followUpHoursDraft !== null ? 1 : 0);
 
       box.innerHTML = `
         ${isOwner ? '' : `<div class="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold">🔒 Only the Owner can change permissions. You are viewing what Staff are allowed to do.</div>`}
@@ -116,15 +116,15 @@
 
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border border-[#D5DFEE] p-3">
           <label class="text-xs font-semibold text-[#042970] flex items-center gap-2">
-            💰 Staff money-out approval threshold: RM
+            📉 Minimum Gross Margin Floor (%):
             <input type="number" min="0" step="100" value="${threshold}" ${isOwner ? '' : 'disabled'}
-              onchange="permissionThresholdDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
+              onchange="marginFloorDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
               class="w-24 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" />
           </label>
           <label class="text-xs font-semibold text-[#042970] flex items-center gap-2">
-            ⏳ Quote holds stock for
+            ⏳ Follow-up SLA due after:
             <input type="number" min="1" max="720" step="1" value="${holdHours}" ${isOwner ? '' : 'disabled'}
-              onchange="holdHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
+              onchange="followUpHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
               class="w-16 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" /> hours
           </label>
           ${isOwner ? `
@@ -171,20 +171,20 @@
       backendPermissions.actions.forEach(a => {
         if (a.mode !== a.default) permissionDraft[a.key] = a.default;
       });
-      permissionThresholdDraft = backendPermissions.threshold !== 1000 ? 1000 : null;
-      holdHoursDraft = backendPermissions.holdHours !== 48 ? 48 : null;
+      marginFloorDraft = backendPermissions.threshold !== 1000 ? 1000 : null;
+      followUpHoursDraft = backendPermissions.holdHours !== 48 ? 48 : null;
       renderTeamPermissions();
     }
 
     async function savePermissions() {
       const body = { staffModes: { ...permissionDraft } };
-      if (permissionThresholdDraft !== null) body.threshold = permissionThresholdDraft;
-      if (holdHoursDraft !== null) body.holdHours = holdHoursDraft;
+      if (marginFloorDraft !== null) body.threshold = marginFloorDraft;
+      if (followUpHoursDraft !== null) body.holdHours = followUpHoursDraft;
       const data = await backendAction('/api/permissions', body, 'Saved Team & Permissions. The change is in the activity log.');
       if (data) {
         permissionDraft = {};
-        permissionThresholdDraft = null;
-        holdHoursDraft = null;
+        marginFloorDraft = null;
+        followUpHoursDraft = null;
         renderTeamPermissions();
       }
     }
@@ -192,7 +192,7 @@
     function fastForwardHolds(hours) {
       askUserConfirm(
         `Demo: Fast-Forward ${hours}h`,
-        `Pretend ${hours} hours have passed for every quote hold?\n\nQuotes past their hold time expire and their stock goes back to Available to Sell. This is logged.`,
+        `Pretend ${hours} hours have passed for all active quotations?\n\nFollow-ups that pass their SLA mark as Overdue so reps can trigger touchpoints. This is logged.`,
         () => backendAction('/api/demo/fast-forward', { hours }, `⏩ Fast-forwarded ${hours}h. Expired holds released their stock.`),
         `⏩ Fast-Forward ${hours}h`
       );

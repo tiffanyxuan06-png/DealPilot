@@ -11,7 +11,7 @@ def check_lmstudio_health(base_url: str, api_key: str = "") -> Dict[str, Any]:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             models = [m.get("id", "unknown") for m in data.get("data", [])]
             return {"connected": True, "url": base_url, "models": models}
@@ -67,8 +67,11 @@ def call_lmstudio_chat(
     user_prompt: str,
     api_key: str = "",
     timeout: float = 60.0,
+    max_tokens: int = 600,
 ) -> Dict[str, Any]:
     health = check_lmstudio_health(base_url, api_key=api_key)
+    if not health.get("connected"):
+        raise ConnectionError(health.get("error") or "LM Studio server unreachable")
     active_model = select_best_lmstudio_model(
         health.get("models", []), configured_model=model, task="text"
     )
@@ -81,7 +84,7 @@ def call_lmstudio_chat(
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.1,
-        "max_tokens": 600,
+        "max_tokens": max_tokens,
     }
 
     headers = {"Content-Type": "application/json"}

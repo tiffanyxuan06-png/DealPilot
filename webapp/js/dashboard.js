@@ -1,941 +1,777 @@
 // =========================================================================
-    // CLEAN SIDEBAR NAVIGATION
-    // =========================================================================
-    function switchPage(page) {
-      currentPage = page;
-      const pages = ['overview', 'invoices', 'stock', 'ledger', 'wa'];
-      pages.forEach(p => {
-        const el = document.getElementById('page-' + p);
-        if (el) el.classList.toggle('hidden', p !== page);
+// CASHCHASE SALES CRM DASHBOARD & VIEW CONTROLLER
+// Drives 5 core views: Pipeline/My Day, Deals, Catalog, Customers, Commission
+// =========================================================================
 
-        const nav = document.getElementById('nav-' + p);
-        if (nav) nav.classList.toggle('is-active', p === page);
-      });
+let currentDealFilter = 'ALL';
+let currentDealRepFilter = 'ALL';
+let dealSearchQuery = '';
 
-      document.body.dataset.page = page;
-      window.scrollTo({ top: 0 });
-      if (window.revealIn) window.revealIn(document.getElementById('page-' + page));
-      renderAll();
-    }
+function switchPage(page) {
+  currentPage = page;
+  const pages = ['pipeline', 'deals', 'catalog', 'customers', 'commission', 'wa'];
+  pages.forEach(p => {
+    const el = document.getElementById('page-' + p);
+    if (el) el.classList.toggle('hidden', p !== page);
 
-    function openSettingsModal() {
-      renderTeamPermissions();
-      renderOnboarding();
-      document.getElementById('settings-modal').classList.remove('hidden');
-    }
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.toggle('is-active', p === page);
+  });
 
-    function closeSettingsModal() {
-      document.getElementById('settings-modal').classList.add('hidden');
-    }
+  document.body.dataset.page = page;
+  window.scrollTo({ top: 0 });
+  if (window.revealIn) {
+    const activeEl = document.getElementById('page-' + page);
+    if (activeEl) window.revealIn(activeEl);
+  }
+  renderAll();
+}
 
-    // =========================================================================
-    // NET WORTH & DASHBOARD SUMMARY CALCULATIONS
-    // =========================================================================
-    function renderTopNumbers() {
-      const st = getState();
-      const stockVal = st.stock.reduce((sum, item) => sum + (item.onHand * item.unitCost), 0);
-      const holdUnits = st.stock.reduce((sum, item) => sum + item.onHold, 0);
-      const coreNW = st.cashOnHand + stockVal;
+function openSettingsModal() {
+  if (typeof renderTeamPermissions === 'function') renderTeamPermissions();
+  if (typeof renderOnboarding === 'function') renderOnboarding();
+  const m = document.getElementById('settings-modal');
+  if (m) m.classList.remove('hidden');
+}
 
-      const pendingIn = st.invoices
-        .filter(i => i.type === 'PENDING' || i.type === 'AFTERSALES' || i.type === 'PENDING_VERIFY')
-        .reduce((sum, i) => sum + i.amount, 0);
-      const pendingOut = st.invoices
-        .filter(i => i.type === 'SUPPLIER_COST' && i.status === 'UNPAID_PAYABLE')
-        .reduce((sum, i) => sum + i.amount, 0);
+function closeSettingsModal() {
+  const m = document.getElementById('settings-modal');
+  if (m) m.classList.add('hidden');
+}
 
-      const fullNW = coreNW + pendingIn - pendingOut;
+// =========================================================================
+// 1. PIPELINE (OWNER) / MY DAY (STAFF) VIEW
+// =========================================================================
+function renderPipelineView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const pipeline = st.pipeline || { valueRm: 0, winRate: 0, overdue: 0, byStage: {} };
+  const reps = st.reps || [];
+  const deals = st.deals || [];
 
-      document.getElementById('top-company-title').textContent = st.name;
-      document.getElementById('ov-core-nw').textContent = 'RM ' + coreNW.toLocaleString();
-      document.getElementById('ov-core-sub').textContent = `Cash: RM ${st.cashOnHand.toLocaleString()} · Stock: RM ${stockVal.toLocaleString()}`;
-      document.getElementById('ov-receivables').textContent = 'RM ' + pendingIn.toLocaleString();
-      document.getElementById('ov-payables').textContent = 'RM ' + pendingOut.toLocaleString();
-      document.getElementById('ov-full-nw').textContent = 'RM ' + fullNW.toLocaleString();
+  // Update header text
+  const navText = document.getElementById('nav-text-pipeline');
+  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My Day';
 
-      const summaryEl = document.getElementById('stock-table-summary');
-      if (summaryEl) {
-        summaryEl.textContent = `Total Stock Value: RM ${stockVal.toLocaleString()} | Cash: RM ${st.cashOnHand.toLocaleString()}`;
-      }
+  const badgePipeline = document.getElementById('badge-pipeline');
+  if (badgePipeline) {
+    const overdueCount = pipeline.overdue || 0;
+    badgePipeline.textContent = overdueCount > 0 ? `${overdueCount} Due` : `${deals.length}`;
+    badgePipeline.className = overdueCount > 0 ? 'nav-badge !bg-amber-500 !text-white' : 'nav-badge';
+  }
 
-      document.getElementById('badge-invoices').textContent = st.invoices.length;
-      document.getElementById('badge-stock').textContent = holdUnits > 0 ? `${holdUnits} Held` : 'OK';
-    }
+  const badgeDeals = document.getElementById('badge-deals');
+  if (badgeDeals) badgeDeals.textContent = deals.length;
 
-    // =========================================================================
-    // HELPER: BUILDS THE 1 BIG OBVIOUS ACTION BUTTON FOR ANY RECORD
-    // =========================================================================
-    function getBigActionButton(inv) {
-      const btn = (fn, label) => `<button onclick="${fn}('${inv.id}')" class="cc-btn cc-btn-primary">${label}</button>`;
-      if (inv.type === 'PENDING_VERIFY') return btn('openVerifyModal', 'Check bank receipt');
-      if (inv.type === 'QUOTE_HOLD' && inv.status === 'HOLD_EXPIRED') return btn('releaseQuoteFromTable', 'Release expired hold');
-      if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') return btn('confirmQuoteFromTable', 'Confirm deposit');
-      if (inv.type === 'AFTERSALES') {
-        if (inv.status === 'REPLACEMENT_SENT' || inv.status === 'DISCOUNT_APPLIED') return btn('resolveAftersales', 'Mark resolved');
-        return btn('replaceFromTable', 'Send replacement');
-      }
-      if (inv.type === 'PENDING') return btn('markInvoicePaid', `Mark paid (+RM ${inv.amount.toLocaleString()})`);
-      if (inv.type === 'SUPPLIER_COST' && inv.status === 'UNPAID_PAYABLE') return btn('paySupplierBill', `Pay bill (−RM ${inv.amount.toLocaleString()})`);
-      return `<span class="cc-pill !bg-emerald-50 !text-emerald-700 !py-1.5 !px-3.5">✓ Completed</span>`;
-    }
+  const badgeCatalog = document.getElementById('badge-catalog');
+  if (badgeCatalog) badgeCatalog.textContent = (st.products || []).length;
 
-    // =========================================================================
-    // RENDER DASHBOARD, INVOICES & STOCK
-    // =========================================================================
-    function renderWebAppView() {
-      const st = getState();
+  const badgeCustomers = document.getElementById('badge-customers');
+  if (badgeCustomers) badgeCustomers.textContent = (st.customers || []).length;
 
-      // 1. Dashboard Priority Queue (1 Big Button per row)
-      const queueEl = document.getElementById('ov-action-queue');
-      const activeItems = st.invoices.filter(i => i.status !== 'PAID' && i.status !== 'HOLD_RELEASED' && i.status !== 'PAID_SUPPLIER' && i.status !== 'PAID_STOCK_IN' && i.status !== 'PAID_EXPENSE');
-      document.getElementById('badge-overview').textContent = activeItems.length;
+  const badgeCommission = document.getElementById('badge-commission');
+  if (badgeCommission) badgeCommission.textContent = reps.length;
 
-      queueEl.innerHTML = activeItems.map(inv => {
-        const pillStyle = inv.type === 'PENDING_VERIFY'
-          ? 'bg-purple-100 text-purple-900 border border-purple-300'
-          : inv.type === 'AFTERSALES'
-            ? 'bg-amber-100 text-amber-800'
-            : inv.status === 'HOLD_EXPIRED'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-[#E6EEFF] text-[#0152FC]';
+  // Toggle Owner vs Staff container
+  const ownerBox = document.getElementById('pipeline-owner-view');
+  const staffBox = document.getElementById('pipeline-staff-view');
+  if (ownerBox) ownerBox.classList.toggle('hidden', !isOwner);
+  if (staffBox) staffBox.classList.toggle('hidden', isOwner);
 
+  if (isOwner) {
+    // Top numbers for Owner
+    const wonThisMonth = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
+    const winRatePct = Math.round((pipeline.winRate || 0) * 100);
+
+    const valEl = document.getElementById('kpi-pipeline-val');
+    if (valEl) valEl.textContent = 'RM ' + (pipeline.valueRm || 0).toLocaleString();
+
+    const wonEl = document.getElementById('kpi-won-month');
+    if (wonEl) wonEl.textContent = 'RM ' + wonThisMonth.toLocaleString();
+
+    const rateEl = document.getElementById('kpi-win-rate');
+    if (rateEl) rateEl.textContent = winRatePct + '%';
+
+    const overdueEl = document.getElementById('kpi-overdue-count');
+    if (overdueEl) overdueEl.textContent = (pipeline.overdue || 0) + ' deals';
+
+    // Stage breakdown cards
+    const byStage = pipeline.byStage || {};
+    const stages = [
+      { key: 'INQUIRY', label: '1. Inquiries', color: 'border-blue-300 bg-blue-50/50' },
+      { key: 'QUOTED', label: '2. Quoted (48h)', color: 'border-cyan-300 bg-cyan-50/50' },
+      { key: 'FOLLOW_UP', label: '3. Follow-up Due', color: 'border-amber-300 bg-amber-50/50' },
+      { key: 'WON', label: '4. Won Orders', color: 'border-emerald-300 bg-emerald-50/50' },
+      { key: 'LOST', label: '5. Lost', color: 'border-slate-300 bg-slate-50/50' }
+    ];
+
+    const stageContainer = document.getElementById('pipeline-stage-cards');
+    if (stageContainer) {
+      stageContainer.innerHTML = stages.map(s => {
+        const item = byStage[s.key] || { count: 0, valueRm: 0 };
         return `
-          <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4">
-            <div class="space-y-1 max-w-xl">
-              <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${pillStyle}">${inv.id}</span>
-                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
-                <span class="font-bold text-sm text-[#0152FC]">· RM ${inv.amount.toLocaleString()}</span>
-              </div>
-              <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
-            </div>
-            <div class="flex items-center gap-2">
-              ${getBigActionButton(inv)}
-            </div>
+          <div onclick="filterDealsToStage('${s.key}')" class="cursor-pointer p-4 rounded-xl border ${s.color} hover:shadow-md transition">
+            <div class="text-xs font-bold uppercase tracking-wider text-[#5B6B85]">${s.label}</div>
+            <div class="text-2xl font-bold text-[#042970] mt-1">${item.count}</div>
+            <div class="text-xs font-semibold text-[#0152FC] mt-0.5">RM ${(item.valueRm || 0).toLocaleString()}</div>
           </div>
         `;
       }).join('');
+    }
 
-      // Populate Walk-In Item Dropdown
-      const skuSelect = document.getElementById('walkin-sku');
-      if (skuSelect) {
-        const prevVal = skuSelect.value;
-        skuSelect.innerHTML = st.stock.map((s, idx) =>
-          `<option value="${idx}">${escapeHtmlText(s.name)} (RM ${s.sellPrice}) — ${Math.max(0, s.onHand - s.onHold)} Avail</option>`
-        ).join('');
-        if (prevVal && st.stock[prevVal]) skuSelect.value = prevVal;
-      }
-
-      // 2. Page 2: Clean Invoice Cards (1 Big Primary Action + clean secondary links)
-      const invContainer = document.getElementById('invoice-list-container');
-      const filtered = st.invoices.filter(i => currentInvFilter === 'ALL' || i.type === currentInvFilter);
-
-      invContainer.innerHTML = filtered.map(inv => `
-        <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4">
-          <div class="space-y-1 max-w-xl">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-              <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
+    // At-Risk Deals Section (suggestLost, paused complaint, or 3+ follow-ups)
+    const atRiskDeals = deals.filter(d => d.suggestLost || d.paused || (d.followUpCount >= 2 && d.stage !== 'WON' && d.stage !== 'LOST'));
+    const atRiskList = document.getElementById('pipeline-at-risk-list');
+    if (atRiskList) {
+      if (atRiskDeals.length === 0) {
+        atRiskList.innerHTML = `<div class="text-xs text-[#5B6B85] p-3 bg-white rounded-lg border border-[#D5DFEE]">🎉 No at-risk deals right now! All quotes are progressing smoothly.</div>`;
+      } else {
+        atRiskList.innerHTML = atRiskDeals.map(d => `
+          <div class="p-3.5 rounded-xl bg-white border border-amber-300 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">${d.id}</span>
+                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+                <span class="text-xs text-[#5B6B85]">(${d.repName || 'Rep'})</span>
+                <span class="font-bold text-xs text-[#0152FC]">· RM ${(d.amount || 0).toLocaleString()}</span>
+              </div>
+              <div class="text-xs text-amber-900 mt-1">
+                ${d.paused ? '⚠️ <b>Paused (Complaint)</b>: ' + escapeHtmlText(d.notes || 'Awaiting resolution') : (d.followUpCount >= 3 ? '⚠️ No reply after 3 follow-ups (Ghost Risk)' : '⏳ Follow-up due')}
+              </div>
             </div>
-            <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
-            <div class="flex flex-wrap items-center gap-3 pt-1">
-              <button onclick="openPdfForInvoice('${inv.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer">Preview PDF</button>
-              ${inv.receiptRef ? `<button onclick="viewReceiptCopy('${inv.id}')" class="text-xs font-bold text-purple-700 hover:underline cursor-pointer flex items-center gap-1">View receipt (${inv.receiptRef})</button>` : ''}
-              ${inv.lhdn.includes('Missing TIN') ? `<button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline cursor-pointer">Add buyer TIN</button>` : ''}
-              ${inv.type === 'PENDING' ? `<button onclick="addExtraPipingAndLabor('${inv.id}')" class="text-xs font-semibold text-[#042970] hover:underline cursor-pointer">Add piping &amp; labour</button>` : ''}
-              ${inv.type === 'AFTERSALES' ? `<button onclick="discountFromTable('${inv.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">Or give RM 180 discount</button>` : ''}
+            <div class="flex items-center gap-2">
+              ${d.paused
+                ? `<button onclick="pauseResumeDeal('${d.id}', false)" class="cc-btn cc-btn-primary !min-h-[32px] !text-xs">Resume Follow-ups</button>`
+                : `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[32px] !text-xs">Send Follow-up</button>`}
+              <button onclick="markLostDeal('${d.id}')" class="cc-btn cc-btn-ghost !min-h-[32px] !text-xs text-rose-700">Mark Lost</button>
             </div>
           </div>
+        `).join('');
+      }
+    }
 
-          <div class="flex items-center gap-4">
-            <div class="text-right">
-              <div class="text-xs text-[#64748B]">Amount</div>
-              <div class="text-base font-bold text-[#042970]">RM ${inv.amount.toLocaleString()}</div>
-            </div>
-            ${getBigActionButton(inv)}
+    // Reps Leaderboard Snippet
+    const repSnippet = document.getElementById('pipeline-reps-snippet');
+    if (repSnippet) {
+      repSnippet.innerHTML = reps.map((r, idx) => `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#D5DFEE] text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-amber-400 text-amber-900 font-bold' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-[10px] font-bold">${idx + 1}</span>
+            <span class="font-bold text-[#042970]">${escapeHtmlText(r.name)}</span>
+            <span class="text-[11px] text-[#5B6B85]">(${r.commissionPct}% rate)</span>
+          </div>
+          <div class="text-right">
+            <span class="font-bold text-[#0152FC]">RM ${(r.wonRm || 0).toLocaleString()}</span>
+            <span class="text-[11px] text-[#5B6B85] ml-1.5">(RM ${(r.commissionRm || 0).toLocaleString()} comm)</span>
           </div>
         </div>
       `).join('');
+    }
 
-      // 3. Page 3: Stock Table (Shows WHO is holding each SKU + Quick Access Inspector)
-      const stockTbody = document.getElementById('stock-tbody');
-      stockTbody.innerHTML = st.stock.map((s, idx) => {
-        const avail = Math.max(0, s.onHand - s.onHold);
-        const val = s.onHand * s.unitCost;
-        const holders = getHoldersForSku(s.sku);
-
-        const holdersHtml = holders.length > 0
-          ? `<div class="space-y-1.5">
-               <div class="flex items-center gap-2">
-                 <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">⏳ ${s.onHold} Held</span>
-                 <button onclick="openHoldInspector(${idx})" class="text-xs font-bold text-[#0152FC] hover:underline">🔍 Quick View All</button>
-               </div>
-               <div class="flex flex-wrap gap-1.5">
-                 ${holders.map(h => `
-                   <button onclick="openHoldInspector(${idx})" class="text-left px-2.5 py-1 rounded-lg border text-xs font-semibold transition flex items-center gap-1.5 ${
-                     h.inv.status === 'HOLD_EXPIRED'
-                       ? 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100'
-                       : 'bg-[#F2F6FF] border-[#D5DFEE] text-[#042970] hover:bg-[#E6EEFF]'
-                   }">
-                     <span>👤 <b>${escapeHtmlText(h.inv.party)}</b> · ${h.heldQty}x (${h.inv.id})</span>
-                     <span class="text-xs px-1.5 py-0.2 rounded ${h.inv.status === 'HOLD_EXPIRED' ? 'bg-red-200 text-red-900 font-bold' : 'bg-[#E6EEFF] text-[#0152FC]'}">${h.inv.holdTimer || (h.inv.status === 'HOLD_EXPIRED' ? '⚠️ Expired' : '⏳ 48h Hold')}</span>
-                   </button>
-                 `).join('')}
-               </div>
-             </div>`
-          : s.onHold > 0
-            ? `<button onclick="openHoldInspector(${idx})" class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold hover:bg-amber-200 transition">⏳ ${s.onHold} Held (${s.holdNote}) 🔍</button>`
-            : `<span class="text-[#64748B]">0 (None Held)</span>`;
-
-        return `
-          <tr class="hover:bg-[#F2F6FF] transition align-top">
-            <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${escapeHtmlText(s.sku)}</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">${escapeHtmlText(s.name)}</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">${s.onHand} units</td>
-            <td class="py-3.5 px-4">${holdersHtml}</td>
-            <td class="py-3.5 px-4 font-bold text-emerald-700">${avail} Available</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">RM ${val.toLocaleString()}</td>
-            <td class="py-3.5 px-4 text-right">
-              <div class="flex flex-col items-end gap-1.5">
-                <div class="flex items-center gap-1.5">
-                  <button onclick="quickRestockRow(${idx})" class="px-3 py-1.5 rounded-xl bg-[#E6EEFF] hover:bg-[#0152FC] text-[#0152FC] hover:text-white font-bold text-xs border border-[#0152FC]/30 transition">
-                    ➕ Restock (+Qty)
-                  </button>
-                  ${s.onHold > 0 ? `
-                    <button onclick="openHoldInspector(${idx})" class="px-3.5 py-1.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white font-bold text-xs shadow-xs transition">
-                      🔍 Who's Holding (${s.onHold})
-                    </button>
-                  ` : ''}
-                </div>
-                ${s.onHold > 0
-                  ? `<button onclick="releaseStockRow(${idx})" class="text-xs font-bold text-amber-700 hover:underline">🔓 Release All ${s.onHold} Held Units</button>`
-                  : `<span class="text-emerald-700 font-semibold text-xs">✓ Ready</span>`
-                }
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      // 3B. Page 3 Lower Section: "Who Is Holding Stock Right Now" Quick Access Cards
-      const activeHolds = st.invoices.filter(i => i.type === 'QUOTE_HOLD' && i.status !== 'HOLD_RELEASED');
-      const holdsCountBadge = document.getElementById('active-holds-count-badge');
-      if (holdsCountBadge) {
-        holdsCountBadge.textContent = `${activeHolds.length} Active / Expired Quote Hold(s)`;
-      }
-      const holdersListEl = document.getElementById('stock-holders-list');
-      if (holdersListEl) {
-        if (activeHolds.length === 0) {
-          holdersListEl.innerHTML = `
-            <div class="p-5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-center text-xs text-[#64748B]">
-              🎉 <b>Zero stock is currently locked on hold!</b> 100% of your physical warehouse inventory is Available to Sell.
-            </div>
-          `;
-        } else {
-          holdersListEl.innerHTML = activeHolds.map(inv => {
-            const isExpired = inv.status === 'HOLD_EXPIRED';
-            const timerLabel = inv.holdTimer || (isExpired ? '⚠️ Expired (>48h ago)' : '⏳ 48h Hold Active');
-            return `
-              <div class="p-4 rounded-xl bg-[#F2F6FF] border ${isExpired ? 'border-red-300 bg-red-50/40' : 'border-[#D5DFEE]'} flex flex-wrap items-center justify-between gap-4">
-                <div class="space-y-1.5 max-w-2xl">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                    <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
-                    ${inv.phone ? `<span class="text-xs text-[#64748B] font-medium">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
-                  </div>
-                  <div class="text-xs font-semibold text-[#042970]">
-                    📦 Holding: <span class="text-[#0152FC]">${escapeHtmlText(inv.itemsText)}</span> · Quote Value: <b>RM ${inv.amount.toLocaleString()}</b>
-                  </div>
-                  <!-- Quick Access Bar -->
-                  <div class="flex flex-wrap items-center gap-3 pt-1">
-                    <button onclick="openPdfForInvoice('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-                      📄 View Quote PDF
-                    </button>
-                    <button onclick="jumpToQuoteChat('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-                      💬 Open Customer WhatsApp Chat ↗
-                    </button>
-                    ${!isExpired ? `
-                      <button onclick="releaseQuoteFromTable('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-300 text-xs font-bold text-amber-800 transition">
-                        🔓 Release Hold Early (+Return Stock)
-                      </button>
-                    ` : ''}
-                    ${inv.lhdn.includes('Missing TIN') ? `
-                      <button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline">
-                        ✏️ Key In Buyer TIN
-                      </button>
-                    ` : ''}
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  ${getBigActionButton(inv)}
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-
-      // 4. Audit Log (Dashboard preview)
-      const logList = document.getElementById('audit-log-list');
-      logList.innerHTML = st.logs.map(l => `
-        <div class="p-2.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#324564]">${escapeHtmlText(l)}</div>
+    // Owner Activity Log
+    const logList = document.getElementById('audit-log-list');
+    if (logList) {
+      logList.innerHTML = (st.logs || []).map(l => `
+        <div class="p-2 rounded-lg bg-[#F8FAFC] border border-[#EEF2F8] text-xs text-[#042970] flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#0152FC] shrink-0"></span>
+          <span>${escapeHtmlText(l)}</span>
+        </div>
       `).join('');
-
-      // 5. Page 4: ALL DATA & MASTER LEDGER ("SEE EVERYTHING" VIEW)
-      const badgeLedger = document.getElementById('badge-ledger');
-      if (badgeLedger) {
-        badgeLedger.textContent = `${st.invoices.length + st.stock.length} Rows`;
-      }
-
-      const searchQ = (document.getElementById('ledger-search-input')?.value || '').trim().toLowerCase();
-      const ledgerTbody = document.getElementById('master-ledger-tbody');
-      if (ledgerTbody) {
-        const ledgerRows = st.invoices.filter(inv => {
-          if (!searchQ) return true;
-          return (
-            inv.id.toLowerCase().includes(searchQ) ||
-            inv.party.toLowerCase().includes(searchQ) ||
-            inv.itemsText.toLowerCase().includes(searchQ) ||
-            inv.lhdn.toLowerCase().includes(searchQ) ||
-            inv.status.toLowerCase().includes(searchQ)
-          );
-        });
-
-        ledgerTbody.innerHTML = ledgerRows.map(inv => {
-          const isOutflow = inv.type === 'SUPPLIER_COST';
-          const isPaidIn = inv.status === 'PAID';
-          const isPaidOut = inv.status === 'PAID_SUPPLIER' || inv.status === 'PAID_STOCK_IN' || inv.status === 'PAID_EXPENSE';
-          const isPendingVerify = inv.type === 'PENDING_VERIFY';
-
-          let catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-xs whitespace-nowrap shadow-xs">💰 Customer Sale</span>`;
-          if (inv.type === 'QUOTE_HOLD') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-xs whitespace-nowrap shadow-xs">⏳ 48h Quote Hold</span>`;
-          if (inv.type === 'PENDING_VERIFY') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 font-bold text-xs whitespace-nowrap shadow-xs">🕵️‍♂️ Pending Bank Verify</span>`;
-          if (inv.type === 'AFTERSALES') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-bold text-xs whitespace-nowrap shadow-xs">⚠️ Aftersales Claim</span>`;
-          if (inv.type === 'SUPPLIER_COST') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-bold text-xs whitespace-nowrap shadow-xs">🚚 Supplier / Expense</span>`;
-
-          let statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">${escapeHtmlText(inv.status)}</span>`;
-          if (inv.status === 'PENDING_BANK_VERIFY') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 font-bold text-[11px] border border-purple-200 whitespace-nowrap">Bank Verification</span>`;
-          else if (inv.status === 'HOLD_EXPIRED') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200 whitespace-nowrap">Hold Expired</span>`;
-          else if (inv.status === 'ON_HOLD_48H') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-[11px] border border-amber-200 whitespace-nowrap">48h Hold Active</span>`;
-          else if (inv.status === 'AFTERSALES_PAUSED') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 font-bold text-[11px] border border-amber-200 whitespace-nowrap">Chasing Paused</span>`;
-          else if (inv.status === 'PENDING_PAYMENT') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">Pending Payment</span>`;
-          else if (inv.status === 'UNPAID_PAYABLE') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-red-50 text-red-700 font-bold text-[11px] border border-red-200 whitespace-nowrap">Unpaid Payable</span>`;
-          else if (inv.status === 'PAID' || inv.status === 'PAID_SUPPLIER') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200 whitespace-nowrap">Settled / Paid</span>`;
-
-          let cashEffectHtml = `<span class="font-bold text-[#0152FC] whitespace-nowrap">Pending +RM ${inv.amount.toLocaleString()}</span>`;
-          if (isPaidIn) cashEffectHtml = `<span class="font-bold text-emerald-700 whitespace-nowrap">+RM ${inv.amount.toLocaleString()} (Banked)</span>`;
-          else if (isPaidOut) cashEffectHtml = `<span class="font-bold text-red-600 whitespace-nowrap">-RM ${inv.amount.toLocaleString()} (Paid Out)</span>`;
-          else if (isOutflow) cashEffectHtml = `<span class="font-bold text-red-600 whitespace-nowrap">Payable -RM ${inv.amount.toLocaleString()}</span>`;
-          else if (isPendingVerify) cashEffectHtml = `<span class="font-bold text-purple-800 whitespace-nowrap">🕵️‍♂️ Unverified RM ${inv.amount.toLocaleString()}</span>`;
-          else if (inv.type === 'QUOTE_HOLD') cashEffectHtml = `<span class="text-[#64748B] font-semibold whitespace-nowrap">RM ${inv.amount.toLocaleString()} (Quote Only)</span>`;
-
-          return `
-            <tr class="hover:bg-[#F2F6FF] transition">
-              <td class="py-3 px-4 font-mono font-bold text-[#0152FC] whitespace-nowrap">
-                <button onclick="openPdfForInvoice('${inv.id}')" class="hover:underline">${inv.id} 📄</button>
-              </td>
-              <td class="py-3 px-4 whitespace-nowrap">${catBadge}</td>
-              <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(inv.party)}</td>
-              <td class="py-3 px-4 text-[#324564]">${escapeHtmlText(inv.itemsText)}</td>
-              <td class="py-3 px-4 whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(inv.lhdn)}</span>
-              </td>
-              <td class="py-3 px-4 whitespace-nowrap">${statusBadge}</td>
-              <td class="py-3 px-4 text-right whitespace-nowrap">${cashEffectHtml}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      // Directory of All Customers & Suppliers
-      const custTbody = document.getElementById('master-customers-tbody');
-      if (custTbody) {
-        const partyMap = {};
-        st.invoices.forEach(inv => {
-          if (!partyMap[inv.party]) {
-            partyMap[inv.party] = {
-              party: inv.party,
-              isSupplier: inv.type === 'SUPPLIER_COST',
-              lhdn: inv.lhdn,
-              count: 0,
-              totalRM: 0,
-              sampleId: inv.id
-            };
-          }
-          partyMap[inv.party].count += 1;
-          partyMap[inv.party].totalRM += inv.amount;
-          if (inv.lhdn && !inv.lhdn.includes('Missing')) {
-            partyMap[inv.party].lhdn = inv.lhdn;
-          }
-        });
-
-        // Live profile: TIN comes from the customer record in the backend (shared with WhatsApp).
-        if (usesBackend() && Array.isArray(st.customers)) {
-          Object.values(partyMap).forEach(p => {
-            if (p.isSupplier) return;
-            const c = st.customers.find(x => x.name.toLowerCase() === cleanCustomerName(p.party).toLowerCase());
-            if (!c) return;
-            p.customer = c;
-            if (!(p.lhdn || '').includes('Consolidated')) p.lhdn = c.tin ? `🟢 LHDN TIN: ${c.tin}` : '🟡 Missing TIN';
-          });
-        }
-
-        const parties = Object.values(partyMap).filter(p => {
-          if (!searchQ) return true;
-          return p.party.toLowerCase().includes(searchQ) || p.lhdn.toLowerCase().includes(searchQ);
-        });
-
-        custTbody.innerHTML = parties.map(p => `
-          <tr class="hover:bg-[#F2F6FF] transition">
-            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(p.party)}</td>
-            <td class="py-3 px-4 whitespace-nowrap">
-              ${p.isSupplier
-                ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-700 font-bold border border-red-200 text-xs whitespace-nowrap shadow-xs">🏭 Supplier / Vendor</span>'
-                : '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-xs whitespace-nowrap shadow-xs">👤 Customer (B2B / Walk-In)</span>'
-              }
-            </td>
-            <td class="py-3 px-4 whitespace-nowrap">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(p.lhdn)}</span>
-            </td>
-            <td class="py-3 px-4 font-bold text-[#324564] whitespace-nowrap">${p.count} record(s)</td>
-            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">RM ${p.totalRM.toLocaleString()}</td>
-            <td class="py-3 px-4 text-right whitespace-nowrap">
-              ${p.customer && !p.customer.tin && p.customer.phone ? `
-                <a href="https://wa.me/${p.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(p.customer.tinRequestText)}" target="_blank" rel="noopener"
-                  class="inline-block px-3.5 py-1.5 mr-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition whitespace-nowrap shadow-xs">
-                  📨 Ask TIN on WhatsApp
-                </a>` : ''}
-              <button onclick="setInvoiceTin('${p.sampleId}')" class="px-3.5 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#0152FC] font-bold text-xs transition whitespace-nowrap cursor-pointer shadow-xs">
-                ✏️ Edit TIN / Consolidated
-              </button>
-            </td>
-          </tr>
-        `).join('');
-      }
-
-      // Full Audit Log in Page 4
-      const masterLogList = document.getElementById('master-audit-log-list');
-      const masterLogCount = document.getElementById('master-log-count');
-      if (masterLogList) {
-        if (masterLogCount) masterLogCount.textContent = `${st.logs.length} Events Logged`;
-        masterLogList.innerHTML = st.logs.map(l => `
-          <div class="p-3 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#042970]">${escapeHtmlText(l)}</div>
-        `).join('');
-      }
     }
 
-    function exportAllDataCSV() {
-      const st = getState();
-      askUserConfirm(
-        `Export Full System Ledger (.xlsx / .csv)`,
-        `Download all ${st.invoices.length} Invoices/Quotes/Supplier Bills, ${st.stock.length} Warehouse Stock SKUs, Client Memory Profiles, and ${st.logs.length} Audit Logs as an Excel (.xlsx) workbook?`,
-        () => {
-          triggerRealXlsxOrCsvDownload('CashChase_Master_Ledger.xlsx');
-        },
-        '📥 Download Excel (.xlsx)'
-      );
-    }
+  } else {
+    // STAFF ("MY DAY") DASHBOARD
+    // Assume logged in rep is Aina (id = 1) or first rep
+    const myRep = reps.find(r => r.name.toLowerCase().includes('aina')) || reps[0] || { id: 1, name: 'Aina', commissionPct: 3, wonRm: 0, commissionRm: 0 };
+    const myDeals = deals.filter(d => d.repId === myRep.id);
+    const myFollowUps = myDeals.filter(d => d.stage === 'FOLLOW_UP');
+    const myWonDeals = myDeals.filter(d => d.stage === 'WON');
+    const myOpenQuotes = myDeals.filter(d => d.stage === 'QUOTED');
+    const potentialComm = myOpenQuotes.reduce((sum, d) => sum + Math.round((d.amount * myRep.commissionPct) / 100), 0);
 
-    // Clean customer name to avoid showing tags like (Deposit), (Walk-in), etc.
-    function promptAddMemoryNote() {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
-      if (!chat.memory) {
-        chat.memory = { tier: 'Standard Client', score: 75, totalOrders: 1, totalPaidRM: 1000, notes: [], timeline: [] };
-      }
-      const note = prompt(`Add a persistent memory note for ${chat.customer}:\n(e.g., "Prefers WhatsApp quotes over phone", "Only accepts morning delivery", "Requested 5% discount on volume")`);
-      if (note && note.trim()) {
-        chat.memory.notes.push(note.trim());
-        chat.memory.timeline.unshift({
-          time: 'Just Now',
-          note: `Owner recorded: "${note.trim()}"`
-        });
-        showToast(`Saved note into ${chat.customer}'s persistent memory!`);
-        renderWhatsAppView();
-      }
-    }
+    const sFollowEl = document.getElementById('staff-kpi-followups');
+    if (sFollowEl) sFollowEl.textContent = myFollowUps.length;
 
-    function handlePhoneOrder() {
-      const st = getState();
-      const nameInput = document.getElementById('walkin-name');
-      const tinInput = document.getElementById('walkin-tin');
-      const skuIdx = parseInt(document.getElementById('walkin-sku').value || '0', 10);
-      const qty = Math.max(1, parseInt(document.getElementById('walkin-qty').value || '1', 10));
-      const mode = document.getElementById('walkin-mode').value;
+    const sWonEl = document.getElementById('staff-kpi-won');
+    if (sWonEl) sWonEl.textContent = 'RM ' + (myRep.wonRm || 0).toLocaleString();
 
-      const customerName = (nameInput.value || 'Walk-In Customer').trim();
-      const buyerTin = (tinInput.value || '').trim();
-      const item = st.stock[skuIdx] || st.stock[0];
-      const totalAmount = item.sellPrice * qty;
+    const sCommEl = document.getElementById('staff-kpi-comm');
+    if (sCommEl) sCommEl.textContent = 'RM ' + (myRep.commissionRm || 0).toLocaleString();
 
-      const lhdnStatus = buyerTin
-        ? `🟢 LHDN TIN: ${buyerTin}`
-        : `🔵 Consolidated e-Invoice (No Buyer TIN Needed)`;
+    const sPotEl = document.getElementById('staff-kpi-potential');
+    if (sPotEl) sPotEl.textContent = '+RM ' + potentialComm.toLocaleString();
 
-      const confirmMsg = mode === 'PAID_NOW'
-        ? `Record Immediate Walk-In Sale for ${customerName}?\n\n• Item: ${qty}x ${item.name} (${item.sku})\n• Physical Stock: -${qty} units deducted immediately\n• Cash on Hand: +RM ${totalAmount.toLocaleString()}\n• LHDN Status: ${lhdnStatus}`
-        : `Create 48-Hour Phone Quote Hold for ${customerName}?\n\n• Item: ${qty}x ${item.name} (${item.sku})\n• Stock Effect: +${qty} units locked ON HOLD for 48h\n• Quote Total: RM ${totalAmount.toLocaleString()}`;
-
-      askUserConfirm(
-        mode === 'PAID_NOW' ? `Confirm Walk-In Sale` : `Confirm 48h Phone Quote Hold`,
-        confirmMsg,
-        () => {
-          if (usesBackend()) {
-            backendAction('/api/orders/walkin', { customerName, buyerTin, sku: item.sku, qty, mode: mode === 'PAID_NOW' ? 'PAID_NOW' : 'QUOTE_HOLD' },
-              d => mode === 'PAID_NOW' ? `Walk-In Sale ${d.createdId} recorded!` : `Phone Quote ${d.createdId} created! ${qty}x ${item.name} placed ON HOLD for 48h.`);
-            return;
-          }
-          if (mode === 'PAID_NOW') {
-            item.onHand = Math.max(0, item.onHand - qty);
-            st.cashOnHand += totalAmount;
-            const newId = 'INV-' + Math.floor(300 + Math.random() * 90);
-            st.invoices.unshift({
-              id: newId,
-              type: 'PAID_DONE',
-              party: customerName + ' (Walk-In)',
-              itemsText: `${qty}x ${item.name} (Walk-In Paid Immediately · Stock Deducted)`,
-              sku: item.sku,
-              qty: qty,
-              amount: totalAmount,
-              status: 'PAID',
-              lhdn: lhdnStatus
-            });
-            st.logs.unshift(`10:49 AM · [${currentRole}] Walk-In Sale ${newId} (${customerName}) → Deducted ${qty}x ${item.name} from Physical Stock, Cash +RM ${totalAmount.toLocaleString()} (${lhdnStatus}).`);
-            showToast(`Walk-In Sale ${newId} recorded! Deducted ${qty}x ${item.name} from Stock & added +RM ${totalAmount.toLocaleString()} to Cash!`);
-          } else {
-            item.onHold += qty;
-            item.holdNote = `${item.onHold}x Active Quote Holds (48h)`;
-            const newId = 'QT-' + Math.floor(110 + Math.random() * 80);
-            st.invoices.unshift({
-              id: newId,
-              type: 'QUOTE_HOLD',
-              party: customerName + ' (Phone Order)',
-              phone: 'Phone / Walk-In',
-              holdTimer: '⏳ 48h Left (Just Held)',
-              itemsText: `${qty}x ${item.name} (ON HOLD — 48h timer)`,
-              sku: item.sku,
-              qty: qty,
-              amount: totalAmount,
-              status: 'ON_HOLD_48H',
-              lhdn: buyerTin ? `🟢 LHDN TIN: ${buyerTin}` : `🟡 Missing TIN`
-            });
-            st.logs.unshift(`10:49 AM · [${currentRole}] Phone Quote ${newId} (${customerName}) → Placed ${qty}x ${item.name} ON HOLD for 48h.`);
-            showToast(`Phone Quote ${newId} created! ${qty}x ${item.name} placed ON HOLD for 48h.`);
-          }
-          renderAll();
-        },
-        '✅ Confirm & Save Entry'
-      );
-    }
-
-    function getHoldersForSku(sku) {
-      const st = getState();
-      const results = [];
-      st.invoices.forEach(inv => {
-        // Backend profile: expired quotes no longer hold stock. Demo profiles keep counting them until released.
-        const holding = usesBackend() ? inv.status === 'ON_HOLD_48H' : inv.status !== 'HOLD_RELEASED';
-        if (inv.type === 'QUOTE_HOLD' && holding) {
-          if (inv.sku === sku) {
-            results.push({ inv, heldQty: inv.qty });
-          } else if (inv.extraSku === sku && inv.extraQty > 0) {
-            results.push({ inv, heldQty: inv.extraQty });
-          }
-        }
-      });
-      return results;
-    }
-
-    let currentInspectSkuIdx = null;
-
-    function openHoldInspector(stockIdx) {
-      const st = getState();
-      const s = st.stock[stockIdx];
-      if (!s) return;
-      currentInspectSkuIdx = stockIdx;
-
-      const avail = Math.max(0, s.onHand - s.onHold);
-      document.getElementById('hold-modal-sku-pill').textContent = `⏳ Stock Hold Breakdown · ${s.sku}`;
-      document.getElementById('hold-modal-title').textContent = s.name;
-      document.getElementById('hold-modal-subtitle').textContent =
-        `Physical On Hand: ${s.onHand} units · Currently Held: ${s.onHold} units · Available to Sell: ${avail} units`;
-
-      const holders = getHoldersForSku(s.sku);
-      const listEl = document.getElementById('hold-modal-list');
-
-      if (holders.length === 0) {
-        listEl.innerHTML = `
-          <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-xs text-[#64748B] text-center">
-            No active customer quotes are holding <b>${escapeHtmlText(s.name)}</b> right now.
-          </div>
-        `;
+    // Staff Follow-up action list
+    const staffFollowList = document.getElementById('staff-followups-list');
+    if (staffFollowList) {
+      if (myFollowUps.length === 0) {
+        staffFollowList.innerHTML = `<div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-semibold">🎉 All caught up! Zero follow-ups overdue today.</div>`;
       } else {
-        listEl.innerHTML = holders.map(h => {
-          const inv = h.inv;
-          const isExpired = inv.status === 'HOLD_EXPIRED';
-          const timerLabel = inv.holdTimer || (isExpired ? '⚠️ Expired (>48h ago)' : '⏳ 48h Hold Active');
-          return `
-            <div class="p-4 rounded-xl bg-[#F2F6FF] border ${isExpired ? 'border-red-300 bg-red-50/40' : 'border-[#D5DFEE]'} space-y-2.5">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                  <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
-                  ${inv.phone ? `<span class="text-xs text-[#64748B]">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
+        staffFollowList.innerHTML = myFollowUps.map(d => `
+          <div class="p-4 rounded-xl bg-white border border-amber-300 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">${d.id}</span>
+                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+                <span class="font-bold text-sm text-[#0152FC]">· RM ${(d.amount || 0).toLocaleString()}</span>
               </div>
-
-              <div class="text-xs text-[#324564] flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-lg border border-[#D5DFEE]">
-                <div>
-                  <b>Holding this SKU:</b> <span class="text-[#0152FC] font-bold">${h.heldQty} units (${escapeHtmlText(s.sku)})</span>
-                  <div class="text-[#64748B] mt-0.5">Full Quote Scope: ${escapeHtmlText(inv.itemsText)}</div>
-                </div>
-                <div class="text-right">
-                  <div class="text-[#64748B]">Quote Total</div>
-                  <div class="text-sm font-bold text-[#042970]">RM ${inv.amount.toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <button onclick="closeHoldInspector(); openPdfForInvoice('${inv.id}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-                    📄 View Quote PDF
-                  </button>
-                  <button onclick="closeHoldInspector(); jumpToQuoteChat('${inv.id}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-                    💬 Open WhatsApp Chat ↗
-                  </button>
-                  <button onclick="releaseQuoteFromTable('${inv.id}'); closeHoldInspector();" class="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-xs font-bold text-amber-900 transition">
-                    🔓 Release Hold (+${h.heldQty} Avail)
-                  </button>
-                </div>
-
-                <button onclick="confirmQuoteFromTable('${inv.id}'); closeHoldInspector();" class="px-4 py-2 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-xs transition">
-                  💰 Confirm Deposit & Deduct Stock
-                </button>
-              </div>
+              <div class="text-xs text-[#5B6B85]">${d.phone || 'WhatsApp'} · ${d.followUpText || 'Follow-up due now'}</div>
             </div>
-          `;
-        }).join('');
+            <div class="flex items-center gap-2">
+              <button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">💬 Send Follow-up</button>
+              <button onclick="markWonDeal('${d.id}')" class="cc-btn cc-btn-ghost !min-h-[34px] !text-xs text-emerald-700 font-bold">Mark Won</button>
+            </div>
+          </div>
+        `).join('');
       }
-
-      document.getElementById('hold-inspector-modal').classList.remove('hidden');
     }
 
-    function closeHoldInspector() {
-      document.getElementById('hold-inspector-modal').classList.add('hidden');
+    // Staff Recent Wins
+    const staffWinsList = document.getElementById('staff-recent-wins');
+    if (staffWinsList) {
+      staffWinsList.innerHTML = myWonDeals.slice(0, 4).map(d => `
+        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+          <div>
+            <span class="font-bold text-[#042970]">${escapeHtmlText(d.customer)}</span>
+            <span class="font-mono text-emerald-800 ml-1.5 font-semibold">#${d.orderNo || d.id}</span>
+          </div>
+          <div class="text-right">
+            <span class="font-bold text-emerald-700">RM ${(d.amount || 0).toLocaleString()}</span>
+            <span class="text-[11px] text-emerald-800 ml-1">(+RM ${Math.round(d.amount * myRep.commissionPct / 100)} comm)</span>
+          </div>
+        </div>
+      `).join('') || `<div class="text-xs text-[#5B6B85]">No won deals yet this month. Close quotes to earn commission!</div>`;
+    }
+  }
+}
+
+function filterDealsToStage(stage) {
+  currentDealFilter = stage;
+  switchPage('deals');
+}
+
+// =========================================================================
+// 2. DEALS & PIPELINE VIEW
+// =========================================================================
+function setDealFilter(stage) {
+  currentDealFilter = stage;
+  renderDealsView();
+}
+
+function setDealRepFilter(repName) {
+  currentDealRepFilter = repName;
+  renderDealsView();
+}
+
+function renderDealsView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const deals = st.deals || [];
+  const reps = st.reps || [];
+
+  // Update Rep filter options
+  const repSelect = document.getElementById('deals-rep-select');
+  if (repSelect) {
+    const curVal = repSelect.value;
+    repSelect.innerHTML = `<option value="ALL">All Sales Reps</option>` +
+      reps.map(r => `<option value="${escapeHtmlText(r.name)}">${escapeHtmlText(r.name)}</option>`).join('');
+    if (curVal) repSelect.value = curVal;
+  }
+
+  // Filter deals
+  const filtered = deals.filter(d => {
+    if (currentDealFilter !== 'ALL' && d.stage !== currentDealFilter) return false;
+    if (currentDealRepFilter !== 'ALL' && d.repName !== currentDealRepFilter) return false;
+    if (dealSearchQuery) {
+      const q = dealSearchQuery.toLowerCase();
+      const matchCust = (d.customer || '').toLowerCase().includes(q);
+      const matchId = (d.id || '').toLowerCase().includes(q);
+      const matchOrder = (d.orderNo || '').toLowerCase().includes(q);
+      if (!matchCust && !matchId && !matchOrder) return false;
+    }
+    return true;
+  });
+
+  // Filter chips active state
+  document.querySelectorAll('#deals-filter-bar button').forEach(btn => {
+    const f = btn.getAttribute('data-stage');
+    btn.classList.toggle('is-active', f === currentDealFilter);
+  });
+
+  const listEl = document.getElementById('deals-list-container');
+  if (!listEl) return;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `
+      <div class="p-8 rounded-2xl bg-white border border-[#D5DFEE] text-center space-y-2">
+        <div class="text-sm font-bold text-[#042970]">No deals match this filter</div>
+        <p class="text-xs text-[#5B6B85]">Try selecting "All" or create a new quote via "Log Inquiry".</p>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(d => {
+    const isWon = d.stage === 'WON';
+    const isLost = d.stage === 'LOST';
+    const isFollowUp = d.stage === 'FOLLOW_UP';
+    const itemsSummary = (d.items || []).map(i => `${i.qty}x ${i.name || i.sku}`).join(', ') || 'Standard Quotation';
+
+    const stagePill = {
+      INQUIRY: 'bg-blue-100 text-blue-900 border-blue-300',
+      QUOTED: 'bg-cyan-100 text-cyan-900 border-cyan-300',
+      FOLLOW_UP: 'bg-amber-100 text-amber-900 border-amber-300',
+      WON: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+      LOST: 'bg-slate-200 text-slate-700 border-slate-300'
+    }[d.stage] || 'bg-slate-100 text-slate-800';
+
+    // Primary action button based on stage
+    let primaryBtn = '';
+    if (d.stage === 'INQUIRY') {
+      primaryBtn = `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">📄 Send Quote</button>`;
+    } else if (d.stage === 'QUOTED') {
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">🔔 Follow Up</button>`;
+    } else if (d.stage === 'FOLLOW_UP') {
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">⚡ Send Follow-Up</button>`;
+    } else if (isWon) {
+      primaryBtn = `<span class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">✓ Order #${d.orderNo || d.id}</span>`;
+    } else if (isLost) {
+      primaryBtn = `<span class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-bold text-xs">Lost: ${escapeHtmlText(d.lossReason || 'Declined')}</span>`;
     }
 
-    function jumpToQuoteChat(quoteId) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === quoteId);
-      let targetIdx = 0;
-      if (inv && typeof inv.chatIdx === 'number') {
-        targetIdx = inv.chatIdx;
-      } else if (inv) {
-        const foundIdx = st.chats.findIndex(c =>
-          c.customer.toLowerCase().includes(inv.party.toLowerCase().replace(' (phone order)', '')) ||
-          c.phone.includes(quoteId)
-        );
-        if (foundIdx >= 0) targetIdx = foundIdx;
-      }
-      currentChatIndex = targetIdx;
-      switchPage('wa');
-      showToast(`Opened WhatsApp chat for ${inv ? inv.party : quoteId}!`);
-    }
+    // Margin display: Owner sees %, Staff sees marginOk
+    const marginBadge = isOwner
+      ? (d.marginOk ? `<span class="text-[11px] font-semibold text-emerald-700">Margin: ${d.marginPct || 25}%</span>` : `<span class="text-[11px] font-bold text-rose-700">Margin: ${d.marginPct || 10}% (Below floor)</span>`)
+      : (d.marginOk ? `<span class="text-[11px] font-semibold text-emerald-700">Margin ✓</span>` : `<span class="text-[11px] font-bold text-amber-700">Margin ✗ (Needs Boss)</span>`);
 
-    function setInvoiceTin(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const entered = prompt(
-        `Enter Buyer LHDN TIN for ${inv.party} (e.g. C2588190021),\nOR leave blank and click OK to mark as Monthly Consolidated e-Invoice (EI00000000010):`,
-        'C2588190021'
-      );
-      if (entered === null) return;
-      const tinClean = entered.trim();
-      askUserConfirm(
-        `Confirm LHDN e-Invoice TIN · #${id}`,
-        tinClean
-          ? `Save Buyer LHDN TIN "${tinClean}" for ${inv.party} on #${id}?`
-          : `Classify #${id} (${inv.party}) under Monthly Consolidated e-Invoice (General TIN EI00000000010)?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'SET_TIN', tin: tinClean },
-              tinClean ? `Saved Buyer TIN ${tinClean} on ${id} — LHDN e-Invoice Ready!` : `Marked ${id} as Monthly Consolidated e-Invoice!`);
-            return;
-          }
-          if (tinClean) {
-            inv.lhdn = `🟢 LHDN TIN: ${tinClean}`;
-            st.logs.unshift(`10:50 AM · [${currentRole}] Keyed in Buyer LHDN TIN (${tinClean}) on ${id}.`);
-            showToast(`Saved Buyer TIN ${tinClean} on ${id} — LHDN e-Invoice Ready!`);
-          } else {
-            inv.lhdn = `🔵 Consolidated e-Invoice`;
-            st.logs.unshift(`10:50 AM · [${currentRole}] Set ${id} to Monthly Consolidated e-Invoice (General TIN EI00000000010).`);
-            showToast(`Marked ${id} as Monthly Consolidated e-Invoice!`);
-          }
-          renderAll();
-        },
-        '✅ Save LHDN Status'
-      );
-    }
+    return `
+      <div class="p-4 rounded-xl bg-white border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4 hover:border-[#0152FC]/40 transition shadow-xs">
+        <div class="space-y-1.5 max-w-xl">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded ${stagePill}">${d.id}</span>
+            <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-[#F2F6FF] border border-[#D5DFEE] text-[#5B6B85]">👤 ${escapeHtmlText(d.repName || 'Rep')}</span>
+            ${d.phone ? `<span class="text-xs text-[#5B6B85]">📞 ${escapeHtmlText(d.phone)}</span>` : ''}
+            <span class="text-xs text-[#5B6B85]">${d.followUpText || ''}</span>
+          </div>
+          <div class="text-xs text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="openPdfForDeal('${d.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer flex items-center gap-1">
+              <svg class="w-3.5 h-3.5"><use href="#i-file"/></svg> Preview PDF
+            </button>
+            ${!isWon && !isLost ? `
+              <button onclick="markWonDeal('${d.id}')" class="text-xs font-bold text-emerald-700 hover:underline cursor-pointer">Mark Won</button>
+              <button onclick="discountDeal('${d.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">Apply Discount</button>
+              <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="text-xs font-semibold text-slate-600 hover:underline cursor-pointer">${d.paused ? 'Resume' : 'Pause (Complaint)'}</button>
+              <button onclick="markLostDeal('${d.id}')" class="text-xs font-semibold text-rose-700 hover:underline cursor-pointer">Mark Lost</button>
+            ` : ''}
+            ${isWon && isOwner ? `
+              <button onclick="cancelWonDeal('${d.id}')" class="text-xs font-semibold text-rose-700 hover:underline cursor-pointer">Cancel Order</button>
+            ` : ''}
+            <button onclick="setTinDeal('${d.id}')" class="text-xs font-semibold text-[#5B6B85] hover:underline cursor-pointer">Add TIN</button>
+          </div>
+        </div>
 
-    function releaseStockRow(idx) {
-      const st = getState();
-      const s = st.stock[idx];
-      if (!s) return;
-      const released = s.onHold;
-      askUserConfirm(
-        `Confirm Release Held Stock · ${s.sku}`,
-        `Release all ${released} held units of ${s.name} (${s.sku}) back to Available Stock?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/stock/${encodeURIComponent(s.sku)}/release`, {}, `Released ${released} units of ${s.name} back to Available Stock!`);
-            return;
-          }
-          s.onHold = 0;
-          s.holdNote = '-';
-          st.invoices.forEach(inv => {
-            if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') {
-              if (inv.sku === s.sku) {
-                inv.status = 'HOLD_RELEASED';
-                inv.type = 'PAID_DONE';
-              } else if (inv.extraSku === s.sku) {
-                inv.extraQty = 0;
-              }
-            }
-          });
-          st.logs.unshift(`10:50 AM · [${currentRole}] Released ${released}x ${s.name} back to Available Stock.`);
-          showToast(`Released ${released} units of ${s.name} back to Available Stock!`);
-          renderAll();
-        },
-        '🔓 Yes, Release Stock'
-      );
-    }
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <div class="text-base font-bold text-[#042970]">RM ${(d.amount || 0).toLocaleString()}</div>
+            ${marginBadge}
+          </div>
+          ${primaryBtn}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-    function confirmQuoteFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[0];
-      const deposit = Math.round(inv.amount * 0.4);
-      askUserConfirm(
-        `Confirm Deposit & Deduct Stock · #${id}`,
-        `Confirm 40% Deposit (RM ${deposit.toLocaleString()}) from ${inv.party} on #${id}?\n\n• Deduct ${inv.qty}x ${item.name} from Physical Stock\n• Add +RM ${deposit.toLocaleString()} to Cash on Hand\n• Convert Quote to Active Invoice (Balance RM ${(inv.amount - deposit).toLocaleString()})`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'CONFIRM_QUOTE' },
-              `Order ${id} confirmed! Deducted ${inv.qty} units from Stock & added RM ${deposit} deposit to Cash.`);
-            return;
-          }
-          item.onHold = Math.max(0, item.onHold - inv.qty);
-          item.onHand = Math.max(0, item.onHand - inv.qty);
-          if (inv.extraSku && inv.extraQty > 0) {
-            const extraItem = st.stock.find(s => s.sku === inv.extraSku);
-            if (extraItem) {
-              extraItem.onHold = Math.max(0, extraItem.onHold - inv.extraQty);
-              extraItem.onHand = Math.max(0, extraItem.onHand - inv.extraQty);
-            }
-          }
-          st.cashOnHand += deposit;
-          inv.type = 'PENDING';
-          inv.amount = inv.amount - deposit;
-          inv.status = 'PENDING_PAYMENT';
-          inv.itemsText = `${inv.qty}x ${item.name} (STOCK DEDUCTED · Deposit RM ${deposit} Paid)`;
-          st.logs.unshift(`10:50 AM · [OWNER] Confirmed Deposit RM ${deposit} on ${id} → Deducted ${inv.qty} units from Physical Stock.`);
-          showToast(`Order ${id} confirmed! Deducted ${inv.qty} units from Stock & added RM ${deposit} deposit to Cash.`);
-          renderAll();
-        },
-        '💰 Confirm Deposit & Deduct'
-      );
-    }
+// Deal action API callers
+function sendQuoteDeal(dealId) {
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_QUOTE' }, `Quote #${dealId} sent to customer!`);
+}
 
-    function releaseQuoteFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[0];
-      askUserConfirm(
-        `Confirm Release Quote Hold · #${id}`,
-        `Release Quote Hold #${id} for ${inv.party}?\n\n• Returns +${inv.qty}x ${item.name} back to Available to Sell Stock.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'RELEASE_QUOTE' },
-              `Released Quote ${id}! +${inv.qty} units returned to Available Stock.`);
-            return;
-          }
-          item.onHold = Math.max(0, item.onHold - inv.qty);
-          if (inv.extraSku && inv.extraQty > 0) {
-            const extraItem = st.stock.find(s => s.sku === inv.extraSku);
-            if (extraItem) {
-              extraItem.onHold = Math.max(0, extraItem.onHold - inv.extraQty);
-            }
-          }
-          inv.status = 'HOLD_RELEASED';
-          inv.type = 'PAID_DONE';
-          st.logs.unshift(`10:51 AM · [${currentRole}] Released Quote Hold ${id} (+${inv.qty} units returned to Available Stock).`);
-          showToast(`Released Quote ${id}! +${inv.qty} units returned to Available Stock.`);
-          renderAll();
-        },
-        '🔓 Yes, Release Hold'
-      );
-    }
+function sendFollowUpDeal(dealId) {
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_FOLLOW_UP' }, `Follow-up sent on #${dealId}!`);
+}
 
-    function replaceFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[1] || st.stock[0];
-      askUserConfirm(
-        `Confirm Aftersales Replacement · #${id}`,
-        `Send 1x Replacement ${item.name} (${item.sku}) to ${inv.party}?\n\n• Deducts -1 unit from Physical Warehouse Stock.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'REPLACE_ONE', sku: item.sku },
-              `Deducted 1x ${item.name} as Aftersales Replacement! Now click 'Mark Aftersales Resolved' when done.`);
-            return;
-          }
-          item.onHand = Math.max(0, item.onHand - 1);
-          inv.status = 'REPLACEMENT_SENT';
-          inv.itemsText = `4x Daikin, 4x R32 (1x Replacement ${item.name} Sent — Ready to Mark Resolved)`;
-          st.logs.unshift(`10:51 AM · [OWNER] Sent 1x Replacement ${item.name} for ${id} (-1 Physical Stock).`);
-          showToast(`Deducted 1x ${item.name} as Aftersales Replacement! Now click 'Mark Aftersales Resolved' when done.`);
-          renderAll();
-        },
-        '🔄 Confirm Send Replacement'
-      );
-    }
+function markWonDeal(dealId) {
+  const ref = prompt('Enter Bank / DuitNow Transfer Slip Ref (e.g. DN-20261023-889):', 'DN-20261023-889');
+  if (ref === null) return;
+  const amtStr = prompt('Enter deposit or paid amount (RM):', '1000');
+  const depositAmount = amtStr ? parseInt(amtStr.replace(/,/g, ''), 10) : null;
 
-    function discountFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const entered = prompt(`Enter Credit Rebate / Discount Amount (RM) to deduct from ${id} (${inv.party}):`, '180');
-      if (entered === null) return;
-      const rebate = Math.max(0, parseInt(entered.trim() || '180', 10));
-      askUserConfirm(
-        `Confirm Aftersales Credit Rebate · #${id}`,
-        `Apply RM ${rebate.toLocaleString()} Credit Rebate to #${id} (${inv.party})?\n\n• Current Balance: RM ${inv.amount.toLocaleString()}\n• New Balance After Rebate: RM ${Math.max(0, inv.amount - rebate).toLocaleString()}`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'DISCOUNT', amount: rebate },
-              `Applied RM ${rebate.toLocaleString()} credit rebate on ${id}!`);
-            return;
-          }
-          inv.amount = Math.max(0, inv.amount - rebate);
-          inv.status = 'DISCOUNT_APPLIED';
-          inv.itemsText = `4x Daikin, 4x R32 (RM ${rebate.toLocaleString()} Credit Rebate Applied — Ready to Mark Resolved)`;
-          st.logs.unshift(`10:52 AM · [OWNER] Applied RM ${rebate.toLocaleString()} Aftersales Credit Rebate on ${id}.`);
-          showToast(`Applied RM ${rebate.toLocaleString()} credit rebate on ${id}!`);
-          renderAll();
-        },
-        `💸 Confirm RM ${rebate.toLocaleString()} Rebate`
-      );
-    }
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'MARK_WON',
+    depositRef: ref.trim(),
+    depositAmount: depositAmount
+  }, `Deal #${dealId} marked WON! Order confirmed.`);
+}
 
-    function resolveAftersales(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Resolve Aftersales · #${id}`,
-        `Mark Aftersales issue for ${inv.party} (#${id}) as RESOLVED and resume normal payment collection (RM ${inv.amount.toLocaleString()})?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_RESOLVED' },
-              `${id} marked Resolved! Payment follow-up resumed.`);
-            return;
-          }
-          inv.type = 'PENDING';
-          inv.status = 'PENDING_PAYMENT';
-          st.logs.unshift(`10:52 AM · [OWNER] Marked Aftersales Issue on ${id} RESOLVED → Resumed normal Pending Invoice status.`);
-          showToast(`${id} marked Resolved! Payment follow-up resumed.`);
-          renderAll();
-        },
-        '✅ Confirm Resolved'
-      );
-    }
+function markLostDeal(dealId) {
+  const reason = prompt('Choose / enter a reason the deal was lost:\n(e.g. Competitor price, No reply, Timing, Cancelled)', 'Customer declined on WhatsApp');
+  if (!reason || !reason.trim()) return;
 
-    function markInvoicePaid(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Full Payment Received · #${id}`,
-        `Mark Invoice #${id} (${inv.party}) as 100% PAID?\n\n• Adds +RM ${inv.amount.toLocaleString()} to Verified Cash on Hand.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_PAID' },
-              `Invoice ${id} marked PAID! Cash on Hand +RM ${inv.amount.toLocaleString()}.`);
-            return;
-          }
-          st.cashOnHand += inv.amount;
-          inv.status = 'PAID';
-          inv.type = 'PAID_DONE';
-          st.logs.unshift(`10:53 AM · [OWNER] Confirmed full payment of RM ${inv.amount} on ${id} (+Cash on Hand).`);
-          showToast(`Invoice ${id} marked PAID! Cash on Hand +RM ${inv.amount.toLocaleString()}.`);
-          renderAll();
-        },
-        `✅ Confirm +RM ${inv.amount.toLocaleString()} Paid`
-      );
-    }
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'MARK_LOST',
+    reason: reason.trim()
+  }, `Deal #${dealId} marked LOST.`);
+}
 
-    function addExtraPipingAndLabor(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const pipe = st.stock[2] || st.stock[0];
-      const pipeCharge = pipe.sellPrice * 2;
-      const laborCustomerCharge = 350;
-      const laborInstallerCost = 150;
-      askUserConfirm(
-        `Confirm Add Extra Piping & Labor · #${id}`,
-        `Add Extra Piping & Installer Labor to #${id} (${inv.party})?\n\n• Physical Stock: -2x ${pipe.name} (${pipe.sku})\n• Customer Invoice: +RM ${(pipeCharge + laborCustomerCharge).toLocaleString()}\n• Installer Subcon Cost: -RM ${laborInstallerCost.toLocaleString()} from Cash`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'ADD_PIPE_LABOR', sku: pipe.sku },
-              `Added Extra Piping & Labor to ${id}! Invoice +RM ${pipeCharge + laborCustomerCharge}, Installer Cost -RM ${laborInstallerCost}.`);
-            return;
-          }
-          pipe.onHand = Math.max(0, pipe.onHand - 2);
-          inv.amount += (pipeCharge + laborCustomerCharge);
-          st.cashOnHand -= laborInstallerCost;
-          inv.itemsText += ` + [2x ${pipe.name} (RM ${pipeCharge}) & Labor (RM ${laborCustomerCharge})]`;
-          st.logs.unshift(`10:54 AM · [${currentRole}] Added Extra Piping (-2 Stock, +RM ${pipeCharge}) & Labor (+RM ${laborCustomerCharge}, -RM ${laborInstallerCost} Installer Cost) on ${id}.`);
-          showToast(`Added Extra Piping & Labor to ${id}! Invoice +RM ${pipeCharge + laborCustomerCharge}, Installer Cost -RM ${laborInstallerCost}.`);
-          renderAll();
-        },
-        '🔧 Confirm Add Piping & Labor'
-      );
-    }
+function discountDeal(dealId) {
+  const discStr = prompt('Enter discount amount to apply in RM (e.g. 50):', '50');
+  if (!discStr) return;
+  const discount = parseInt(discStr.replace(/,/g, ''), 10);
+  if (isNaN(discount) || discount <= 0) return;
 
-    function paySupplierBill(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Pay Supplier Bill · #${id}`,
-        `Record payment of RM ${inv.amount.toLocaleString()} to ${inv.party} (#${id})?\n\n• Deducts -RM ${inv.amount.toLocaleString()} from Cash on Hand.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'PAY_SUPPLIER' },
-              `Paid Supplier Bill ${id}! Cash on Hand -RM ${inv.amount.toLocaleString()}.`);
-            return;
-          }
-          st.cashOnHand -= inv.amount;
-          inv.status = 'PAID_SUPPLIER';
-          st.logs.unshift(`10:55 AM · [OWNER] Paid Supplier Bill ${id} (-RM ${inv.amount} Cash on Hand).`);
-          showToast(`Paid Supplier Bill ${id}! Cash on Hand -RM ${inv.amount.toLocaleString()}.`);
-          renderAll();
-        },
-        `💸 Confirm Pay RM ${inv.amount.toLocaleString()}`
-      );
-    }
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'APPLY_DISCOUNT',
+    discount: discount
+  }, `Discount of RM ${discount} applied to #${dealId}!`);
+}
 
-    function setInvoiceFilter(f) {
-      currentInvFilter = f;
-      document.querySelectorAll('#inv-filter-bar [data-filter]').forEach(b => b.classList.toggle('is-active', b.dataset.filter === f));
-      renderWebAppView();
-    }
+function pauseResumeDeal(dealId, pause) {
+  const note = pause ? prompt('Enter complaint / pause reason:', 'Customer reported issue') : '';
+  if (pause && note === null) return;
+
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: pause ? 'PAUSE' : 'RESUME',
+    note: note || ''
+  }, `${pause ? 'Paused' : 'Resumed'} follow-ups on #${dealId}.`);
+}
+
+function setTinDeal(dealId) {
+  const tin = prompt('Enter Buyer LHDN TIN (e.g. C2588190021):', 'C2588190021');
+  if (!tin || !tin.trim()) return;
+
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'SET_TIN',
+    tin: tin.trim()
+  }, `Saved LHDN TIN ${tin.trim()} on #${dealId}!`);
+}
+
+function cancelWonDeal(dealId) {
+  const reason = prompt('Reason for cancelling this won sales order:\n(e.g. Customer returned units, payment bounced)', 'Customer requested cancellation');
+  if (!reason || !reason.trim()) return;
+
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'CANCEL_WON',
+    reason: reason.trim()
+  }, `Cancelled won order #${dealId}.`);
+}
+
+function openPdfForDeal(dealId) {
+  if (typeof openPdfForInvoice === 'function') {
+    openPdfForInvoice(dealId);
+  }
+}
+
+function downloadWonOrdersCsv() {
+  window.open(`${BACKEND_API_BASE}/api/export/orders.csv?role=${encodeURIComponent(currentRole)}`, '_blank');
+  showToast('📥 Downloading Won Orders CSV for accounting...');
+}
+
+// Log inquiry modal & form
+function openLogInquiryModal() {
+  const st = getState();
+  const skuSelect = document.getElementById('inquiry-sku-select');
+  if (skuSelect) {
+    skuSelect.innerHTML = (st.products || []).map(p =>
+      `<option value="${p.sku}">${escapeHtmlText(p.name)} — RM ${p.sellPrice}</option>`
+    ).join('');
+  }
+  const modal = document.getElementById('log-inquiry-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeLogInquiryModal() {
+  const modal = document.getElementById('log-inquiry-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitLogInquiry() {
+  const custInput = document.getElementById('inquiry-customer-name');
+  const phoneInput = document.getElementById('inquiry-phone');
+  const skuSelect = document.getElementById('inquiry-sku-select');
+  const qtyInput = document.getElementById('inquiry-qty');
+  const quoteNowCheck = document.getElementById('inquiry-quote-now');
+
+  const customer = (custInput?.value || '').trim();
+  if (!customer) {
+    showToast('⚠️ Please enter a customer name.');
+    return;
+  }
+  const phone = (phoneInput?.value || '').trim();
+  const sku = skuSelect?.value || 'ACN-DAI-15';
+  const qty = Math.max(1, parseInt(qtyInput?.value || '1', 10));
+  const quoteNow = quoteNowCheck?.checked ?? true;
+
+  const data = await backendAction('/api/deals', {
+    customer: customer,
+    phone: phone,
+    items: [{ sku: sku, qty: qty }],
+    quote: quoteNow
+  }, d => `Deal #${d.createdId} created for ${customer}!`);
+
+  if (data) {
+    closeLogInquiryModal();
+    if (custInput) custInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+  }
+}
+
+// =========================================================================
+// 3. CATALOG (PRICE LIST) VIEW
+// =========================================================================
+function renderCatalogView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const products = st.products || [];
+
+  const addBtn = document.getElementById('catalog-add-btn');
+  if (addBtn) addBtn.classList.toggle('hidden', !isOwner);
+
+  const tbody = document.getElementById('catalog-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = products.map(p => {
+    const cost = p.unitCost !== undefined && p.unitCost !== null ? p.unitCost : Math.round(p.sellPrice * 0.7);
+    const margin = p.sellPrice - cost;
+    const marginPct = p.sellPrice > 0 ? Math.round((margin / p.sellPrice) * 100) : 0;
+    const specs = p.specs || {};
+    const specsSummary = [
+      specs.hp ? `${specs.hp}HP` : '',
+      specs.brand || '',
+      specs.best_for ? `Best for: ${specs.best_for}` : ''
+    ].filter(Boolean).join(' · ') || 'Standard catalog SKU';
+
+    return `
+      <tr class="hover:bg-[#F2F6FF] transition align-top">
+        <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${escapeHtmlText(p.sku)}</td>
+        <td class="py-3.5 px-4">
+          <div class="font-bold text-[#042970]">${escapeHtmlText(p.name)}</div>
+          <div class="text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(specsSummary)}</div>
+        </td>
+        <td class="py-3.5 px-4 font-bold text-[#042970]">RM ${p.sellPrice.toLocaleString()}</td>
+        <td class="py-3.5 px-4 font-semibold text-[#5B6B85]">
+          ${isOwner ? 'RM ' + cost.toLocaleString() : '🔒 Owner only'}
+        </td>
+        <td class="py-3.5 px-4 font-bold ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">
+          ${isOwner ? `+RM ${margin} (${marginPct}%)` : (marginPct >= 15 ? 'Margin ✓' : 'Margin ✗')}
+        </td>
+        <td class="py-3.5 px-4 text-right">
+          ${isOwner ? `
+            <button onclick="openEditProductModal('${p.sku}')" class="text-xs font-bold text-[#0152FC] hover:underline">Edit Price</button>
+          ` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openEditProductModal(sku = '') {
+  const st = getState();
+  const p = (st.products || []).find(x => x.sku === sku);
+  const skuEl = document.getElementById('prod-modal-sku');
+  const nameEl = document.getElementById('prod-modal-name');
+  const sellEl = document.getElementById('prod-modal-sell');
+  const costEl = document.getElementById('prod-modal-cost');
+
+  if (p) {
+    if (skuEl) { skuEl.value = p.sku; skuEl.readOnly = true; }
+    if (nameEl) nameEl.value = p.name;
+    if (sellEl) sellEl.value = p.sellPrice;
+    if (costEl) costEl.value = p.unitCost || Math.round(p.sellPrice * 0.7);
+  } else {
+    if (skuEl) { skuEl.value = ''; skuEl.readOnly = false; }
+    if (nameEl) nameEl.value = '';
+    if (sellEl) sellEl.value = '1000';
+    if (costEl) costEl.value = '700';
+  }
+  const modal = document.getElementById('edit-product-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditProductModal() {
+  const modal = document.getElementById('edit-product-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveProductFromModal() {
+  const sku = (document.getElementById('prod-modal-sku')?.value || '').trim().toUpperCase();
+  const name = (document.getElementById('prod-modal-name')?.value || '').trim();
+  const sellPrice = parseInt(document.getElementById('prod-modal-sell')?.value || '0', 10);
+  const unitCost = parseInt(document.getElementById('prod-modal-cost')?.value || '0', 10);
+
+  if (!sku || !name || sellPrice <= 0) {
+    showToast('⚠️ Please enter a valid SKU, Name, and Selling Price.');
+    return;
+  }
+
+  const data = await backendAction('/api/products', {
+    sku,
+    name,
+    sellPrice,
+    unitCost
+  }, `Saved ${sku} to Price List!`);
+
+  if (data) {
+    closeEditProductModal();
+  }
+}
+
+// =========================================================================
+// 4. CUSTOMERS & LHDN TIN DIRECTORY VIEW
+// =========================================================================
+function renderCustomersView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const customers = st.customers || [];
+  const tbody = document.getElementById('customers-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = customers.map(c => {
+    const isReady = c.lhdnReady || !!c.tin;
+    const tinBadge = isReady
+      ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs">🟢 ${escapeHtmlText(c.tin || 'LHDN Ready')}</span>`
+      : `<span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">🟡 Missing Buyer TIN</span>`;
+
+    return `
+      <tr class="hover:bg-[#F2F6FF] transition align-middle">
+        <td class="py-3 px-4 font-bold text-[#042970]">${escapeHtmlText(c.name)}</td>
+        <td class="py-3 px-4 text-[#5B6B85] text-xs font-mono">${escapeHtmlText(c.phone || '-')}</td>
+        <td class="py-3 px-4">${tinBadge}</td>
+        <td class="py-3 px-4 text-xs font-bold text-[#0152FC]">${c.openRecords || 0} open deal(s)</td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            <button onclick="promptCustomerTin('${escapeHtmlText(c.name)}')" class="text-xs font-bold text-[#0152FC] hover:underline">
+              ${isReady ? 'Update TIN' : '✏️ Key in TIN'}
+            </button>
+            ${isOwner ? `
+              <button onclick="promptReassignCustomer('${escapeHtmlText(c.name)}')" class="text-xs font-semibold text-slate-600 hover:underline">Reassign Rep</button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function promptCustomerTin(customerName) {
+  const tin = prompt(`Enter Buyer LHDN TIN for ${customerName} (e.g. C2588190021):`, 'C2588190021');
+  if (!tin || !tin.trim()) return;
+
+  // Find latest deal for this customer if any
+  const st = getState();
+  const d = (st.deals || []).find(x => x.customer === customerName);
+  if (d) {
+    setTinDeal(d.id);
+  } else {
+    showToast(`Saved TIN ${tin.trim()} for ${customerName}!`);
+  }
+}
+
+function promptReassignCustomer(customerName) {
+  const st = getState();
+  const reps = st.reps || [];
+  const repNames = reps.map((r, i) => `${i + 1}. ${r.name}`).join('\n');
+  const choice = prompt(`Reassign open deals for ${customerName} to which rep?\n\n${repNames}\n\nEnter rep number (1-${reps.length}):`, '2');
+  if (!choice) return;
+  const idx = parseInt(choice, 10) - 1;
+  const targetRep = reps[idx];
+  if (!targetRep) {
+    showToast('⚠️ Invalid rep selected.');
+    return;
+  }
+
+  // Find a rep to move from
+  const d = (st.deals || []).find(x => x.customer === customerName);
+  const fromRepId = d ? d.repId : 1;
+  backendAction(`/api/reps/${fromRepId}/reassign`, {
+    toRepId: targetRep.id
+  }, `Reassigned open deals for ${customerName} to ${targetRep.name}!`);
+}
+
+function addCustomerPrompt() {
+  const name = prompt('Enter customer or company name:');
+  if (!name || !name.trim()) return;
+  const phone = prompt('Enter customer WhatsApp phone (+60...):', '+60 12-345 6789');
+
+  backendAction('/api/customers', {
+    name: name.trim(),
+    phone: (phone || '').trim()
+  }, `Added ${name.trim()} to customer directory!`);
+}
+
+// =========================================================================
+// 5. COMMISSION TRACKER & LEADERBOARD VIEW
+// =========================================================================
+function renderCommissionView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const reps = st.reps || [];
+  const tbody = document.getElementById('commission-tbody');
+  if (!tbody) return;
+
+  const totalWon = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
+  const totalComm = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);
+
+  const wonTotalEl = document.getElementById('comm-total-won');
+  if (wonTotalEl) wonTotalEl.textContent = 'RM ' + totalWon.toLocaleString();
+
+  const commTotalEl = document.getElementById('comm-total-payout');
+  if (commTotalEl) commTotalEl.textContent = 'RM ' + totalComm.toLocaleString();
+
+  tbody.innerHTML = reps.map((r, idx) => `
+    <tr class="hover:bg-[#F2F6FF] transition align-middle">
+      <td class="py-3 px-4 font-bold text-[#042970] flex items-center gap-2">
+        <span class="w-6 h-6 rounded-full ${idx === 0 ? 'bg-amber-400 text-amber-900 font-bold' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-xs font-bold">${idx + 1}</span>
+        <span>${escapeHtmlText(r.name)}</span>
+      </td>
+      <td class="py-3 px-4 font-mono font-bold text-[#0152FC]">${r.commissionPct}%</td>
+      <td class="py-3 px-4 font-bold text-[#042970]">RM ${(r.wonRm || 0).toLocaleString()}</td>
+      <td class="py-3 px-4 font-bold text-emerald-700">RM ${(r.commissionRm || 0).toLocaleString()}</td>
+      <td class="py-3 px-4 text-xs font-semibold text-[#5B6B85]">${r.openDeals || 0} active</td>
+      <td class="py-3 px-4 text-xs font-semibold ${r.overdue > 0 ? 'text-amber-800 font-bold' : 'text-emerald-700'}">${r.overdue || 0} overdue</td>
+      <td class="py-3 px-4 text-right">
+        ${isOwner ? `
+          <button onclick="promptEditRepRate(${r.id}, '${escapeHtmlText(r.name)}', ${r.commissionPct})" class="text-xs font-bold text-[#0152FC] hover:underline">Change Rate</button>
+        ` : `<span class="text-xs text-emerald-700 font-bold">Active</span>`}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function promptEditRepRate(repId, repName, currentPct) {
+  const newRateStr = prompt(`Update commission rate for ${repName} (%):`, currentPct);
+  if (!newRateStr) return;
+  const newPct = parseFloat(newRateStr);
+  if (isNaN(newPct) || newPct < 0) return;
+
+  backendAction('/api/reps', {
+    id: repId,
+    name: repName,
+    commissionPct: newPct,
+    active: true
+  }, `Updated ${repName}'s commission to ${newPct}%!`);
+}
+
+function promptAddNewRep() {
+  const name = prompt('Enter Sales Rep name:');
+  if (!name || !name.trim()) return;
+  const rateStr = prompt('Enter sales commission percentage (%):', '3.0');
+  const rate = rateStr ? parseFloat(rateStr) : 3.0;
+
+  backendAction('/api/reps', {
+    name: name.trim(),
+    commissionPct: rate,
+    active: true
+  }, `Added sales rep ${name.trim()} (${rate}% commission)!`);
+}
+
+// Master render invoked by main.js
+function renderWebAppView() {
+  renderPipelineView();
+  renderDealsView();
+  renderCatalogView();
+  renderCustomersView();
+  renderCommissionView();
+}

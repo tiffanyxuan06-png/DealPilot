@@ -1220,7 +1220,13 @@ function renderAnalysisResult(data, fromCache = false) {
   const titleEl = document.getElementById("cc-ext-title");
   if (titleEl) titleEl.textContent = lastAnalysis.extTitle || "Recommended Action";
   const checkEl = document.getElementById("cc-ext-check");
-  if (checkEl) checkEl.textContent = lastAnalysis.extCheck || "";
+  if (checkEl) {
+    let checkText = lastAnalysis.extCheck || "";
+    if (lastAnalysis.stage) {
+      checkText = `[Stage: ${lastAnalysis.stage}]\n` + (lastAnalysis.coachTip ? `💡 Coach: ${lastAnalysis.coachTip}\n\n` : "") + checkText;
+    }
+    checkEl.textContent = checkText;
+  }
   const draftEl = document.getElementById("cc-draft-output");
   if (draftEl) {
     draftEl.disabled = false;
@@ -1414,6 +1420,7 @@ async function executePrimaryAction() {
       const result = await ccApiRequest("/api/whatsapp/execute", "POST", {
         customer,
         actionType: lastAnalysis.extActionType || "CREATE_QUOTE_HOLD",
+        items: lastAnalysis.quotePreview ? lastAnalysis.quotePreview.items : (lastAnalysis.items || null),
         sku: lastAnalysis.sku || "ACN-DAI-15",
         qty: lastAnalysis.qty || 5,
         extraSku: lastAnalysis.extraSku || null,

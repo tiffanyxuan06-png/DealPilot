@@ -1,5 +1,5 @@
 """What the API returns for each record. Built from the SQLAlchemy rows in backend/db/orm.py."""
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
@@ -19,6 +19,7 @@ class Product(ApiModel):
     name: str
     sell_price: int
     unit_cost: Optional[int] = _owner_only()
+    specs: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Rep(ApiModel):

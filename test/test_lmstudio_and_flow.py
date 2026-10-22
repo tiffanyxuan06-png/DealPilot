@@ -28,7 +28,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from fastapi.testclient import TestClient
-from backend.app import app, check_lmstudio_health, DEFAULT_LMSTUDIO_URL
+from backend.app import app
+from backend.services.lmstudio import check_lmstudio_health
+from backend.config import get_settings
+DEFAULT_LMSTUDIO_URL = get_settings().lmstudio_url
 
 client = TestClient(app)
 

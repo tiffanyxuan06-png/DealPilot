@@ -10,19 +10,206 @@
       "sku": "ACN-DAI-15",
       "name": "Daikin 1.5HP Inverter Unit",
       "sell_price": 1150,
-      "unit_cost": 850
+      "unit_cost": 850,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 1.5,
+        "room_sqft": [
+          150,
+          250
+        ],
+        "best_for": "master bedroom / small office",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "up to 40% power saving",
+          "quiet 19dB",
+          "durable gold fin"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M",
+          "GAS-R32"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-DAI-10",
+      "name": "Daikin 1.0HP Inverter Unit",
+      "sell_price": 950,
+      "unit_cost": 700,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "small bedroom / study room",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "quiet 19dB operation",
+          "fast cooling mode",
+          "energy saving"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-DAI-20",
+      "name": "Daikin 2.0HP Inverter Unit",
+      "sell_price": 1750,
+      "unit_cost": 1300,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 2.0,
+        "room_sqft": [
+          250,
+          400
+        ],
+        "best_for": "living room / large office",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "powerful airflow",
+          "smart sensor",
+          "wide coverage"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-PAN-10",
+      "name": "Panasonic 1.0HP Aero Series",
+      "sell_price": 980,
+      "unit_cost": 720,
+      "specs": {
+        "brand": "Panasonic",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "bedroom (nanoe-X air purification)",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "nanoe-X deodorization & PM2.5 filter",
+          "aerowings fast cooling",
+          "eco mode with AI"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-PAN-15",
+      "name": "Panasonic 1.5HP Aero Series",
+      "sell_price": 1200,
+      "unit_cost": 890,
+      "specs": {
+        "brand": "Panasonic",
+        "category": "aircond",
+        "hp": 1.5,
+        "room_sqft": [
+          150,
+          250
+        ],
+        "best_for": "master bedroom / hall (nanoe-X)",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "nanoe-X virus inhibition",
+          "aerowings twin flaps",
+          "inverter power efficiency"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-MID-10",
+      "name": "Midea 1.0HP Standard Split",
+      "sell_price": 790,
+      "unit_cost": 580,
+      "specs": {
+        "brand": "Midea",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "budget / rental rooms / shops",
+        "energy": "3-star non-inverter",
+        "warranty": "5y compressor, 2y general",
+        "selling_points": [
+          "affordable price",
+          "durable golden fin",
+          "easy maintenance"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "SVC-INSTALL",
+      "name": "Standard Installation Labor",
+      "sell_price": 250,
+      "unit_cost": 150,
+      "specs": {
+        "brand": "Sejuk Jaya",
+        "category": "service",
+        "best_for": "standard wall mount installation (up to 10ft copper pipe)",
+        "warranty": "30 days workmanship guarantee"
+      }
     },
     {
       "sku": "GAS-R32",
       "name": "R32 Refrigerant Gas (3kg)",
       "sell_price": 180,
-      "unit_cost": 130
+      "unit_cost": 130,
+      "specs": {
+        "brand": "Daikin/Universal",
+        "category": "consumable",
+        "best_for": "refrigerant refill / top-up",
+        "selling_points": [
+          "eco-friendly R32",
+          "zero ozone depletion"
+        ]
+      }
     },
     {
       "sku": "PIP-COP-3M",
       "name": "Copper Pipe 3m Set",
       "sell_price": 150,
-      "unit_cost": 96
+      "unit_cost": 96,
+      "specs": {
+        "brand": "Kembla",
+        "category": "part",
+        "best_for": "extended piping run beyond 10ft",
+        "selling_points": [
+          "thick wall seamless copper",
+          "insulated"
+        ]
+      }
     }
   ],
   "reps": [
@@ -260,8 +447,8 @@
       "phone": "+60 12-345 6789",
       "tier": "VIP_FAST_PAYER",
       "score": 94,
-      "style_summary": "Friendly Manglish boss style ('Boss, got stock?') · Likes fast, itemised quotes",
-      "payment_behavior": "⭐⭐⭐⭐⭐ Repeat buyer · 6 past orders (RM 28,400) · Usually confirms within 2 hours of a quote",
+      "style_summary": "Friendly Manglish boss style ('Boss, got stock?') \u00b7 Likes fast, itemised quotes",
+      "payment_behavior": "\u2b50\u2b50\u2b50\u2b50\u2b50 Repeat buyer \u00b7 6 past orders (RM 28,400) \u00b7 Usually confirms within 2 hours of a quote",
       "total_orders": 6,
       "total_paid_rm": 28400,
       "last_message": "Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah?"
@@ -271,8 +458,8 @@
       "phone": "+60 16-882 1920",
       "tier": "LONG_TERM_PARTNER",
       "score": 88,
-      "style_summary": "Polite and professional clinic · Values fast aftersales and a respectful tone",
-      "payment_behavior": "⭐⭐⭐⭐ Reliable buyer · 4 past orders (RM 19,200) · Open complaint about a leaking R32 cylinder",
+      "style_summary": "Polite and professional clinic \u00b7 Values fast aftersales and a respectful tone",
+      "payment_behavior": "\u2b50\u2b50\u2b50\u2b50 Reliable buyer \u00b7 4 past orders (RM 19,200) \u00b7 Open complaint about a leaking R32 cylinder",
       "total_orders": 4,
       "total_paid_rm": 19200,
       "last_message": "One of the R32 gas cylinders you delivered is leaking at the valve."
@@ -282,8 +469,8 @@
       "phone": "+60 19-221 0091",
       "tier": "SLOW_PAYER_GHOST_RISK",
       "score": 42,
-      "style_summary": "Short casual messages · Often asks for a quote then goes quiet",
-      "payment_behavior": "⚠️ Goes quiet after quotes · 2 past quotes lost to no reply · Follow up early",
+      "style_summary": "Short casual messages \u00b7 Often asks for a quote then goes quiet",
+      "payment_behavior": "\u26a0\ufe0f Goes quiet after quotes \u00b7 2 past quotes lost to no reply \u00b7 Follow up early",
       "total_orders": 1,
       "total_paid_rm": 1150,
       "last_message": "Hold 3 units Daikin 1.5HP for me first boss, I transfer deposit tomorrow."
@@ -293,16 +480,16 @@
       "phone": "+60 12-998 4410",
       "tier": "PARTIAL_SHORT_PAYER",
       "score": 58,
-      "style_summary": "Corporate procurement · Often asks for RM 100–200 off before confirming",
-      "payment_behavior": "⚠️ Haggles on most quotes · 3 past orders (RM 9,600) · Check the margin before giving a discount",
+      "style_summary": "Corporate procurement \u00b7 Often asks for RM 100\u2013200 off before confirming",
+      "payment_behavior": "\u26a0\ufe0f Haggles on most quotes \u00b7 3 past orders (RM 9,600) \u00b7 Check the margin before giving a discount",
       "total_orders": 3,
       "total_paid_rm": 9600,
       "last_message": "Can do better price for 2 units?"
     }
   ],
   "logs": [
-    "09:00 AM · [System] Loaded Sejuk Jaya demo: 3 reps, 10 deals.",
-    "09:51 AM · [Mei Ling] Paused follow-ups for Klinik Dr. Lim (leaking R32 cylinder reported).",
-    "10:30 AM · [System] Quote #QT-2026-101 (Kedai Runcit Ah Seng) had no reply in time → follow-up due."
+    "09:00 AM \u00b7 [System] Loaded Sejuk Jaya demo: 3 reps, 10 deals.",
+    "09:51 AM \u00b7 [Mei Ling] Paused follow-ups for Klinik Dr. Lim (leaking R32 cylinder reported).",
+    "10:30 AM \u00b7 [System] Quote #QT-2026-101 (Kedai Runcit Ah Seng) had no reply in time \u2192 follow-up due."
   ]
 }

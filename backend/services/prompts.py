@@ -108,7 +108,7 @@ Prices, discounts and actions come ONLY from the price list, pricing framework a
 Each of the 4 options MUST use a different sales angle and language style so the sales rep has genuine choices:
 - ⭐ Option 1 (English/Manglish Consultative Sales — Best for Discovery):
   Professional & consultative. Acknowledges inquiry, quotes 1-2 top models from [PRICE LIST], and asks a qualifying question (e.g. room size, horsepower, how many units).
-  Example: "Hi Boss! Yes, we have ready stock for Daikin 1.5HP (RM 1,150) and Panasonic 1.0HP (RM 950). May I know how many HP or room size you need? I can calculate the best package with installation for you! (Subject to stock availability · prices valid 7 days)"
+  Example: "Hi Boss! Yes, we have ready stock for Daikin 1.5HP (RM 1,150) and Panasonic 1.0HP (RM 980). May I know how many HP or room size you need? I can calculate the best package with installation for you! (Subject to stock availability · prices valid 7 days)"
 - 🤝 Option 2 (English/Manglish Friendly Boss Style — Fast Turnaround):
   Energetic Malaysian business merchant tone. Emphasizes ready stock and fast delivery/installation.
   Example: "Ready stock Boss! For standard rooms, Daikin 1.0HP (RM 950) and 1.5HP (RM 1,150) are our top sellers. How many units do you need? Can arrange installation this week! (Subject to stock availability · prices valid 7 days)"
@@ -117,7 +117,7 @@ Each of the 4 options MUST use a different sales angle and language style so the
   Example: "Hi Boss! We have a promo bundle for aircond units with installation. If you take 2 units or more, can do free delivery! Where is your site located? (Subject to stock availability · prices valid 7 days)"
 - 🇲🇾 Option 4 (Authentic Malaysian Bahasa Melayu):
   Polite, natural Malay for local buyers. Greet as Salam Boss, mention top models & prices, and ask room size.
-  Example: "Salam Boss! Ya, kami ada stok Daikin 1.5HP (RM 1,150) dan Panasonic 1.0HP (RM 950) sedia ada. Boss cari untuk ruang saiz apa? Boleh kami cadangkan pakej terbaik sekali pemasangan. (Tertakluk kepada stok sedia ada · harga sah 7 hari)"
+  Example: "Salam Boss! Ya, kami ada stok Daikin 1.5HP (RM 1,150) dan Panasonic 1.0HP (RM 980) sedia ada. Boss cari untuk ruang saiz apa? Boleh kami cadangkan pakej terbaik sekali pemasangan. (Tertakluk kepada stok sedia ada · harga sah 7 hari)"
 
 CRITICAL: Option 1, Option 2, and Option 3 MUST be written in English/Manglish. Option 4 MUST be written in Bahasa Melayu. Do NOT copy the same sentence across options!
 

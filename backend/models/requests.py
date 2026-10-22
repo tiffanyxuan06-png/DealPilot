@@ -36,6 +36,8 @@ class WhatsAppAnalyzeRequest(RoleRequest):
     company_name: Optional[str] = None
     framework: Optional[str] = None
     strict_ai: Optional[bool] = None
+    goal: Optional[str] = None
+    stage: Optional[str] = None
 
 
 class DealItemRequest(ApiModel):

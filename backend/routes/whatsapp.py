@@ -37,6 +37,11 @@ from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
 from backend.services.memory import clean_customer_name, compute_client_memory_rating
 from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.pipeline import build_state, log, resolve_active_ai_credentials
+from backend.services.sales_flow import (
+    build_deal_context,
+    next_best_action,
+    generate_fallback_replies,
+)
 from backend.services.prompts import (
     as_customer_text,
     build_whatsapp_copilot_system_prompt,
@@ -80,6 +85,19 @@ def _save_memory(session: Session, req: WhatsAppAnalyzeRequest, mem: Dict[str, A
     )
 
 
+def _find_client_memory(session: Session, customer: str, phone: str = "") -> Optional[orm.ClientMemory]:
+    c_clean = clean_customer_name(customer).strip()
+    if phone:
+        mem = session.scalars(
+            select(orm.ClientMemory).where(orm.ClientMemory.phone == phone)
+        ).first()
+        if mem:
+            return mem
+    return session.scalars(
+        select(orm.ClientMemory).where(orm.ClientMemory.customer.ilike(c_clean))
+    ).first()
+
+
 def _find_open_deal(session: Session, customer: str) -> Optional[orm.Deal]:
     key = clean_customer_name(customer).lower()
     return session.scalars(
@@ -96,8 +114,30 @@ def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
     tier = mem["tier"]
 
     # Customer allowlist check (docs/11 §4.1)
+    cached_pending = None
+    open_deal_dict = None
     with session_scope() as s:
         registered = is_customer(s, req.customer, req.phone or "")
+        mem_row = _find_client_memory(s, req.customer, req.phone or "")
+        if mem_row and mem_row.cached_analysis_json:
+            try:
+                cached_pending = json.loads(mem_row.cached_analysis_json).get("pendingOffer")
+            except Exception:
+                pass
+        open_deal_row = _find_open_deal(s, req.customer)
+        if open_deal_row:
+            open_deal_dict = {
+                "id": open_deal_row.id,
+                "stage": open_deal_row.stage,
+                "amount": open_deal_row.amount,
+                "items": [
+                    {
+                        "sku": it.get("sku") if isinstance(it, dict) else getattr(it, "sku", ""),
+                        "qty": it.get("qty", 1) if isinstance(it, dict) else getattr(it, "qty", 1),
+                    }
+                    for it in (open_deal_row.items or [])
+                ],
+            }
     if not registered:
         analysis = {
             "intent": "NOT_A_CUSTOMER",
@@ -186,8 +226,97 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         user_instruction=req.user_instruction,
     )
 
+    # Build deal context from complete chat history
+    recent_msgs = [{"sender": m.sender, "text": m.text} for m in (req.recent_messages or [])]
+    deal_ctx = build_deal_context(
+        customer=req.customer,
+        phone=req.phone or "",
+        messages=recent_msgs,
+        current_message=req.message,
+        products=state["products"],
+        open_deal=open_deal_dict,
+        cached_pending_offer=cached_pending,
+    )
+    deal_action = next_best_action(
+        deal_ctx,
+        products=state["products"],
+        goal=req.goal,
+        framework=state["company"]["framework"],
+    )
+    sales_replies = generate_fallback_replies(deal_ctx, deal_action, state["products"])
+
     fallback = deterministic_fallback_analysis(req.customer, req.phone or "", req.message, state, user_instruction=req.user_instruction or "")
     fallback["clientMemory"] = mem
+    fallback["stage"] = deal_action["stage"]
+    fallback["stageSteps"] = deal_action["stageSteps"]
+    fallback["stageIndex"] = deal_action["stageIndex"]
+    fallback["coachTip"] = deal_action["coachTip"]
+    fallback["chips"] = deal_action["chips"]
+    fallback["wants"] = deal_action["wants"]
+    fallback["missing"] = deal_action["missing"]
+    fallback["quotePreview"] = deal_action["quotePreview"]
+    fallback["compare"] = deal_action["compare"]
+    fallback["pendingOffer"] = deal_action["pendingOffer"]
+
+    if deal_action["stage"] == "CASUAL" or fallback.get("intent") == "CASUAL_CHAT":
+        fallback["intent"] = "CASUAL_CHAT"
+        fallback["extActionType"] = "NO_ACTION"
+        fallback["extBtnLabel"] = "💬 Insert Selected Reply"
+        fallback["amount"] = 0
+
+    elif deal_action["stage"] == "NEGOTIATING" or fallback.get("intent") == "DISCOUNT_REQUEST":
+        fallback["intent"] = "DISCOUNT_REQUEST"
+        fallback["extActionType"] = "SEND_COUNTER_OFFER"
+        fallback["extBtnLabel"] = deal_action["btnLabel"]
+        if deal_action.get("quotePreview"):
+            fallback["amount"] = deal_action["quotePreview"]["total"]
+            fallback["items"] = deal_action["quotePreview"]["items"]
+
+    elif deal_action["actionType"] == "OFFER_QUOTE":
+        fallback["intent"] = "BUYING_INQUIRY"
+        fallback["extActionType"] = "OFFER_QUOTE"
+        fallback["extBtnLabel"] = deal_action["btnLabel"]
+        fallback["extTitle"] = f"📄 Quotation Ready to Offer ({deal_action['wants']})"
+        fallback["extCheck"] = (
+            f"📋 Quotation Handshake:\n"
+            f"- Customer interested in: {deal_action['wants']}\n"
+            f"- Recommended step: Ask customer if they want an official quotation.\n"
+            f"- Once customer confirms (yes/ok), copilot advances to Quote Generation."
+        )
+        # Ensure disclaimer in drafts for buying inquiries
+        disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
+        draft_text = sales_replies[0]["text"]
+        if "Subject to stock" not in draft_text:
+            draft_text += disclaimer_str
+        fallback["extDraft"] = draft_text
+        fallback["replyOptions"] = sales_replies
+        if deal_action.get("quotePreview"):
+            fallback["amount"] = deal_action["quotePreview"]["total"]
+            fallback["items"] = deal_action["quotePreview"]["items"]
+
+    elif deal_action["actionType"] == "CREATE_QUOTE":
+        fallback["intent"] = "BUYING_INQUIRY"
+        fallback["extActionType"] = "CREATE_QUOTE"
+        fallback["extBtnLabel"] = deal_action["btnLabel"]
+        fallback["extTitle"] = f"🚀 Quotation Confirmed ({deal_action['wants']})"
+        fallback["extCheck"] = (
+            f"✅ Quotation Agreed:\n"
+            f"- Items: {deal_action['wants']}\n"
+            f"- Total: RM {deal_action['amount']:,}\n"
+            f"- Ready to generate official deal and export PDF."
+        )
+        fallback["replyOptions"] = sales_replies
+        fallback["extDraft"] = sales_replies[0]["text"]
+        if deal_action.get("quotePreview"):
+            fallback["amount"] = deal_action["quotePreview"]["total"]
+            fallback["items"] = deal_action["quotePreview"]["items"]
+
+    elif deal_action["stage"] in ("RECOMMEND", "DISCOVERY"):
+        fallback["intent"] = "PRODUCT_CONSULTATION"
+        fallback["extActionType"] = "REPLY_ONLY"
+        fallback["extBtnLabel"] = deal_action["btnLabel"]
+        fallback["replyOptions"] = sales_replies
+        fallback["extDraft"] = sales_replies[0]["text"]
 
     strict_mode = bool(os.getenv("CASHCHASE_STRICT_AI", "0") in ("1", "true", "True") or req.strict_ai)
 
@@ -218,8 +347,26 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         parsed = extract_json_from_llm(llm_res["clean_content"]) or {}
         merged = {**fallback, **{k: v for k, v in parsed.items() if v is not None and v != ""}, "clientMemory": mem}
 
+        merged["stage"] = fallback.get("stage", deal_action["stage"])
+        merged["stageSteps"] = fallback.get("stageSteps", deal_action["stageSteps"])
+        merged["stageIndex"] = fallback.get("stageIndex", deal_action["stageIndex"])
+        merged["coachTip"] = parsed.get("coachTip") or fallback.get("coachTip", deal_action["coachTip"])
+        merged["chips"] = fallback.get("chips", deal_action["chips"])
+        merged["wants"] = fallback.get("wants", deal_action["wants"])
+        merged["missing"] = fallback.get("missing", deal_action["missing"])
+        merged["quotePreview"] = fallback.get("quotePreview", deal_action["quotePreview"])
+        merged["compare"] = fallback.get("compare", deal_action["compare"])
+        merged["pendingOffer"] = fallback.get("pendingOffer", deal_action["pendingOffer"])
+
         # Code, not the AI, decides the action and prices the quote
-        if fallback.get("intent") == "PRODUCT_CONSULTATION" or parsed.get("intent") == "PRODUCT_CONSULTATION":
+        if fallback.get("extActionType") == "OFFER_QUOTE":
+            merged["intent"] = "BUYING_INQUIRY"
+            merged["extActionType"] = "OFFER_QUOTE"
+            merged["extBtnLabel"] = fallback.get("extBtnLabel")
+            if fallback.get("quotePreview"):
+                merged["amount"] = fallback["quotePreview"]["total"]
+                merged["items"] = fallback["quotePreview"]["items"]
+        elif fallback.get("intent") == "PRODUCT_CONSULTATION" or parsed.get("intent") == "PRODUCT_CONSULTATION":
             merged["intent"] = "PRODUCT_CONSULTATION"
             merged["extActionType"] = "REPLY_ONLY"
             merged["extBtnLabel"] = fallback.get("extBtnLabel", "💬 Reply with Product Consultation")
@@ -313,6 +460,19 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
             log(s, f"[{role}] Sent WhatsApp message to {req.customer}.")
         return ActionResponse(status="ok", state=build_state(role))
 
+    if action == "OFFER_QUOTE":
+        with session_scope() as s:
+            mem_row = _find_client_memory(s, req.customer, req.phone or "")
+            if mem_row:
+                try:
+                    data = json.loads(mem_row.cached_analysis_json or "{}")
+                except Exception:
+                    data = {}
+                data["pendingOffer"] = "QUOTE"
+                mem_row.cached_analysis_json = json.dumps(data)
+            log(s, f"[{role}] Offered formal quotation to {req.customer}.")
+        return ActionResponse(status="ok", state=build_state(role))
+
     if action == "CREATE_QUOTE":
         deal_items = req.items
         if not deal_items:
@@ -328,6 +488,15 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
             quote=True,
         )
         res = api_create_deal(create_req)
+        with session_scope() as s:
+            mem_row = _find_client_memory(s, req.customer, req.phone or "")
+            if mem_row and mem_row.cached_analysis_json:
+                try:
+                    data = json.loads(mem_row.cached_analysis_json)
+                    data.pop("pendingOffer", None)
+                    mem_row.cached_analysis_json = json.dumps(data)
+                except Exception:
+                    pass
         return ActionResponse(status="ok", created_id=res.created_id, created_deal_id=res.created_id, state=res.state)
 
     if action in ("SEND_COUNTER_OFFER", "ASK_OWNER"):

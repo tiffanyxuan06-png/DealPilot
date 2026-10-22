@@ -192,6 +192,102 @@
           </details>
         </div>
 
+        <!-- Sales Stage Stepper -->
+        <div class="ext-stage-stepper flex items-center justify-between gap-1 mt-3 px-2 py-1.5 bg-[#F0F4FA] rounded-xl text-[10px] font-semibold text-[#5B6B85]">
+          ${(activeChat.stageSteps || ['Discovery', 'Recommend', 'Ready to Quote', 'Quote Confirmed', 'Closed']).map((step, sIdx) => {
+            const curIdx = typeof activeChat.stageIndex === 'number' ? activeChat.stageIndex : 0;
+            const isCur = sIdx === curIdx;
+            const isDone = sIdx < curIdx;
+            return `
+              <span class="flex items-center gap-1 px-2 py-0.5 rounded-md ${isCur ? 'bg-[#0152FC] text-white shadow-xs font-bold' : (isDone ? 'text-emerald-700 bg-emerald-50' : 'opacity-60')}">
+                ${isDone ? '✓ ' : ''}${escapeHtmlText(step)}
+              </span>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- AI Coach Tip Advice -->
+        ${activeChat.coachTip ? `
+          <div class="mt-2.5 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/70 flex items-start gap-2">
+            <span class="text-sm leading-none mt-0.5 shrink-0">💡</span>
+            <div class="text-xs text-amber-950 leading-relaxed min-w-0">
+              <span class="font-bold text-amber-900 block text-[11px] uppercase tracking-wider mb-0.5">Sales Coach Advice</span>
+              ${escapeHtmlText(activeChat.coachTip)}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Quick Action Chips -->
+        ${Array.isArray(activeChat.chips) && activeChat.chips.length > 0 ? `
+          <div class="flex flex-wrap gap-1.5 mt-2.5">
+            ${activeChat.chips.map(chip => `
+              <button onclick="handleSalesChipClick('${escapeHtmlText(chip.id)}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-[#0152FC] hover:bg-blue-100 hover:text-[#042970] transition-colors border border-blue-200/50 flex items-center gap-1 cursor-pointer">
+                ${escapeHtmlText(chip.label)}
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Catalog Compare Table -->
+        ${activeChat.compare && activeChat.compare.rows && activeChat.compare.rows.length > 0 ? `
+          <div class="mt-3 p-3 rounded-xl bg-white border border-[#DCE4F2] shadow-xs">
+            <div class="text-xs font-bold text-[#042970] mb-2 flex items-center justify-between">
+              <span>⚖️ Model Comparison (Catalog Truth)</span>
+              <span class="text-[10px] text-[#5B6B85] font-normal">Side-by-side</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-[11px] text-left">
+                <thead>
+                  <tr class="border-b border-[#EAEFF8] text-[#5B6B85]">
+                    <th class="py-1 pr-2">Model</th>
+                    <th class="py-1 px-1.5">Price</th>
+                    <th class="py-1 px-1.5">HP</th>
+                    <th class="py-1 px-1.5">Energy</th>
+                    <th class="py-1 pl-1.5">Best For</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#F0F4FA]">
+                  ${activeChat.compare.rows.map(r => `
+                    <tr>
+                      <td class="py-1.5 pr-2 font-semibold text-[#042970]">${escapeHtmlText(r.name || r.sku)}</td>
+                      <td class="py-1.5 px-1.5 font-bold text-emerald-600">${escapeHtmlText(r.price)}</td>
+                      <td class="py-1.5 px-1.5 text-[#324564]">${escapeHtmlText(r.hp)}</td>
+                      <td class="py-1.5 px-1.5 text-[#5B6B85]">${escapeHtmlText(r.energy)}</td>
+                      <td class="py-1.5 pl-1.5 text-[#5B6B85]">${escapeHtmlText(r.best_for)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Quote Preview Card -->
+        ${activeChat.quotePreview && activeChat.quotePreview.items && activeChat.quotePreview.items.length > 0 ? `
+          <div class="mt-3 p-3 rounded-xl bg-blue-50/40 border border-blue-200/80 shadow-xs">
+            <div class="text-xs font-bold text-[#042970] mb-2 flex items-center justify-between">
+              <span>📄 Quotation Preview</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800">40% Deposit</span>
+            </div>
+            <div class="space-y-1.5 text-xs text-[#324564] border-b border-blue-200/50 pb-2 mb-2">
+              ${activeChat.quotePreview.items.map(it => `
+                <div class="flex items-center justify-between">
+                  <span class="truncate pr-2">${it.qty}x ${escapeHtmlText(it.name)}</span>
+                  <span class="font-semibold text-[#042970] shrink-0">RM ${Number(it.lineTotal).toLocaleString()}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="flex items-center justify-between text-xs font-bold text-[#042970]">
+              <span>Total Price</span>
+              <span class="text-sm text-emerald-600">RM ${Number(activeChat.quotePreview.total).toLocaleString()}</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-[#5B6B85] mt-1">
+              <span>Deposit to confirm slot (40%)</span>
+              <span class="font-semibold text-[#0152FC]">RM ${Number(activeChat.quotePreview.depositRm).toLocaleString()}</span>
+            </div>
+          </div>
+        ` : ''}
+
         <!-- What the customer wants + what CashChase checked -->
         <div class="pt-4 border-t border-[#DCE4F2]">
           <div class="flex items-center justify-between gap-2">
@@ -414,7 +510,7 @@
       ];
     }
 
-    async function triggerLiveAIForChat(chat, instruction = '') {
+    async function triggerLiveAIForChat(chat, instruction = '', goal = '') {
       if (!chat) return;
       if (chat.isAILoading) {
         showToast('⏳ AI is already analyzing the chat, please wait...');
@@ -454,6 +550,7 @@
             phone: chat.phone,
             message: lastMsg,
             userInstruction: instruction,
+            goal: goal || null,
             role: currentRole,
             smePreset: currentSME,
             companyName: st.name,
@@ -476,6 +573,16 @@
             chat.extTitle = a.extTitle || chat.extTitle;
             chat.extCheck = a.extCheck || chat.extCheck;
             chat.extDraft = a.extDraft || chat.extDraft;
+            chat.stage = a.stage || chat.stage;
+            chat.stageSteps = a.stageSteps || chat.stageSteps;
+            chat.stageIndex = (typeof a.stageIndex === 'number') ? a.stageIndex : chat.stageIndex;
+            chat.coachTip = a.coachTip || chat.coachTip;
+            chat.chips = a.chips || chat.chips;
+            chat.wants = a.wants || chat.wants;
+            chat.missing = a.missing || chat.missing;
+            chat.quotePreview = a.quotePreview || chat.quotePreview;
+            chat.compare = a.compare || chat.compare;
+            chat.pendingOffer = a.pendingOffer || chat.pendingOffer;
             if (Array.isArray(a.replyOptions) && a.replyOptions.length > 0) {
               chat.replyOptions = a.replyOptions;
             }
@@ -605,6 +712,7 @@
           const staffDeposit = !usesBackend() && chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
           if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
             const msgs = {
+              OFFER_QUOTE: `Quotation offer sent to ${chat.customer}! Awaiting customer confirmation.`,
               CREATE_QUOTE: `Quote created for ${chat.customer} and logged in Pipeline!`,
               CREATE_QUOTE_HOLD: `Quote created for ${chat.customer} and logged in Pipeline!`,
               SEND_COUNTER_OFFER: `Counter-offer discount sent to ${chat.customer}!`,
@@ -616,12 +724,13 @@
               SAVE_LHDN_TIN: `Saved LHDN TIN ${chat.tin || ''} for ${chat.customer}!`
             };
             chat.done = true;
+            const execItems = (chat.quotePreview && chat.quotePreview.items) ? chat.quotePreview.items : (chat.items || null);
             backendAction('/api/whatsapp/execute', {
               customer: chat.customer,
               phone: (chat.phone || '').split(' · ')[0],
               actionType: chat.extActionType,
               dealId: chat.dealId || null,
-              items: chat.items || null,
+              items: execItems,
               sku: chat.sku || item1.sku,
               qty: chat.qty || 1,
               discount: chat.discount || 0,
@@ -632,7 +741,12 @@
               tin: chat.tin || null,
               ssmBrn: chat.ssmBrn || null,
               role: currentRole
-            }, msgs[chat.extActionType] || `${chat.extTitle || 'Action'} executed!`).then(d => { if (!d) chat.done = false; });
+            }, msgs[chat.extActionType] || `${chat.extTitle || 'Action'} executed!`).then(d => {
+              if (!d) { chat.done = false; return; }
+              if (chat.extActionType === 'CREATE_QUOTE' && typeof openPdfFromChat === 'function') {
+                openPdfFromChat();
+              }
+            });
             return;
           }
 
@@ -1024,3 +1138,11 @@
       renderWhatsAppView();
       showToast('Photo items confirmed! Review the quotation on the right and click Send Quote.');
     }
+
+
+window.handleSalesChipClick = function(chipId) {
+  const st = getState();
+  const chat = st.chats[currentChatIndex];
+  if (!chat) return;
+  triggerLiveAIForChat(chat, '', chipId);
+};

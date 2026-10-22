@@ -712,44 +712,33 @@ let currentRole = 'OWNER';
     function applyBackendState(data) {
       if (!data || !data.company) return;
       backendPreset = (data.company.preset && smeProfiles[data.company.preset]) ? data.company.preset : 'aircond';
-      const st = smeProfiles[backendPreset];
+      const st = smeProfiles[backendPreset] || smeProfiles.aircond;
       st.name = data.company.name;
       if (data.company.framework) st.framework = data.company.framework;
-      if (typeof data.company.cashOnHand === 'number') st.cashOnHand = data.company.cashOnHand;
+      st.followUpHours = data.company.followUpHours || 48;
+      st.marginFloorPct = data.company.marginFloorPct || 20.0;
 
-      st.deals = data.deals || st.deals || [];
-      st.products = data.products || st.products || [];
+      st.deals = data.deals || [];
+      st.products = data.products || [];
+      st.reps = data.reps || [];
+      st.pipeline = data.pipeline || {};
+      st.customers = data.customers || [];
+      st.clientMemories = data.clientMemories || {};
+      st.logs = data.logs || [];
 
-      // Map backend products and compute active quote holds
-      if (Array.isArray(data.products) && data.products.length > 0) {
-        const holdsBySku = {};
-        (data.deals || []).forEach(d => {
-          if (d.stage === 'QUOTED' || d.stage === 'FOLLOW_UP') {
-            (d.items || []).forEach(it => {
-              const sku = (it.sku || '').toUpperCase();
-              holdsBySku[sku] = (holdsBySku[sku] || 0) + (it.qty || 1);
-            });
-          }
+      backendPermissions = data.permissions || backendPermissions;
+      backendApprovals = data.approvals || [];
+      backendLogs = data.logs || [];
+
+      // Link active deals to WhatsApp chats
+      if (Array.isArray(data.deals)) {
+        (st.chats || []).forEach(chat => {
+          const openDeal = data.deals.find(d => d.customer === chat.customer && (d.stage === 'QUOTED' || d.stage === 'FOLLOW_UP'));
+          if (openDeal) chat.dealId = openDeal.id;
         });
-        st.stock = data.products.map(p => {
-          const sku = (p.sku || '').toUpperCase();
-          const existing = (st.stock || []).find(s => s.sku.toUpperCase() === sku);
-          const onHold = holdsBySku[sku] || 0;
-          return {
-            sku: p.sku,
-            name: p.name,
-            onHand: existing ? existing.onHand : 15,
-            onHold: onHold,
-            holdNote: onHold > 0 ? `${onHold} units in active quotes` : '-',
-            unitCost: (p.unit_cost !== null && p.unit_cost !== undefined) ? p.unit_cost : (existing ? existing.unitCost : Math.round(p.sell_price * 0.7)),
-            sellPrice: p.sell_price
-          };
-        });
-      }
 
-      // Map backend deals to invoices for Overview, Priority Queue & PDF Preview
-      if (Array.isArray(data.deals) && data.deals.length > 0) {
-        const mappedDeals = data.deals.map(d => {
+        // Compatibility mapping for PDF / invoice preview modal
+        st.invoices = data.deals.map(d => {
           const isWon = d.stage === 'WON';
           const isLost = d.stage === 'LOST';
           const itemsSummary = (d.items || []).map(i => `${i.qty}x ${i.name || i.sku}`).join(', ') || 'General Order';
@@ -757,31 +746,19 @@ let currentRole = 'OWNER';
           return {
             id: isWon ? (d.order_no || d.id) : d.id,
             dealId: d.id,
-            type: isWon ? 'PAID' : (d.paused ? 'AFTERSALES' : 'QUOTE_HOLD'),
+            type: isWon ? 'SALES_ORDER' : 'QUOTATION',
             party: d.customer,
             phone: d.phone || '-',
             itemsText: itemsSummary,
             amount: d.amount || 0,
-            status: isWon ? 'PAID' : (isLost ? 'LOST' : (d.paused ? 'AFTERSALES_PAUSED' : (d.stage === 'FOLLOW_UP' ? 'HOLD_EXPIRED' : 'ON_HOLD_48H'))),
+            status: isWon ? 'PAID' : (isLost ? 'LOST' : (d.paused ? 'AFTERSALES_PAUSED' : (d.stage === 'FOLLOW_UP' ? 'FOLLOW_UP_DUE' : 'QUOTED'))),
             lhdn: custTin ? `🟢 LHDN TIN: ${custTin}` : '🟢 LHDN Ready',
             claimedAmount: d.deposit_amount || d.amount,
             receiptRef: d.deposit_ref || '-'
           };
         });
-        const supplierBills = (st.invoices || []).filter(i => i.type === 'SUPPLIER_COST');
-        st.invoices = [...mappedDeals, ...supplierBills];
-
-        // Link active deals to chats
-        (st.chats || []).forEach(chat => {
-          const openDeal = data.deals.find(d => d.customer === chat.customer && (d.stage === 'QUOTED' || d.stage === 'FOLLOW_UP'));
-          if (openDeal) chat.dealId = openDeal.id;
-        });
       }
 
-      if (data.logs) st.logs = data.logs;
-      st.customers = data.customers || [];
-      backendPermissions = data.permissions || backendPermissions;
-      backendApprovals = data.approvals || [];
       lastBackendSignature = backendSignature(data);
     }
 
@@ -790,13 +767,14 @@ let currentRole = 'OWNER';
         data.company,
         data.products,
         data.deals,
+        data.reps,
+        data.pipeline,
         data.logs,
         data.permissions,
         data.approvals
       ]);
     }
 
-    // Permissions set by the Owner in Settings → Team & Permissions (enforced by the backend).
     let backendPermissions = null;
     let backendApprovals = [];
 

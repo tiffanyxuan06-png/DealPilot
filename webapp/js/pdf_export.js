@@ -1,6 +1,6 @@
-async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeeper_Ledger.xlsx') {
+async function triggerRealXlsxOrCsvDownload(targetFileName = 'Sales_Orders.csv') {
       try {
-        const res = await fetch(`${BACKEND_API_BASE}/api/export/xlsx?role=${encodeURIComponent(currentRole)}`);
+        const res = await fetch(`${BACKEND_API_BASE}/api/export/orders.csv?role=${encodeURIComponent(currentRole)}`);
         if (res.status === 403) {
           const data = await res.json().catch(() => ({}));
           showToast(`🔒 ${data.detail || 'Staff are not allowed to export Excel.'}`);
@@ -16,7 +16,7 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
           a.click();
           a.remove();
           URL.revokeObjectURL(url);
-          showToast(`📥 Downloaded real 5-sheet Excel workbook: ${targetFileName}!`);
+          showToast(`📥 Downloaded real Sales Orders CSV: ${targetFileName}!`);
           return;
         }
       } catch (err) {
@@ -58,9 +58,9 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
     function exportExcelDemo() {
       askUserConfirm(
         `Export Bookkeeper Ledger (.xlsx)`,
-        `Download full Cash, Stock, Quote Holds, Client Memory & LHDN e-Invoice ledger as CashChase_Bookkeeper_Ledger.xlsx?`,
+        `Download full Cash, Stock, Quote Holds, Client Memory & LHDN e-Invoice ledger as Sales_Orders.csv?`,
         () => {
-          triggerRealXlsxOrCsvDownload('CashChase_Bookkeeper_Ledger.xlsx');
+          triggerRealXlsxOrCsvDownload('Sales_Orders.csv');
         },
         '📥 Download Excel (.xlsx)'
       );
@@ -127,7 +127,7 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
         async () => {
           const pdfFileName = `${cleanId}_Official_Document.pdf`;
           try {
-            const res = await fetch(`${BACKEND_API_BASE}/api/invoices/${encodeURIComponent(cleanId)}/pdf`);
+            const res = await fetch(`${BACKEND_API_BASE}/api/deals/${encodeURIComponent(cleanId)}/pdf`);
             if (res.ok) {
               const blob = await res.blob();
               const url = URL.createObjectURL(blob);
@@ -337,3 +337,12 @@ async function triggerRealXlsxOrCsvDownload(targetFileName = 'CashChase_Bookkeep
         '📥 Download PDF'
       );
     }
+
+
+function openPdfForDeal(id) {
+  openPdfForInvoice(id);
+}
+
+function downloadWonOrdersCsv() {
+  triggerRealXlsxOrCsvDownload('Sales_Orders.csv');
+}

@@ -1,3 +1,4 @@
+import json
 """Loads the demo businesses in backend/schema/seeds/*.json into an empty database.
 
 Every file is validated by the Pydantic models below, so a typo fails with a clear message
@@ -28,6 +29,7 @@ class SeedProduct(BaseModel):
     name: str
     sell_price: int = Field(ge=1)
     unit_cost: int = Field(ge=0)
+    specs: Dict[str, Any] = Field(default_factory=dict)
 
 
 class SeedRep(BaseModel):
@@ -147,7 +149,16 @@ def seed_business(session: Session, preset: str) -> None:
     ts = now_time_str()
 
     write_settings(session, seed.settings)
-    session.add_all(orm.Product(**p.model_dump()) for p in seed.products)
+    session.add_all(
+        orm.Product(
+            sku=p.sku,
+            name=p.name,
+            sell_price=p.sell_price,
+            unit_cost=p.unit_cost,
+            specs_json=json.dumps(p.specs or {}),
+        )
+        for p in seed.products
+    )
     reps = {r.name: orm.Rep(name=r.name, commission_pct=r.commission_pct) for r in seed.reps}
     session.add_all(reps.values())
     session.flush()  # gives the reps their ids

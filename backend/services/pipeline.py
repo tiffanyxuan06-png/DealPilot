@@ -168,7 +168,13 @@ def build_state(role: Optional[str] = None) -> StatePayload:
         product_rows = session.scalars(select(orm.Product).order_by(orm.Product.sku)).all()
         costs = {p.sku: p.unit_cost for p in product_rows}
         products = [
-            entities.Product(sku=p.sku, name=p.name, sell_price=p.sell_price, unit_cost=p.unit_cost if is_owner else None)
+            entities.Product(
+                sku=p.sku,
+                name=p.name,
+                sell_price=p.sell_price,
+                unit_cost=p.unit_cost if is_owner else None,
+                specs=p.specs,
+            )
             for p in product_rows
         ]
         deals = [

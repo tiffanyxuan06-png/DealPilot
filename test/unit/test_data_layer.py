@@ -149,7 +149,7 @@ def test_whatsapp_tin_approval_replays_and_matches_any_case(client):
 # --- Every JSON route is described by a Pydantic model in /docs ---
 
 # Free-form on purpose: the old copilot's AI output (Phase 3 gives it a model) and FastAPI's own 422 error model.
-ALLOWED_FREE_FORM = {"WhatsAppAnalyzeResponse/properties/analysis", "ValidationError/properties/ctx"}
+ALLOWED_FREE_FORM = {"WhatsAppAnalyzeResponse/properties/analysis", "ValidationError/properties/ctx", "Product/properties/specs"}
 
 
 def _free_form(schema, path, out):
