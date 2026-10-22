@@ -13,6 +13,104 @@
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
+  <!-- ===================================================================== -->
+  <!-- SIGN IN (prototype: demo accounts, no real authentication yet)        -->
+  <!-- ===================================================================== -->
+  <div id="login-screen" class="login-screen" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <div class="login-shell">
+
+      <!-- Brand side -->
+      <section class="login-brand" aria-hidden="true">
+        <div class="flex items-center gap-3">
+          <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto bg-white rounded-xl p-1" />
+          <div>
+            <div class="font-bold text-lg leading-tight text-white">CashChase</div>
+            <div class="text-xs text-[#01E3FB]">for Orbyte SME</div>
+          </div>
+        </div>
+
+        <div class="login-brand-body">
+          <img src="img/mascot-wave.png" alt="" width="295" height="320" class="w-32 h-auto m-wave" />
+          <h2 class="text-2xl md:text-3xl font-bold text-white leading-tight mt-4">Cash and stock,<br />in one place.</h2>
+          <ul class="mt-5 space-y-2.5 text-sm text-white/85">
+            <li class="flex items-center gap-2.5"><svg class="w-4 h-4 text-[#01E3FB] shrink-0"><use href="#i-check"/></svg>See what customers owe you today</li>
+            <li class="flex items-center gap-2.5"><svg class="w-4 h-4 text-[#01E3FB] shrink-0"><use href="#i-check"/></svg>Hold stock for quotes, release it on time</li>
+            <li class="flex items-center gap-2.5"><svg class="w-4 h-4 text-[#01E3FB] shrink-0"><use href="#i-check"/></svg>Reply on WhatsApp with AI, you approve</li>
+          </ul>
+        </div>
+
+        <p class="text-xs text-white/60">Orbyte Smart SME Workspace</p>
+      </section>
+
+      <!-- Form side -->
+      <section class="login-form-side">
+        <div class="w-full max-w-sm">
+          <div class="flex items-center gap-3 md:hidden mb-6">
+            <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto" />
+            <span class="font-bold text-lg text-[#042970]">CashChase</span>
+          </div>
+
+          <h1 id="login-title" class="text-2xl font-bold text-[#042970]">Sign in</h1>
+          <p class="cc-sub mt-1">Welcome back. Sign in to your workspace.</p>
+
+          <form id="login-form" class="mt-6 space-y-4" novalidate onsubmit="handleLogin(event)">
+            <div>
+              <label for="login-email" class="cc-label">Email</label>
+              <input id="login-email" type="email" autocomplete="username" placeholder="you@company.my" class="cc-input" aria-describedby="login-email-error" />
+              <p id="login-email-error" class="login-error" hidden></p>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between">
+                <label for="login-password" class="cc-label">Password</label>
+                <button type="button" onclick="forgotPassword()" class="text-xs font-semibold text-[#0152FC] hover:underline mb-1.5">Forgot password?</button>
+              </div>
+              <div class="relative">
+                <input id="login-password" type="password" autocomplete="current-password" placeholder="At least 6 characters" class="cc-input !pr-12" aria-describedby="login-password-error" />
+                <button type="button" id="login-toggle-pw" onclick="togglePasswordVisibility()" class="login-eye" aria-label="Show password" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p id="login-password-error" class="login-error" hidden></p>
+            </div>
+
+            <label class="flex items-center gap-2.5 text-sm text-[#324564] cursor-pointer">
+              <input id="login-remember" type="checkbox" class="w-4 h-4 accent-[#0152FC]" />
+              Keep me signed in on this device
+            </label>
+
+            <p id="login-form-error" class="login-error !mt-0 p-3 rounded-xl bg-red-50 border border-red-200" role="alert" hidden></p>
+
+            <button id="login-submit" type="submit" class="cc-btn cc-btn-primary cc-btn-lg w-full">Sign in</button>
+          </form>
+
+          <div class="flex items-center gap-3 my-6 text-xs text-[#5B6B85]">
+            <span class="flex-1 h-px bg-[#DCE4F2]"></span>Or try the demo<span class="flex-1 h-px bg-[#DCE4F2]"></span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" onclick="demoLogin('OWNER')" class="login-demo">
+              <span class="w-9 h-9 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center shrink-0">EH</span>
+              <span class="min-w-0 text-left">
+                <span class="block text-sm font-semibold text-[#042970]">Owner</span>
+                <span class="block text-xs text-[#5B6B85] truncate">Encik Hafiz</span>
+              </span>
+            </button>
+            <button type="button" onclick="demoLogin('STAFF')" class="login-demo">
+              <span class="w-9 h-9 rounded-full bg-[#042970] text-[#01E3FB] font-bold text-xs flex items-center justify-center shrink-0">AI</span>
+              <span class="min-w-0 text-left">
+                <span class="block text-sm font-semibold text-[#042970]">Staff</span>
+                <span class="block text-xs text-[#5B6B85] truncate">Aina</span>
+              </span>
+            </button>
+          </div>
+
+          <p class="text-xs text-[#5B6B85] mt-6">Prototype: use a demo account above, or sign in with <span class="font-mono">hafiz@sejukjaya.my</span> or <span class="font-mono">aina@sejukjaya.my</span> and any password of 6+ characters.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <!-- Soft drifting glow behind every section -->
   <div class="ocean" aria-hidden="true">
     <span class="g-sky"></span><span class="g-blue"></span><span class="g-cyan"></span><span class="g-blue"></span>
@@ -45,6 +143,7 @@
       <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
       <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
       <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/></symbol>
     </defs>
   </svg>
@@ -126,6 +225,7 @@
 
       <div class="flex items-center gap-2">
         <span class="md:hidden"><button onclick="openSettingsModal()" class="cc-close" aria-label="Settings"><svg><use href="#i-gear"/></svg></button></span>
+        <button onclick="logout()" class="cc-close border border-[#DCE4F2] bg-white/80 i-swipe" aria-label="Sign out" title="Sign out"><svg><use href="#i-logout"/></svg></button>
         <button id="role-btn" onclick="toggleRole()" class="flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-white/80 hover:bg-[#E6EEFF] border border-[#DCE4F2] transition" title="Switch between Owner and Staff view">
           <span id="role-avatar" class="w-7 h-7 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center">EH</span>
           <span class="text-left leading-tight">
@@ -1045,5 +1145,6 @@
   <script src="js/pdf_export.js"></script>
   <script src="js/main.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/auth.js"></script>
 </body>
 </html>
