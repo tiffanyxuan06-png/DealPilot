@@ -194,7 +194,12 @@
 
         <!-- What the customer wants + what CashChase checked -->
         <div class="pt-4 border-t border-[#DCE4F2]">
-          <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
+            <button onclick="triggerLiveAIForChat(getState().chats[currentChatIndex])" class="text-[11px] font-semibold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer" title="Query LM Studio to re-analyze this chat with live AI">
+              ⚡ Re-analyze with AI
+            </button>
+          </div>
           <div class="font-semibold text-[15px] text-[#042970] mt-0.5">${escapeHtmlText(plain(activeChat.extTitle))}</div>
           <ul class="mt-2 space-y-1 text-sm text-[#324564]">${checkLines}</ul>
         </div>
@@ -307,7 +312,7 @@
         </div>
       `;
 
-      updatePromptPreview(activeChat);
+      if (typeof updatePromptPreview === 'function') { try { updatePromptPreview(activeChat); } catch(e){ console.warn('updatePromptPreview error:', e); } }
     }
 
     function setPaymentSeen(seen) {
@@ -421,7 +426,7 @@
         : '';
 
       if (!lastMsg && !instruction) {
-        renderWhatsAppView();
+        try { renderWhatsAppView(); } catch (e) {}
         return;
       }
 
@@ -433,7 +438,11 @@
         inputBox.placeholder = '🤖 Generating live reply with AI Copilot (~10–15s)...';
         inputBox.disabled = true;
       }
-      renderWhatsAppView();
+      try {
+        renderWhatsAppView();
+      } catch (e) {
+        console.warn('renderWhatsAppView pre-fetch error:', e);
+      }
 
       const startTime = Date.now();
       try {
@@ -497,7 +506,7 @@
             agentInspectorData.whatsapp.prompt = data.raw_prompt;
             agentInspectorData.whatsapp.output = data.raw_llm_output || JSON.stringify(data.analysis, null, 2);
             if (typeof currentInspectorAgent !== 'undefined' && currentInspectorAgent === 'whatsapp' && typeof renderAgentInspector === 'function') {
-              renderAgentInspector();
+              try { renderAgentInspector(); } catch(e){}
             }
           }
           showToast(`🤖 Live reply generated via LM Studio (${data.model_used || 'qwen2.5-3b-instruct'}) in ${elapsedSec}s!`);
@@ -518,8 +527,14 @@
           inputBox.placeholder = 'Type a message (or click the Big Button on the right)...';
           if (opts[selIdx]) inputBox.value = opts[selIdx].text;
         }
-        if (typeof updatePromptPreview === 'function') updatePromptPreview(chat);
-        renderWhatsAppView();
+        if (typeof updatePromptPreview === 'function') {
+          try { updatePromptPreview(chat); } catch (e) { console.warn('updatePromptPreview error:', e); }
+        }
+        try {
+          renderWhatsAppView();
+        } catch (e) {
+          console.warn('renderWhatsAppView error:', e);
+        }
       }
     }
 

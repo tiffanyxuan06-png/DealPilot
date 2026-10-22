@@ -286,7 +286,7 @@ def _add_tin_request(session: Session, analysis: Dict[str, Any], customer: str) 
     row = get_customer(session, customer)
     if row is not None and row.tin:
         return
-    if any("LHDN TIN" in str(o.get("label", "")) for o in analysis["replyOptions"] if isinstance(o, dict)):
+    if any("TIN" in str(o.get("label", "")) or "TIN" in str(o.get("text", "")) for o in analysis["replyOptions"] if isinstance(o, dict)):
         return
     company = load_business(session).company_name or "us"
     analysis["replyOptions"].append({"label": "🧾 Ask for LHDN e-Invoice TIN", "text": tin_request_text(customer, company)})

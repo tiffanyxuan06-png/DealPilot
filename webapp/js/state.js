@@ -968,7 +968,7 @@ let currentRole = 'OWNER';
     function updateFrameworkText(val) {
       getState().framework = val;
       const st = getState();
-      updatePromptPreview(st.chats[currentChatIndex]);
+      if (typeof updatePromptPreview === 'function') { try { updatePromptPreview(st.chats[currentChatIndex]); } catch(e){} }
     }
 
     const presetFrameworks = {
@@ -989,7 +989,7 @@ let currentRole = 'OWNER';
           const fwEl = document.getElementById('owner-framework-input');
           if (fwEl) fwEl.value = text;
           const st = getState();
-          updatePromptPreview(st.chats[currentChatIndex]);
+          if (typeof updatePromptPreview === 'function') { try { updatePromptPreview(st.chats[currentChatIndex]); } catch(e){} }
           showToast('Applied 1-Click Industry Labor Preset!');
         },
         '✅ Apply Preset'
@@ -1008,7 +1008,7 @@ let currentRole = 'OWNER';
           const fwEl = document.getElementById('owner-framework-input');
           if (fwEl) fwEl.value = generated;
           const st = getState();
-          updatePromptPreview(st.chats[currentChatIndex]);
+          if (typeof updatePromptPreview === 'function') { try { updatePromptPreview(st.chats[currentChatIndex]); } catch(e){} }
           showToast('Generated custom AI Labor Rules from your 1-sentence description!');
         },
         '✨ Confirm & Apply Rules'
@@ -1022,3 +1022,4 @@ let currentRole = 'OWNER';
       const clean = name.replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').replace(/^[^\w]+|[^\w]+$/g, '').trim();
       return clean || 'Boss';
     }
+    window.cleanCustomerName = cleanCustomerName;

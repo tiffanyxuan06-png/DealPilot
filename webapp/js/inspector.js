@@ -86,12 +86,12 @@ Analyze customer WhatsApp thread for defects/complaints:
     function updatePromptPreview(chat) {
       const st = getState();
       if (!chat) return;
-      const cleanCust = cleanCustomerName(chat.customer);
+      const cleanCust = typeof cleanCustomerName === 'function' ? cleanCustomerName(chat.customer) : (chat.customer || 'Boss');
       const fwEl = document.getElementById('owner-framework-input');
       if (fwEl && document.activeElement !== fwEl) {
-        fwEl.value = st.framework;
+        fwEl.value = st.framework || '';
       }
-      const catLines = st.stock.map(s =>
+      const catLines = (st.stock || []).map(s =>
         `- [SKU: ${s.sku}] ${s.name} | Cost: RM ${s.unitCost} | Sell: RM ${s.sellPrice} | Avail: ${s.onHand}`
       ).join('\n');
 
@@ -154,3 +154,8 @@ ${threadTurnsStr}`;
         renderAgentInspector();
       }
     }
+
+window.agentInspectorData = agentInspectorData;
+window.updatePromptPreview = updatePromptPreview;
+window.renderAgentInspector = renderAgentInspector;
+window.switchInspectorAgent = switchInspectorAgent;
