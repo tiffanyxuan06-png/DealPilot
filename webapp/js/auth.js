@@ -6,7 +6,9 @@
 // =========================================================================
 const DEMO_ACCOUNTS = {
   'hafiz@sejukjaya.my': { role: 'OWNER', name: 'Encik Hafiz' },
-  'aina@sejukjaya.my': { role: 'STAFF', name: 'Aina' }
+  'aina@sejukjaya.my': { role: 'STAFF', name: 'Aina' },
+  // Predefined admin (Owner rights). Demo only: never used when Supabase login is on.
+  'admin@cashchase.my': { role: 'OWNER', name: 'Admin', password: 'admin1234' }
 };
 const SESSION_KEY = 'cashchase-session';
 let sb = null;  // Supabase client when real login is on
@@ -134,7 +136,8 @@ async function checkLogin(email, password) {
       const account = DEMO_ACCOUNTS[email];
       if (!account) resolve({ error: "We couldn't find an account with that email. Try a demo account below." });
       else if (password.length < 6) resolve({ error: 'That password is too short.' });
-      else resolve({ account });
+      else if (account.password && password !== account.password) resolve({ error: 'Wrong email or password.' });
+      else resolve({ account: { role: account.role, name: account.name } });
     }, 600);
   });
 }
