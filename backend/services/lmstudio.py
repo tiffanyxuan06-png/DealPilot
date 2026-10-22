@@ -2,10 +2,9 @@ import json
 import re
 import urllib.request
 from typing import Any, Dict, List, Optional
-from backend.database import DEFAULT_LMSTUDIO_URL, DEFAULT_LMSTUDIO_API_KEY, DEFAULT_LMSTUDIO_MODEL
 
 
-def check_lmstudio_health(base_url: str, api_key: str = DEFAULT_LMSTUDIO_API_KEY) -> Dict[str, Any]:
+def check_lmstudio_health(base_url: str, api_key: str = "") -> Dict[str, Any]:
     url = base_url.rstrip("/") + "/models"
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -61,7 +60,7 @@ def call_lmstudio_chat(
     model: str,
     system_prompt: str,
     user_prompt: str,
-    api_key: str = DEFAULT_LMSTUDIO_API_KEY,
+    api_key: str = "",
     timeout: float = 25.0,
 ) -> Dict[str, Any]:
     health = check_lmstudio_health(base_url, api_key=api_key)

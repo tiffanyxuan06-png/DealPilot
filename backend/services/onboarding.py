@@ -8,8 +8,11 @@ import csv
 import io
 import json
 import re
-import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy.orm import Session
+
+from backend.db import orm
 
 HEADER_ALIASES = {
     "sku": ["sku", "code", "item code", "product code", "part no", "part number", "kod"],
@@ -122,32 +125,37 @@ def parse_price_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
     return items, warnings
 
 
-def apply_onboarding(conn: sqlite3.Connection, setup: Dict[str, Any], ts: str) -> None:
-    """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it."""
-    settings = {
-        "company_name": setup["companyName"],
-        "follow_up_hours": str(int(setup["followUpHours"])),
-        "margin_floor_pct": str(float(setup["marginFloorPct"])),
-        "sme_preset": "custom",
-        "framework": setup.get("framework") or "Quote from the price list. Prices are subject to stock availability.",
-        "onboarding_json": json.dumps(setup),
-    }
-    for k, v in settings.items():
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
-    for k in ("ssm", "tin"):
-        conn.execute("DELETE FROM settings WHERE key = ?", (k,))
-    # Quantities in the uploaded list are ignored: the sales agent quotes "subject to stock availability".
-    conn.executemany(
-        "INSERT INTO products (sku, name, sell_price, unit_cost) VALUES (?, ?, ?, ?)",
-        [(i["sku"], i["name"], i["sellPrice"], i["unitCost"]) for i in setup["items"]],
+def apply_onboarding(session: Session, setup: Dict[str, Any]) -> None:
+    """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it.
+
+    `setup` keys: companyName, followUpHours, marginFloorPct, items [{sku, name, unitCost, sellPrice}].
+    """
+    from backend.db.seed import CUSTOM_PRESET, load_defaults, write_settings
+    from backend.services.pipeline import log
+
+    defaults = load_defaults()
+    write_settings(
+        session,
+        {
+            "company_name": setup["companyName"],
+            "follow_up_hours": int(setup["followUpHours"]),
+            "margin_floor_pct": float(setup["marginFloorPct"]),
+            "sme_preset": CUSTOM_PRESET,
+            "onboarding_json": json.dumps(setup),
+        },
     )
-    # Deals need a rep: start with the Owner, who adds the sales team in Settings.
-    conn.execute("INSERT INTO reps (name, commission_pct) VALUES ('Owner', 0)")
-    conn.execute(
-        "INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)",
-        (
-            f"{ts} · [OWNER] Set up {setup['companyName']}: {len(setup['items'])} price-list items, "
-            f"follow-up after {int(setup['followUpHours'])}h, {float(setup['marginFloorPct']):g}% margin floor.",
-            ts,
-        ),
+    for key in ("ssm", "tin"):  # the demo company's registration details
+        row = session.get(orm.Setting, key)
+        if row:
+            session.delete(row)
+    # Quantities in the uploaded list are ignored: the sales agent quotes "subject to stock availability".
+    session.add_all(
+        orm.Product(sku=i["sku"], name=i["name"], sell_price=i["sellPrice"], unit_cost=i["unitCost"]) for i in setup["items"]
+    )
+    # Deals need a rep: start with the reps in defaults.json (the Owner); the sales team is added in Settings.
+    session.add_all(orm.Rep(name=r.name, commission_pct=r.commission_pct) for r in defaults.new_business_reps)
+    log(
+        session,
+        f"[OWNER] Set up {setup['companyName']}: {len(setup['items'])} price-list items, "
+        f"follow-up after {int(setup['followUpHours'])}h, {float(setup['marginFloorPct']):g}% margin floor.",
     )

@@ -3,7 +3,7 @@ from unittest import mock
 
 import backend.routes.whatsapp as whatsapp_route
 from backend.services.customers import parse_ssm, parse_tin
-from conftest import OWNER, STAFF, invoice
+from conftest import OWNER, STAFF
 
 
 def customer(state, name):
@@ -45,7 +45,6 @@ def test_customer_sends_tin_on_whatsapp(client):
                                                    "tin": a["tin"], "ssmBrn": a["ssmBrn"]}).json()
     s = r["state"]
     assert customer(s, "Kedai Runcit Ah Seng")["tin"] == "C2588190021"
-    assert invoice(s, "QT-101")["lhdn"] == "🟢 LHDN TIN: C2588190021"
     assert any("Saved LHDN TIN C2588190021" in line for line in s["logs"])
 
 

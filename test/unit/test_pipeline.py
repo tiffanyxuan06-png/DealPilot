@@ -1,7 +1,9 @@
 """Sales-agent data model (roadmap Phase 1): tables, demo seeds, follow-up timer and the state shape."""
 from datetime import datetime
 
-import backend.database as database
+from sqlalchemy import inspect, text
+
+from backend.db import get_engine, init_database
 from conftest import OWNER
 
 
@@ -64,12 +66,9 @@ def test_fnb_profile_and_software_removed(client):
 
 
 def test_old_cash_and_stock_database_is_rebuilt(client):
-    conn = database.get_db()
-    conn.execute("CREATE TABLE invoices (id TEXT)")
-    conn.commit()
-    conn.close()
-    database.init_db()
-    conn = database.get_db()
-    assert not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'invoices'").fetchone()
-    assert conn.execute("SELECT COUNT(*) AS n FROM deals").fetchone()["n"] == 10
-    conn.close()
+    with get_engine().begin() as conn:
+        conn.execute(text("CREATE TABLE invoices (id TEXT)"))
+    init_database()
+    assert "invoices" not in inspect(get_engine()).get_table_names()
+    with get_engine().connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM deals")).scalar() == 10

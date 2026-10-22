@@ -1,0 +1,66 @@
+"""App settings from the environment and the project's .env file (pydantic-settings).
+
+Real environment variables win over .env, so a shell, Replit Secret or test can override any value.
+Read with get_settings(): it builds a fresh object each call, so changes to the environment apply at once.
+"""
+from pathlib import Path
+
+from pydantic import AliasChoices, Field, ValidationError, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Any SQLAlchemy URL. Local testing uses SQLite (e.g. sqlite:///backend/cashchase.db, see .env.example);
+    # production can point at Postgres once its migrations exist (backend/schema/migrations/<dialect>/).
+    database_url: str
+    host: str = "127.0.0.1"  # set HOST=0.0.0.0 to open the server to the Wi-Fi (e.g. a phone demo)
+    port: int = 8000
+
+    # LMSTUDIO_BASE_URL is the older name used in .env.example.
+    lmstudio_url: str = Field("http://127.0.0.1:1234/v1", validation_alias=AliasChoices("LMSTUDIO_URL", "LMSTUDIO_BASE_URL"))
+    lmstudio_api_key: str = "lm-studio"
+    lmstudio_model: str = "local-model"
+    lmstudio_vision_model: str = "auto"
+
+    ai_provider: str = "lmstudio"  # lmstudio | runpod | auto
+    runpod_base_url: str = ""
+    runpod_endpoint_id: str = ""
+    runpod_api_key: str = ""
+    runpod_model: str = ""
+    runpod_vision_model: str = ""
+
+    supabase_url: str = ""  # login is on when this is set
+    supabase_anon_key: str = ""
+
+    @field_validator("runpod_base_url", "runpod_endpoint_id", "runpod_api_key", "runpod_model", "runpod_vision_model")
+    @classmethod
+    def _ignore_placeholders(cls, v: str) -> str:
+        # .env.example ships values like 'your_runpod_endpoint_id_here'; treat them as empty.
+        v = (v or "").strip()
+        return "" if "your_" in v else v
+
+    @field_validator("ai_provider")
+    @classmethod
+    def _lower(cls, v: str) -> str:
+        return (v or "lmstudio").strip().lower()
+
+    @field_validator("supabase_url")
+    @classmethod
+    def _no_trailing_slash(cls, v: str) -> str:
+        return (v or "").strip().rstrip("/")
+
+
+def get_settings() -> AppSettings:
+    try:
+        return AppSettings()
+    except ValidationError as exc:
+        if any(e["loc"] == ("database_url",) for e in exc.errors()):
+            raise RuntimeError(
+                "DATABASE_URL is not set. For local testing add this line to .env:\n"
+                "DATABASE_URL=sqlite:///backend/cashchase.db"
+            ) from None
+        raise

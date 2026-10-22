@@ -44,6 +44,8 @@ SUPABASE_URL= python run_server.py
 
 PowerShell: `$env:SUPABASE_URL=""; python run_server.py`. The webapp then shows the **Owner / Staff demo buttons** on the sign-in page.
 
+**`DATABASE_URL` is required.** Add `DATABASE_URL=sqlite:///backend/cashchase.db` to your `.env` (SQLite is for local testing only; see `.env.example`). The data layer is described in [doc 12](12_Data_Layer_Refactor_Plan.md): tables come only from `backend/schema/migrations/<database>/*.sql`, queries go through SQLAlchemy (`backend/db/`), demo data lives in `backend/schema/seeds/*.json`, and requests/responses/settings are Pydantic models in `backend/models/`. Never write raw SQLite-specific SQL in app code.
+
 **Run the tests** (uses a temporary database, never your own):
 
 ```bash
@@ -224,7 +226,7 @@ Rewrite `deterministic_fallback_analysis(customer, phone, message, state, user_i
 | `CASUAL_CHAT` | nothing business-related | greeting only | `NO_ACTION` |
 
 - Remove every stock idea: `available`, `onHand`, `onHold`, "ready stock", "hold stock", deposits as a stock rule.
-- Add `marginOk` and `commissionRm` using `deal_margin_pct` and `deal_commission` from `backend/database.py` (the rep is the open deal's rep, else the default rep).
+- Add `marginOk` and `commissionRm` using `deal_margin_pct` and `deal_commission` from `backend/services/pipeline.py` (the rep is the open deal's rep, else the default rep).
 - `build_whatsapp_copilot_system_prompt`: replace `[LIVE WAREHOUSE STOCK]` with `[PRICE LIST]` (SKU, name, price — **no costs**), update the JSON schema to the new intents and actions, keep the security and tone rules, drop the stock-count rules.
 - `check_ai_replies` / `allowed_reply_amounts`: build allowed amounts from the code-built analysis, the price list and this customer's deals (replace `state["invoices"]` with `state["deals"]`). Re-append the disclaimer to every quote reply after the check, so the AI can't drop it.
 

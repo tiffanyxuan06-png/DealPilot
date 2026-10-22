@@ -1,14 +1,19 @@
 import csv
 import io
-import json
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 
-from backend.database import add_log, get_db, get_setting
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from backend.db import orm, session_scope
+from backend.models.enums import Role, Stage
+from backend.services.business import load_business
 from backend.services.customers import get_customer
 from backend.services.permissions import OWNER_ONLY, normalize_role
+from backend.services.pipeline import log
 
 router = APIRouter(tags=["Exports"])
 
@@ -73,23 +78,23 @@ def _money(v) -> str:
     return f"{v:.2f}"
 
 
-def order_rows(conn, date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[List[str]]:
+def order_rows(session: Session, date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[List[str]]:
     """Won orders, one line item per row. The deal's discount sits on its first line, so lines add up to the deal."""
-    reps = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM reps").fetchall()}
+    reps = {r.id: r.name for r in session.scalars(select(orm.Rep))}
     rows = []
-    for d in conn.execute("SELECT * FROM deals WHERE stage = 'WON' ORDER BY won_at, id").fetchall():
-        day = (d["won_at"] or "")[:10]
+    for d in session.scalars(select(orm.Deal).where(orm.Deal.stage == Stage.WON.value).order_by(orm.Deal.won_at, orm.Deal.id)):
+        day = (d.won_at or "")[:10]
         if (date_from and day < date_from) or (date_to and day > date_to):
             continue
-        cust = get_customer(conn, d["customer"])
-        for n, item in enumerate(json.loads(d["items_json"] or "[]")):
-            discount = d["discount"] if n == 0 else 0
+        cust = get_customer(session, d.customer)
+        for n, item in enumerate(d.items):
+            discount = d.discount if n == 0 else 0
             rows.append([
-                d["order_no"] or "", d["id"], day, d["customer"], d["phone"] or "", (cust["tin"] if cust else "") or "",
+                d.order_no or "", d.id, day, d.customer, d.phone or "", (cust.tin if cust else "") or "",
                 item["sku"], item["name"], str(item["qty"]), _money(item["unitPrice"]), _money(discount),
                 _money(item["qty"] * item["unitPrice"] - discount),
-                d["deposit_ref"] or "", _money(d["deposit_amount"]) if d["deposit_amount"] is not None else "",
-                reps.get(d["rep_id"], ""), (d["notes"] or "").replace("\n", " "),
+                d.deposit_ref or "", _money(d.deposit_amount) if d.deposit_amount is not None else "",
+                reps.get(d.rep_id, ""), (d.notes or "").replace("\n", " "),
             ])
     return rows
 
@@ -102,7 +107,7 @@ def api_export_orders_csv(
     x_cashchase_role: Optional[str] = Header(None),
 ) -> Response:
     """Owner only: won orders for the accountant to import (AutoCount, SQL Account, Bukku or Excel)."""
-    if normalize_role(role or x_cashchase_role) != "OWNER":
+    if normalize_role(role or x_cashchase_role) != Role.OWNER.value:
         raise HTTPException(status_code=403, detail=f"Only the Owner can do this: {OWNER_ONLY['export.csv']}.")
     for v in (date_from, date_to):
         if v:
@@ -110,16 +115,14 @@ def api_export_orders_csv(
                 datetime.strptime(v, "%Y-%m-%d")
             except ValueError:
                 raise HTTPException(status_code=400, detail="Dates must look like 2026-10-31.")
-    conn = get_db()
-    rows = order_rows(conn, date_from, date_to)
+    with session_scope() as s:
+        rows = order_rows(s, date_from, date_to)
+        orders = len({r[0] for r in rows})
+        log(s, f"[OWNER] Downloaded the won-orders CSV: {orders} order(s), {len(rows)} line(s)" + (f", {date_from or '…'} to {date_to or '…'}" if date_from or date_to else "") + ".")
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\r\n")
     writer.writerow(CSV_COLUMNS)
     writer.writerows(rows)
-    orders = len({r[0] for r in rows})
-    add_log(conn, f"[OWNER] Downloaded the won-orders CSV: {orders} order(s), {len(rows)} line(s)" + (f", {date_from or '…'} to {date_to or '…'}" if date_from or date_to else "") + ".")
-    conn.commit()
-    conn.close()
     filename = f"Sales_Orders_{datetime.now().strftime('%Y%m%d')}.csv"
     return Response(
         content=buf.getvalue().encode("utf-8-sig"),  # the BOM makes Excel read the file as UTF-8
@@ -131,39 +134,37 @@ def api_export_orders_csv(
 @router.get("/api/deals/{deal_id}/pdf")
 def api_deal_pdf(deal_id: str) -> Response:
     """Quote PDF (or sales order once won) with prices from the price list and the availability disclaimer."""
-    conn = get_db()
-    d = conn.execute("SELECT * FROM deals WHERE id = ?", (deal_id,)).fetchone()
-    if not d:
-        conn.close()
-        raise HTTPException(status_code=404, detail=f"Deal {deal_id} not found")
-    company = get_setting(conn, "company_name", "")
-    rep = conn.execute("SELECT name FROM reps WHERE id = ?", (d["rep_id"],)).fetchone()
-    cust = get_customer(conn, d["customer"])
-    conn.close()
+    with session_scope() as s:
+        d = s.get(orm.Deal, deal_id)
+        if not d:
+            raise HTTPException(status_code=404, detail=f"Deal {deal_id} not found")
+        company = load_business(s).company_name
+        rep = s.get(orm.Rep, d.rep_id) if d.rep_id is not None else None
+        cust = get_customer(s, d.customer)
 
-    won = d["stage"] == "WON"
-    created = (d["created_at"] or "")[:10]
+    won = d.stage == Stage.WON.value
+    created = (d.created_at or "")[:10]
     lines = [
         f"{company} - {'SALES ORDER' if won else 'QUOTATION'}",
         "======================================================================",
-        f"Document No   : {d['order_no'] if won else d['id']}" + (f"  (quote {d['id']})" if won else ""),
+        f"Document No   : {d.order_no if won else d.id}" + (f"  (quote {d.id})" if won else ""),
         f"Quote date    : {created}",
-        f"Customer      : {d['customer']} ({d['phone'] or '-'})",
-        f"Buyer TIN     : {(cust['tin'] if cust else '') or '-'}",
-        f"Sales rep     : {rep['name'] if rep else '-'}",
+        f"Customer      : {d.customer} ({d.phone or '-'})",
+        f"Buyer TIN     : {(cust.tin if cust else '') or '-'}",
+        f"Sales rep     : {rep.name if rep else '-'}",
         "----------------------------------------------------------------------",
     ]
-    for i in json.loads(d["items_json"] or "[]"):
+    for i in d.items:
         lines.append(f"  {i['qty']} x {i['name']} @ RM {i['unitPrice']:,}.00 = RM {i['qty'] * i['unitPrice']:,}.00")
-    if d["discount"]:
-        lines.append(f"  Discount: -RM {d['discount']:,}.00")
+    if d.discount:
+        lines.append(f"  Discount: -RM {d.discount:,}.00")
     lines += [
         "----------------------------------------------------------------------",
-        f"TOTAL         : RM {d['amount']:,}.00",
+        f"TOTAL         : RM {d.amount:,}.00",
         "======================================================================",
         DISCLAIMER,
     ]
-    filename = f"{d['order_no'] if won else d['id']}_{d['customer'].replace(' ', '_')}.pdf"
+    filename = f"{d.order_no if won else d.id}_{d.customer.replace(' ', '_')}.pdf"
     return Response(
         content=build_valid_pdf_bytes(lines),
         media_type="application/pdf",

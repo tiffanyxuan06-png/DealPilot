@@ -1,0 +1,204 @@
+{
+  "settings": {
+    "company_name": "Kopi & Bakery Wholesale Sdn Bhd",
+    "framework": "1. Wholesale items use catalogue carton/bag pricing.\n2. Cold-chain delivery: RM 50 per trip, FREE for orders above RM 1,500.\n3. Urgent same-day lorry dispatch: +RM 120."
+  },
+  "products": [
+    {
+      "sku": "BEAN-ARA-5K",
+      "name": "Arabica Coffee Beans (5kg Bag)",
+      "sell_price": 260,
+      "unit_cost": 180
+    },
+    {
+      "sku": "MLK-OAT-CTN",
+      "name": "Barista Oat Milk (Carton 12x1L)",
+      "sell_price": 135,
+      "unit_cost": 90
+    },
+    {
+      "sku": "CUP-PAP-8OZ",
+      "name": "Paper Cup 8oz (Carton of 1,000)",
+      "sell_price": 120,
+      "unit_cost": 78
+    }
+  ],
+  "reps": [
+    {
+      "name": "Aina",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Ahmad",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Mei Ling",
+      "commission_pct": 3.0
+    }
+  ],
+  "customers": [
+    {
+      "name": "Cafe Hipster KL",
+      "phone": "+60 17-998 1122",
+      "tin": "C21455667780"
+    },
+    {
+      "name": "Urban Roasters TTDI",
+      "phone": "+60 18-332 5590",
+      "tin": ""
+    },
+    {
+      "name": "Kopi Corner Bangsar",
+      "phone": "+60 12-447 8890",
+      "tin": ""
+    },
+    {
+      "name": "Bistro Bintang",
+      "phone": "+60 13-441 2290",
+      "tin": ""
+    },
+    {
+      "name": "Daily Roast Cafe",
+      "phone": "+60 18-771 9022",
+      "tin": ""
+    }
+  ],
+  "deals": [
+    {
+      "id": "QT-2026-303",
+      "customer": "Kopi Corner Bangsar",
+      "rep": "Ahmad",
+      "stage": "INQUIRY",
+      "items": [
+        {
+          "sku": "CUP-PAP-8OZ",
+          "qty": 3
+        }
+      ],
+      "created_hours_ago": 2,
+      "notes": "Walked in: asked for paper cup prices."
+    },
+    {
+      "id": "QT-2026-302",
+      "customer": "Urban Roasters TTDI",
+      "rep": "Mei Ling",
+      "stage": "FOLLOW_UP",
+      "items": [
+        {
+          "sku": "BEAN-ARA-5K",
+          "qty": 6
+        },
+        {
+          "sku": "MLK-OAT-CTN",
+          "qty": 10
+        }
+      ],
+      "created_hours_ago": 55,
+      "follow_up_in_hours": -7
+    },
+    {
+      "id": "QT-2026-301",
+      "customer": "Cafe Hipster KL",
+      "rep": "Aina",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "BEAN-ARA-5K",
+          "qty": 4
+        }
+      ],
+      "created_hours_ago": 18,
+      "follow_up_in_hours": 30
+    },
+    {
+      "id": "QT-2026-296",
+      "customer": "Cafe Hipster KL",
+      "rep": "Aina",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "BEAN-ARA-5K",
+          "qty": 5
+        },
+        {
+          "sku": "CUP-PAP-8OZ",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 120,
+      "deposit_ref": "DN-20261018-66102",
+      "deposit_amount": 616,
+      "won_hours_ago": 100
+    },
+    {
+      "id": "QT-2026-295",
+      "customer": "Bistro Bintang",
+      "rep": "Ahmad",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "MLK-OAT-CTN",
+          "qty": 10
+        }
+      ],
+      "created_hours_ago": 60,
+      "deposit_ref": "DN-20261020-77319",
+      "deposit_amount": 540,
+      "won_hours_ago": 40
+    },
+    {
+      "id": "QT-2026-290",
+      "customer": "Daily Roast Cafe",
+      "rep": "Mei Ling",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "BEAN-ARA-5K",
+          "qty": 4
+        }
+      ],
+      "created_hours_ago": 170,
+      "follow_ups": 3,
+      "loss_reason": "No reply"
+    }
+  ],
+  "memories": [
+    {
+      "customer": "Cafe Hipster KL",
+      "phone": "+60 17-998 1122",
+      "tier": "POPULAR_CAFE_PARTNER",
+      "score": 92,
+      "style_summary": "High-volume specialty cafe · Values fast delivery and fresh beans",
+      "payment_behavior": "⭐⭐⭐⭐⭐ Repeat buyer · 8 past orders (RM 16,800) · Reorders beans about every 2 weeks",
+      "total_orders": 8,
+      "total_paid_rm": 16800,
+      "last_message": "Can quote 4 bags of Arabica 5kg with cold delivery?"
+    },
+    {
+      "customer": "Bistro Bintang",
+      "phone": "+60 13-441 2290",
+      "tier": "GROWING_RESTAURANT",
+      "score": 80,
+      "style_summary": "Casual dining restaurant · Orders beverage supplies monthly",
+      "payment_behavior": "⭐⭐⭐⭐ Reliable buyer · 3 past orders (RM 5,400)",
+      "total_orders": 3,
+      "total_paid_rm": 5400,
+      "last_message": "Need 10x Oat Milk Carton delivered today."
+    },
+    {
+      "customer": "Urban Roasters TTDI",
+      "phone": "+60 18-332 5590",
+      "tier": "POPULAR_CAFE_PARTNER",
+      "score": 90,
+      "style_summary": "Artisan roastery · Friendly tone · Needs early-morning deliveries",
+      "payment_behavior": "⭐⭐⭐⭐⭐ Repeat buyer · 8 past orders (RM 16,800) · Slow to reply on big quotes",
+      "total_orders": 8,
+      "total_paid_rm": 16800,
+      "last_message": "Let me check with my partner first boss."
+    }
+  ],
+  "logs": [
+    "10:00 AM · [System] Loaded Kopi & Bakery demo: 3 reps, 6 deals."
+  ]
+}

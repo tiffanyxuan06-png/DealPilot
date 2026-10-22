@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import jwt
 from fastapi import FastAPI, Request
@@ -7,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import init_db
-from backend.services.lmstudio import check_lmstudio_health, DEFAULT_LMSTUDIO_URL, call_lmstudio_chat
+from backend.config import get_settings
+from backend.db import init_database
 from backend.routes.state import router as state_router
 from backend.routes.whatsapp import router as whatsapp_router
 from backend.routes.company_ai import router as company_ai_router
@@ -21,8 +20,8 @@ from backend.services.auth import auth_enabled, reset_current_role, role_from_cl
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEBAPP_DIR = BASE_DIR / "webapp"
 
-# Initialize SQLite database schema & seeds if missing
-init_db(force_reset=False)
+# Apply pending migrations; an empty database gets the demo business.
+init_database()
 
 app = FastAPI(
     title="CashChase Orbyte API",
@@ -100,7 +99,8 @@ if WEBAPP_DIR.exists():
 @app.get("/api/auth/config")
 def auth_config() -> dict:
     """Public Supabase settings for the WebApp login (the anon key is safe to expose)."""
-    return {"url": os.getenv("SUPABASE_URL", ""), "anonKey": os.getenv("SUPABASE_ANON_KEY", "")}
+    env = get_settings()
+    return {"url": env.supabase_url, "anonKey": env.supabase_anon_key}
 
 
 @app.get("/", response_class=HTMLResponse)

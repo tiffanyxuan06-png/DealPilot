@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "follow_up_hours": 48,
+    "margin_floor_pct": 15,
+    "framework": "Quote from the price list. Prices are subject to stock availability."
+  },
+  "new_business_reps": [
+    { "name": "Owner", "commission_pct": 0 }
+  ]
+}

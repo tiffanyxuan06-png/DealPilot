@@ -1,9 +1,9 @@
 """Owner-controlled Staff permissions, the approval queue and the mandatory safety rules."""
-import sqlite3
-
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
-import backend.database as database
+from backend.db import get_engine
 from conftest import OWNER, STAFF
 
 
@@ -71,10 +71,7 @@ def test_owner_only_actions(client):
 
 
 def test_audit_log_is_append_only(client):
-    con = sqlite3.connect(database.DB_PATH)
-    try:
-        for sql in ("UPDATE audit_logs SET entry = 'x'", "DELETE FROM audit_logs"):
-            with pytest.raises(sqlite3.DatabaseError, match="append-only"):
-                con.execute(sql)
-    finally:
-        con.close()
+    for sql in ("UPDATE audit_logs SET entry = 'x'", "DELETE FROM audit_logs"):
+        with pytest.raises(DBAPIError, match="append-only"):
+            with get_engine().begin() as conn:
+                conn.execute(text(sql))
