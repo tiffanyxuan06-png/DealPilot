@@ -44,10 +44,13 @@ if WEBAPP_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(WEBAPP_DIR)), name="static")
     js_dir = WEBAPP_DIR / "js"
     css_dir = WEBAPP_DIR / "css"
+    img_dir = WEBAPP_DIR / "img"
     if js_dir.exists():
         app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
     if css_dir.exists():
         app.mount("/css", StaticFiles(directory=str(css_dir)), name="css")
+    if img_dir.exists():
+        app.mount("/img", StaticFiles(directory=str(img_dir)), name="img")
 
 
 @app.get("/", response_class=HTMLResponse)

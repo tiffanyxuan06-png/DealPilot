@@ -3,863 +3,839 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CashChase for Orbyte — Clean Interactive Prototype</title>
+  <title>CashChase for Orbyte</title>
+  <link rel="icon" type="image/png" href="img/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="min-h-screen flex flex-col md:flex-row antialiased bg-[#EEF2F8] text-[#324564]">
+<body class="min-h-screen flex flex-col md:flex-row antialiased">
+
+  <!-- Soft drifting glow behind every section -->
+  <div class="ocean" aria-hidden="true">
+    <span class="g-sky"></span><span class="g-blue"></span><span class="g-cyan"></span><span class="g-blue"></span>
+    <span class="g-sky"></span><span class="g-cyan"></span><span class="g-sky"></span><span class="g-blue"></span>
+  </div>
+
+  <!-- SVG icon sprite (Lucide-style strokes) -->
+  <svg width="0" height="0" class="hidden" aria-hidden="true">
+    <defs>
+      <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+      <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><circle cx="16" cy="14" r="1.5"/></symbol>
+      <symbol id="i-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+      <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17M16 17H7V8"/></symbol>
+      <symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+      <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/></symbol>
+    </defs>
+  </svg>
 
   <!-- ===================================================================== -->
-  <!-- LEFT SIDEBAR (DEEP ORBYTE NAVY #042970 — CLEAN 4-ITEM NAVIGATION)     -->
+  <!-- SIDEBAR                                                               -->
   <!-- ===================================================================== -->
-  <aside class="w-full md:w-64 bg-[#042970] text-white flex flex-col justify-between shrink-0 md:min-h-screen select-none">
-    <div class="p-5 space-y-6">
+  <aside class="cc-sidebar w-full md:w-64 md:sticky md:top-0 md:h-screen flex flex-col shrink-0 select-none">
+    <div class="p-4 md:p-5 flex md:flex-col gap-4 md:gap-6 items-center md:items-stretch">
 
-      <!-- Brand Header -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm shrink-0">
-          <div class="w-6 h-6 rounded-md bg-[#0152FC] flex items-center justify-center relative">
-            <span class="w-2 h-2 rounded-full bg-[#01E3FB] absolute -top-0.5 -right-0.5"></span>
-            <span class="text-white font-black text-xs">C</span>
-          </div>
+      <!-- Brand -->
+      <a href="#" onclick="switchPage('overview'); return false;" class="cc-brand flex items-center gap-3 shrink-0" aria-label="CashChase home">
+        <img src="img/logo.png" alt="" width="40" height="41" class="cc-logo w-10 h-auto" />
+        <div class="hidden sm:block">
+          <div class="font-bold text-lg leading-tight text-[#042970]">CashChase</div>
+          <div class="text-xs text-[#5B6B85]">for Orbyte SME</div>
         </div>
-        <div>
-          <div class="font-bold text-base leading-tight text-white">CashChase</div>
-          <div class="text-xs text-[#8AB4F8]">for Orbyte SME</div>
-        </div>
-      </div>
+      </a>
 
-      <!-- 3 Clean WebApp Pages -->
-      <div>
-        <div class="text-xs font-semibold uppercase tracking-wider text-[#8AB4F8]/80 px-2 mb-2">
-          WEBAPP PAGES
-        </div>
-        <nav class="space-y-1.5">
-          <button id="nav-overview" onclick="switchPage('overview')" class="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-bold bg-[#0152FC] text-white shadow-sm transition">
-            <span>📊 1. Dashboard</span>
-            <span id="badge-overview" class="px-2 py-0.5 rounded-full bg-[#01AAFC]/30 text-[#01E3FB] text-xs font-bold">4</span>
+      <!-- Navigation -->
+      <div class="flex-1 min-w-0">
+        <div class="cc-nav-label hidden md:block">Workspace</div>
+        <nav class="flex md:flex-col gap-1 overflow-x-auto" aria-label="Main">
+          <button id="nav-overview" onclick="switchPage('overview')" class="nav-item is-active i-hop">
+            <svg><use href="#i-home"/></svg><span class="nav-text">Dashboard</span>
+            <span id="badge-overview" class="nav-badge">4</span>
+          </button>
+          <button id="nav-invoices" onclick="switchPage('invoices')" class="nav-item i-flip">
+            <svg><use href="#i-file"/></svg><span class="nav-text">Invoices</span>
+            <span id="badge-invoices" class="nav-badge">4</span>
+          </button>
+          <button id="nav-stock" onclick="switchPage('stock')" class="nav-item i-hop">
+            <svg><use href="#i-box"/></svg><span class="nav-text">Stock</span>
+            <span id="badge-stock" class="nav-badge">5 Held</span>
+          </button>
+          <button id="nav-ledger" onclick="switchPage('ledger')" class="nav-item i-flip">
+            <svg><use href="#i-book"/></svg><span class="nav-text">Ledger</span>
+            <span id="badge-ledger" class="nav-badge">All</span>
           </button>
 
-          <button id="nav-invoices" onclick="switchPage('invoices')" class="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium text-white/85 hover:bg-white/10 transition">
-            <span>📄 2. Invoices & Upload</span>
-            <span id="badge-invoices" class="px-2 py-0.5 rounded-full bg-white/15 text-white text-xs">4</span>
-          </button>
-
-          <button id="nav-stock" onclick="switchPage('stock')" class="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium text-white/85 hover:bg-white/10 transition">
-            <span>📦 3. Stock & Holds</span>
-            <span id="badge-stock" class="px-2 py-0.5 rounded-full bg-[#01AAFC]/30 text-[#01E3FB] text-xs font-bold">5 Held</span>
-          </button>
-
-          <button id="nav-ledger" onclick="switchPage('ledger')" class="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium text-white/85 hover:bg-white/10 transition">
-            <span>📒 4. All Data & Ledger</span>
-            <span id="badge-ledger" class="px-2 py-0.5 rounded-full bg-white/15 text-white text-xs">All</span>
+          <div class="cc-nav-label hidden md:block mt-5">Try it</div>
+          <button id="nav-wa" onclick="switchPage('wa')" class="nav-item i-wiggle">
+            <svg><use href="#i-chat"/></svg><span class="nav-text">WhatsApp Demo</span>
+            <span class="nav-badge">Live</span>
           </button>
         </nav>
       </div>
-
-      <!-- Big Obvious Button for Chrome/Edge WhatsApp Extension -->
-      <div class="pt-4 border-t border-white/15">
-        <div class="text-xs font-semibold uppercase tracking-wider text-[#8AB4F8]/80 px-2 mb-2">
-          WHATSAPP INTEGRATION & DEMO
-        </div>
-        <button id="nav-wa" onclick="switchPage('wa')" class="w-full flex items-center justify-between px-3.5 py-3.5 rounded-xl text-sm font-bold bg-[#073794] hover:bg-[#0152FC] border border-[#01E3FB]/50 text-white shadow-md transition">
-          <span>💬 5. WhatsApp Demo Page</span>
-          <span class="text-xs text-[#01E3FB]">Interactive Demo ↗</span>
-        </button>
-      </div>
     </div>
 
-    <!-- Single Settings Button at Bottom-Left -->
-    <div class="p-4 border-t border-white/10 bg-[#031F56]">
-      <button onclick="openSettingsModal()" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#042970] hover:bg-white/10 border border-white/15 text-left transition">
-        <div>
-          <div class="text-xs text-[#8AB4F8]">Active SME & AI Rules</div>
-          <div class="text-xs font-bold text-white truncate" id="sidebar-sme-label">Sejuk Jaya Aircond</div>
-        </div>
-        <span class="text-xs text-[#01E3FB] font-bold">⚙️ Settings</span>
+    <!-- Mascot helper card + settings -->
+    <div class="hidden md:flex flex-col gap-3 mt-auto p-5">
+      <div class="cc-card p-4 relative overflow-hidden">
+        <img src="img/mascot-idea.png" alt="" width="233" height="231" class="m-idea absolute right-1 -bottom-3 w-20 h-auto" aria-hidden="true" />
+        <div class="text-sm font-semibold text-[#042970] pr-16">Need a hand?</div>
+        <p class="text-xs text-[#5B6B85] pr-16 mt-0.5">Ask about cash, stock or who still owes you.</p>
+        <button onclick="openCompanyAgentModal()" class="cc-btn cc-btn-primary mt-3 !min-h-[34px] !px-3">Ask AI</button>
+      </div>
+
+      <button onclick="openSettingsModal()" class="nav-item i-spin !bg-white/70 border border-[#DCE4F2]">
+        <svg><use href="#i-gear"/></svg>
+        <span class="nav-text leading-tight">
+          <span class="block text-xs text-[#5B6B85]">Settings</span>
+          <span class="block text-sm font-semibold text-[#042970] truncate" id="sidebar-sme-label">Sejuk Jaya Aircond</span>
+        </span>
       </button>
     </div>
   </aside>
 
   <!-- ===================================================================== -->
-  <!-- MAIN APP SHELL (CLEAN TOP BAR + SPACIOUS WORKSPACE)                   -->
+  <!-- MAIN APP SHELL                                                        -->
   <!-- ===================================================================== -->
   <div class="flex-1 flex flex-col min-w-0">
 
-    <!-- ULTRA-CLEAN TOP HEADER BAR (No duplicate buttons or fake inputs) -->
-    <header class="bg-white border-b border-[#D5DFEE] px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <div class="text-base font-bold text-[#042970]" id="top-company-title">Sejuk Jaya Aircond Sdn Bhd</div>
-        <div class="text-xs text-[#64748B]">Orbyte Smart SME Workspace · Live Cash + Physical Stock Net Worth</div>
+    <header class="cc-header px-5 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="text-base font-bold text-[#042970] truncate" id="top-company-title">Sejuk Jaya Aircond Sdn Bhd</div>
+        <div class="text-xs text-[#5B6B85]">Live cash and stock, in one place</div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <!-- Ask Company AI Agent Button -->
-        <button onclick="openCompanyAgentModal()" class="flex items-center gap-2 px-4 py-2 rounded-full bg-[#042970] hover:bg-[#0152FC] text-white text-xs font-bold shadow-sm transition border border-[#01E3FB]/40">
-          <span>🤖 Ask Company AI</span>
-          <span class="px-2 py-0.5 rounded-full bg-[#01AAFC]/30 text-[#01E3FB] text-xs">Live Q&A</span>
-        </button>
-
-        <!-- 1-Click Role Switcher Chip -->
-        <button id="role-btn" onclick="toggleRole()" class="flex items-center gap-2.5 pl-2.5 pr-4 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#0152FC]/30 transition">
-          <span id="role-avatar" class="w-7 h-7 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center">
-            EH
+      <div class="flex items-center gap-2">
+        <span class="md:hidden"><button onclick="openSettingsModal()" class="cc-close" aria-label="Settings"><svg><use href="#i-gear"/></svg></button></span>
+        <button id="role-btn" onclick="toggleRole()" class="flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-white/80 hover:bg-[#E6EEFF] border border-[#DCE4F2] transition" title="Switch between Owner and Staff view">
+          <span id="role-avatar" class="w-7 h-7 rounded-full bg-[#0152FC] text-white font-bold text-xs flex items-center justify-center">EH</span>
+          <span class="text-left leading-tight">
+            <span id="role-name" class="block text-xs font-bold text-[#042970]">Encik Hafiz (Owner)</span>
+            <span id="role-sub" class="block text-xs text-[#0152FC] font-medium">Click to switch to Staff</span>
           </span>
-          <div class="text-left leading-tight">
-            <div id="role-name" class="text-xs font-bold text-[#042970]">Encik Hafiz (Owner)</div>
-            <div id="role-sub" class="text-xs text-[#0152FC] font-medium">Click to switch to Staff</div>
-          </div>
         </button>
       </div>
     </header>
 
-    <!-- AUTO-DISMISSING FLOATING TOAST PILL (NO "OK" CLICK NEEDED) -->
-    <div id="toast-box" class="hidden fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-xl bg-[#042970]/95 text-white text-xs font-semibold flex items-center gap-2.5 shadow-xl border border-[#01E3FB]/40 pointer-events-none transition-opacity duration-300">
-      <span class="w-2 h-2 rounded-full bg-[#01E3FB] shrink-0"></span>
+    <!-- Toast -->
+    <div id="toast-box" role="status" aria-live="polite" class="hidden fixed bottom-6 z-[80] max-w-md px-4 py-3 rounded-xl bg-[#042970] text-white text-sm font-medium flex items-center gap-2.5 shadow-xl pointer-events-none transition-opacity duration-300">
+      <span class="cc-dot bg-[#01E3FB]"></span>
       <span id="toast-text">Action completed!</span>
     </div>
 
-    <!-- MAIN WORKSPACE -->
-    <main class="p-6 space-y-6 flex-1 max-w-6xl w-full mx-auto">
+    <main class="px-5 md:px-8 py-6 md:py-8 space-y-6 flex-1 max-w-[1150px] w-full mx-auto">
 
       <!-- ================================================================= -->
-      <!-- PAGE 1: DASHBOARD (NET WORTH + 1 BIG BUTTON PER ACTION CARD)      -->
+      <!-- PAGE 1: DASHBOARD                                                 -->
       <!-- ================================================================= -->
       <div id="page-overview" class="space-y-6">
 
-        <!-- 4 Clean Net Worth KPI Cards -->
+        <section class="cc-card cc-hero reveal">
+          <div>
+            <span class="cc-pill cc-pill-cyan">Today</span>
+            <h1 class="cc-h1 mt-2">Here is your business today.</h1>
+            <p class="cc-sub mt-1">Check your numbers, then clear the items waiting for you.</p>
+          </div>
+          <img src="img/mascot-wave.png" alt="" width="295" height="320" class="cc-hero-art m-wave" aria-hidden="true" />
+        </section>
+
+        <!-- KPI cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs">
-            <div class="text-xs text-[#64748B] font-semibold">💎 Core Net Worth (Cash + Stock)</div>
-            <div class="mt-2 pl-3 border-l-4 border-[#0152FC]">
-              <div class="text-2xl font-bold text-[#042970]" id="ov-core-nw">RM 20,000</div>
-              <div class="text-xs text-[#64748B] mt-1" id="ov-core-sub">Cash: RM 9,800 · Stock: RM 10,200</div>
+          <div class="cc-card cc-stat reveal i-pulse" style="--d:0ms">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-[#5B6B85]">Net worth</span>
+              <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-wallet"/></svg></span>
             </div>
+            <div class="text-2xl font-bold text-[#042970] mt-2" id="ov-core-nw">RM 20,000</div>
+            <div class="text-xs text-[#5B6B85] mt-1" id="ov-core-sub">Cash: RM 9,800 · Stock: RM 10,200</div>
           </div>
 
-          <div class="bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs">
-            <div class="text-xs text-[#64748B] font-semibold">💰 Customer Money Coming In</div>
-            <div class="mt-2 pl-3 border-l-4 border-[#01AAFC]">
-              <div class="text-2xl font-bold text-[#042970]" id="ov-receivables">RM 6,450</div>
-              <div class="text-xs text-[#64748B] mt-1">Unpaid customer invoices</div>
+          <div class="cc-card cc-stat reveal i-hop" style="--d:100ms">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-[#5B6B85]">Money coming in</span>
+              <span class="cc-stat-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-in"/></svg></span>
             </div>
+            <div class="text-2xl font-bold text-[#042970] mt-2" id="ov-receivables">RM 6,450</div>
+            <div class="text-xs text-[#5B6B85] mt-1">Unpaid customer invoices</div>
           </div>
 
-          <div class="bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs">
-            <div class="text-xs text-[#64748B] font-semibold">📥 Supplier Bills Going Out</div>
-            <div class="mt-2 pl-3 border-l-4 border-amber-500">
-              <div class="text-2xl font-bold text-[#042970]" id="ov-payables">RM 1,500</div>
-              <div class="text-xs text-[#64748B] mt-1">Unpaid supplier bills</div>
+          <div class="cc-card cc-stat reveal i-hop" style="--d:200ms">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-[#5B6B85]">Bills to pay</span>
+              <span class="cc-stat-icon bg-amber-50 text-amber-600"><svg><use href="#i-out"/></svg></span>
             </div>
+            <div class="text-2xl font-bold text-[#042970] mt-2" id="ov-payables">RM 1,500</div>
+            <div class="text-xs text-[#5B6B85] mt-1">Unpaid supplier bills</div>
           </div>
 
-          <div class="bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs">
-            <div class="text-xs text-[#64748B] font-semibold">📈 Full Company Net Position</div>
-            <div class="mt-2 pl-3 border-l-4 border-[#01E3FB]">
-              <div class="text-2xl font-bold text-[#0152FC]" id="ov-full-nw">RM 24,950</div>
-              <div class="text-xs text-[#64748B] mt-1">Core Net Worth + In - Out</div>
+          <div class="cc-card cc-stat reveal i-hop !bg-[#042970] !border-[#042970]" style="--d:300ms">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-white/75">Full position</span>
+              <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-trend"/></svg></span>
             </div>
+            <div class="text-2xl font-bold text-white mt-2" id="ov-full-nw">RM 24,950</div>
+            <div class="text-xs text-white/70 mt-1">Net worth + in − out</div>
           </div>
         </div>
 
-        <!-- Today's Priority Decisions: Each Row Has 1 Big Obvious Button -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="mb-4">
-            <h2 class="font-bold text-base text-[#042970]">Today · Items Waiting for Your Action</h2>
-            <p class="text-xs text-[#64748B]">Press the big blue button on any item below to approve or resolve it in 1 click.</p>
-          </div>
-
-          <div id="ov-action-queue" class="space-y-3">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
-        <!-- Simple Activity Log -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex items-center justify-between mb-3">
+        <!-- Action queue -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex items-start justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-bold text-sm text-[#042970]">🛡️ Recent Activity & Audit Log</h2>
-              <p class="text-xs text-[#64748B]">Every approval, 48h stock hold, and cash change is recorded automatically.</p>
+              <h2 class="cc-h2">Waiting for you</h2>
+              <p class="cc-sub">One button per item. Tap it to approve or resolve.</p>
             </div>
-            <button onclick="exportExcelDemo()" class="px-4 py-2 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#042970] text-xs font-bold transition">
-              📥 Download Monthly Excel (.xlsx)
+          </div>
+          <div id="ov-action-queue" class="space-y-3"></div>
+        </section>
+
+        <!-- Activity -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="cc-h2">Recent activity</h2>
+              <p class="cc-sub">Every approval, hold and cash change is saved here.</p>
+            </div>
+            <button onclick="exportExcelDemo()" class="cc-btn cc-btn-ghost i-hop">
+              <svg><use href="#i-download"/></svg> Download monthly Excel
             </button>
           </div>
-          <div id="audit-log-list" class="space-y-2 text-xs max-h-48 overflow-y-auto">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
+          <div id="audit-log-list" class="space-y-2 text-xs max-h-56 overflow-y-auto pr-1"></div>
+        </section>
       </div>
 
       <!-- ================================================================= -->
-      <!-- PAGE 2: INVOICES, QUOTES & UPLOAD (CLEAN & UNCLUTTERED)           -->
+      <!-- PAGE 2: INVOICES                                                  -->
       <!-- ================================================================= -->
       <div id="page-invoices" class="hidden space-y-6">
 
-        <!-- TOP INPUT ROW: 3 BIG UPLOAD BUTTONS + 1 BIG PHONE ORDER BUTTON -->
+        <section class="cc-card cc-hero reveal">
+          <div>
+            <span class="cc-pill">Invoices</span>
+            <h1 class="cc-h1 mt-2">Snap a bill. We fill it in.</h1>
+            <p class="cc-sub mt-1">Upload a receipt or add a walk-in sale. Every record has one clear next step.</p>
+          </div>
+          <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="cc-hero-art m-laptop" aria-hidden="true" />
+        </section>
+
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-          <!-- Left 7 cols: Real File Dropzone + 1-Click Sample AI OCR Upload -->
-          <div class="lg:col-span-7 bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 class="font-bold text-base text-[#042970]">📥 AI Vision OCR — Upload Receipt, Supplier Bill or Expense</h2>
-                <p class="text-xs text-[#64748B]">
-                  Upload any photo/screenshot of a DuitNow receipt, supplier stock bill, or utility bill (uses LM Studio Vision / Local OCR), OR tap a sample below:
-                </p>
-              </div>
+          <!-- Upload -->
+          <section class="lg:col-span-7 cc-card p-5 md:p-6 space-y-4 reveal">
+            <div>
+              <h2 class="cc-h2">Upload a receipt or bill</h2>
+              <p class="cc-sub">DuitNow receipts, supplier bills or expenses. AI reads the name, reference, items and amount.</p>
             </div>
 
-            <!-- Real File Upload Dropzone -->
-            <label class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-[#0152FC]/50 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] cursor-pointer transition text-center">
-              <div class="text-xs font-bold text-[#0152FC]">📤 Click to Upload Receipt / Supplier Bill Image or PDF (.jpg, .png, .webp, .pdf)</div>
-              <div class="text-xs text-[#64748B] mt-0.5">Extracts Supplier/Customer Name, DuitNow Ref #, SKU Qty, and RM Amount into an editable form below</div>
+            <label class="cc-drop i-hop">
+              <span class="w-11 h-11 rounded-xl bg-white flex items-center justify-center text-[#0152FC] shadow-sm"><svg class="w-5 h-5"><use href="#i-upload"/></svg></span>
+              <span class="text-sm font-semibold text-[#042970] mt-1">Click to upload an image or PDF</span>
+              <span class="text-xs text-[#5B6B85]">JPG, PNG, WEBP or PDF · you can edit everything before saving</span>
               <input id="ocr-file-input" type="file" accept="image/*,.pdf" onchange="handleRealFileUpload(this)" class="hidden" />
             </label>
 
-            <div class="text-xs font-semibold text-[#64748B]">Or load a 1-click sample bill to test the OCR extraction form:</div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button onclick="previewUpload('supplier')" class="p-3 rounded-xl border-2 border-[#0152FC]/30 bg-[#F2F6FF] hover:bg-[#E6EEFF] text-left transition">
-                <div class="font-bold text-xs text-[#0152FC]">📄 1. Supplier Stock Bill</div>
-                <div class="text-xs font-semibold text-[#042970] mt-0.5">+20x R32 Gas (RM 2,600)</div>
-                <div class="text-xs text-emerald-700 mt-0.5">+Stock & -Cash</div>
-              </button>
-
-              <button onclick="previewUpload('expense')" class="p-3 rounded-xl border-2 border-amber-400/50 bg-amber-50/70 hover:bg-amber-100/70 text-left transition">
-                <div class="font-bold text-xs text-amber-800">🧾 2. Operating Cost Bill</div>
-                <div class="text-xs font-semibold text-[#042970] mt-0.5">Rent & Van Fuel (RM 650)</div>
-                <div class="text-xs text-amber-800 mt-0.5">-Cash Expense</div>
-              </button>
-
-              <button onclick="previewUpload('customer')" class="p-3 rounded-xl border-2 border-emerald-500/40 bg-emerald-50/70 hover:bg-emerald-100/70 text-left transition">
-                <div class="font-bold text-xs text-emerald-800">💸 3. Customer Receipt</div>
-                <div class="text-xs font-semibold text-[#042970] mt-0.5">Selera Paid RM 1,650</div>
-                <div class="text-xs text-emerald-700 mt-0.5">Stages Bank Verify</div>
-              </button>
-            </div>
-
-            <div id="ocr-preview-box" class="hidden mt-3 p-4 rounded-xl bg-[#E6EEFF] border-2 border-[#0152FC] space-y-3">
-              <!-- Populated by JS with Editable OCR Fields -->
-            </div>
-          </div>
-
-          <!-- Right 5 cols: Walk-In Customer / Phone Order (No WhatsApp Needed) -->
-          <div class="lg:col-span-5 bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs flex flex-col justify-between space-y-3">
             <div>
-              <h2 class="font-bold text-base text-[#042970]">🚶‍♂️📞 Walk-In / Phone Customer (No WhatsApp)</h2>
-              <p class="text-xs text-[#64748B] mt-0.5 mb-3">
-                Key in a walk-in cash customer or phone order directly—leave TIN blank for Monthly Consolidated LHDN e-Invoice:
-              </p>
+              <div class="text-xs font-semibold text-[#5B6B85] mb-2">No file? Try a sample:</div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="previewUpload('supplier')" class="cc-tile">
+                  <span class="cc-pill">Supplier bill</span>
+                  <div class="text-sm font-semibold text-[#042970] mt-2">20× R32 Gas</div>
+                  <div class="text-xs text-[#5B6B85]">RM 2,600 · adds stock</div>
+                </button>
+                <button onclick="previewUpload('expense')" class="cc-tile">
+                  <span class="cc-pill !bg-amber-50 !text-amber-800">Expense</span>
+                  <div class="text-sm font-semibold text-[#042970] mt-2">Rent &amp; van fuel</div>
+                  <div class="text-xs text-[#5B6B85]">RM 650 · cash out</div>
+                </button>
+                <button onclick="previewUpload('customer')" class="cc-tile">
+                  <span class="cc-pill !bg-emerald-50 !text-emerald-800">Customer paid</span>
+                  <div class="text-sm font-semibold text-[#042970] mt-2">Selera RM 1,650</div>
+                  <div class="text-xs text-[#5B6B85]">Needs bank check</div>
+                </button>
+              </div>
+            </div>
 
-              <div class="space-y-2.5 text-xs">
-                <div class="grid grid-cols-2 gap-2">
+            <div id="ocr-preview-box" class="hidden p-4 rounded-2xl bg-[#E6EEFF]/80 border border-[#0152FC]/40 space-y-3"></div>
+          </section>
+
+          <!-- Walk-in -->
+          <section class="lg:col-span-5 cc-card p-5 md:p-6 flex flex-col justify-between gap-4 reveal" style="--d:100ms">
+            <div>
+              <h2 class="cc-h2">Walk-in or phone order</h2>
+              <p class="cc-sub mb-4">No WhatsApp needed. Leave TIN blank for a consolidated e-Invoice.</p>
+
+              <div class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="font-semibold text-[#042970] block mb-1">Customer Name</label>
-                    <input id="walkin-name" type="text" value="Walk-In Customer (En. Razak)" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 text-xs text-[#042970] font-medium" />
+                    <label for="walkin-name" class="cc-label">Customer name</label>
+                    <input id="walkin-name" type="text" value="Walk-In Customer (En. Razak)" class="cc-input" />
                   </div>
                   <div>
-                    <label class="font-semibold text-[#042970] block mb-1">LHDN Buyer TIN (Optional)</label>
-                    <input id="walkin-tin" type="text" placeholder="Blank = Consolidated e-Inv" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 text-xs text-[#042970]" />
+                    <label for="walkin-tin" class="cc-label">Buyer TIN <span class="font-normal text-[#5B6B85]">(optional)</span></label>
+                    <input id="walkin-tin" type="text" placeholder="Blank = consolidated" class="cc-input" />
                   </div>
                 </div>
-
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-3 gap-3">
                   <div class="col-span-2">
-                    <label class="font-semibold text-[#042970] block mb-1">Select Item</label>
-                    <select id="walkin-sku" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-2.5 py-2 text-xs font-semibold text-[#042970]">
-                      <!-- Populated by JS -->
-                    </select>
+                    <label for="walkin-sku" class="cc-label">Item</label>
+                    <select id="walkin-sku" class="cc-input"></select>
                   </div>
                   <div>
-                    <label class="font-semibold text-[#042970] block mb-1">Qty</label>
-                    <input id="walkin-qty" type="number" min="1" value="2" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 text-xs font-bold text-[#042970]" />
+                    <label for="walkin-qty" class="cc-label">Qty</label>
+                    <input id="walkin-qty" type="number" min="1" value="2" class="cc-input font-semibold" />
                   </div>
                 </div>
-
                 <div>
-                  <label class="font-semibold text-[#042970] block mb-1">Walk-In Paid Now vs. 48h Quote Hold</label>
-                  <select id="walkin-mode" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-2.5 py-2 text-xs font-semibold text-[#042970]">
-                    <option value="PAID_NOW">💰 Walk-In Paid Immediately (Deduct Stock + Add Cash)</option>
-                    <option value="QUOTE_HOLD">⏳ Phone Quote Only (Hold Stock for 48h)</option>
+                  <label for="walkin-mode" class="cc-label">Payment</label>
+                  <select id="walkin-mode" class="cc-input">
+                    <option value="PAID_NOW">Paid now (take stock, add cash)</option>
+                    <option value="QUOTE_HOLD">Quote only (hold stock for 48h)</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            <button onclick="handlePhoneOrder()" class="w-full py-3 px-4 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-sm font-bold shadow-sm transition">
-              + Record Walk-In / Phone Order
+            <button onclick="handlePhoneOrder()" class="cc-btn cc-btn-primary cc-btn-lg w-full">
+              <svg><use href="#i-plus"/></svg> Record order
             </button>
-          </div>
-
+          </section>
         </div>
 
-        <!-- ALL INVOICES & QUOTES LIST -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <!-- All invoices -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-bold text-base text-[#042970]">All Quotes, Invoices & Aftersales</h2>
-              <p class="text-xs text-[#64748B]">Each record has 1 primary action button plus a PDF preview.</p>
-            </div>
-
-            <div class="flex flex-wrap gap-1.5" id="inv-filter-bar">
-              <button onclick="setInvoiceFilter('ALL')" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#0152FC] text-white">All</button>
-              <button onclick="setInvoiceFilter('PENDING_VERIFY')" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300">🕵️‍♂️ Pending Bank Verify</button>
-              <button onclick="setInvoiceFilter('QUOTE_HOLD')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F2F6FF] text-[#042970] border border-[#D5DFEE]">⏳ Quotes (48h Hold)</button>
-              <button onclick="setInvoiceFilter('PENDING')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F2F6FF] text-[#042970] border border-[#D5DFEE]">💰 Pending Invoices</button>
-              <button onclick="setInvoiceFilter('AFTERSALES')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F2F6FF] text-[#042970] border border-[#D5DFEE]">⚠️ Aftersales</button>
+              <h2 class="cc-h2">Quotes, invoices &amp; aftersales</h2>
+              <p class="cc-sub">Filter by status. Each record has one main action and a PDF preview.</p>
             </div>
           </div>
-
-          <div class="space-y-3" id="invoice-list-container">
-            <!-- Populated by JS as clean, spacious cards with 1 Big Button each -->
+          <div class="flex flex-wrap gap-2 mb-4" id="inv-filter-bar" role="group" aria-label="Filter invoices">
+            <button onclick="setInvoiceFilter('ALL')" data-filter="ALL" class="cc-chip is-active">All</button>
+            <button onclick="setInvoiceFilter('PENDING_VERIFY')" data-filter="PENDING_VERIFY" class="cc-chip"><span class="cc-dot bg-purple-500"></span>Check bank</button>
+            <button onclick="setInvoiceFilter('QUOTE_HOLD')" data-filter="QUOTE_HOLD" class="cc-chip"><span class="cc-dot bg-[#01AAFC]"></span>Quotes on hold</button>
+            <button onclick="setInvoiceFilter('PENDING')" data-filter="PENDING" class="cc-chip"><span class="cc-dot bg-[#0152FC]"></span>Unpaid</button>
+            <button onclick="setInvoiceFilter('AFTERSALES')" data-filter="AFTERSALES" class="cc-chip"><span class="cc-dot bg-amber-500"></span>Aftersales</button>
           </div>
-        </div>
-
+          <div class="space-y-3" id="invoice-list-container"></div>
+        </section>
       </div>
 
       <!-- ================================================================= -->
-      <!-- PAGE 3: STOCK & 48H HOLD TRACKER                                  -->
+      <!-- PAGE 3: STOCK                                                     -->
       <!-- ================================================================= -->
       <div id="page-stock" class="hidden space-y-6">
 
-        <!-- ADD NEW PRODUCT SKU OR RESTOCK EXISTING INVENTORY (WITH AI OCR SCANNER) -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="font-bold text-base text-[#042970]">➕ Add New Product SKU or Restock Inventory (Manual or AI OCR)</h2>
-              <p class="text-xs text-[#64748B]">
-                Scan a Supplier Invoice / Delivery Order using AI OCR to auto-fill the fields below, OR key in any new/existing SKU manually:
-              </p>
-            </div>
+        <section class="cc-card cc-hero reveal">
+          <div>
+            <span class="cc-pill">Stock</span>
+            <h1 class="cc-h1 mt-2">Quotes hold. Deposits take.</h1>
+            <p class="cc-sub mt-1">A quote only holds stock for 48 hours. Stock leaves the shelf when the deposit is confirmed.</p>
+          </div>
+          <img src="img/mascot-cheer.png" alt="" width="227" height="216" class="cc-hero-art m-wave" aria-hidden="true" />
+        </section>
+
+        <!-- Add / restock -->
+        <section class="cc-card p-5 md:p-6 space-y-4 reveal">
+          <div>
+            <h2 class="cc-h2">Add or restock an item</h2>
+            <p class="cc-sub">Scan a supplier invoice to fill the form, or type it in yourself.</p>
           </div>
 
-          <!-- AI OCR Supplier Invoice Scanner Bar right inside Page 3 -->
-          <div class="p-3.5 rounded-xl bg-[#F2F6FF] border border-[#0152FC]/40 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <label class="px-4 py-2 rounded-xl bg-[#042970] hover:bg-[#0152FC] text-white text-xs font-bold cursor-pointer transition shadow-xs">
-                📷 Upload Supplier Invoice / DO Image (AI OCR Auto-Fill)
-                <input id="stock-ocr-file-input" type="file" accept="image/*,.pdf" onchange="handleStockPageOcrUpload(this)" class="hidden" />
-              </label>
-              <button onclick="fillStockFormFromOcrSample('NEW_SKU')" class="px-3 py-2 rounded-xl bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-                📄 Sample OCR: New SKU (8x Mitsubishi 1.0HP)
-              </button>
-              <button onclick="fillStockFormFromOcrSample('RESTOCK_R32')" class="px-3 py-2 rounded-xl bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-                📄 Sample OCR: Restock (+20x R32 Gas)
-              </button>
-            </div>
-            <span id="stock-ocr-status" class="text-xs font-semibold text-emerald-700 hidden">✅ OCR Auto-Filled! Review & click Add below.</span>
+          <div class="p-3 rounded-2xl bg-[#F2F6FF]/80 border border-[#DCE4F2] flex flex-wrap items-center gap-2">
+            <label class="cc-btn cc-btn-primary i-pulse cursor-pointer">
+              <svg><use href="#i-camera"/></svg> Scan supplier invoice
+              <input id="stock-ocr-file-input" type="file" accept="image/*,.pdf" onchange="handleStockPageOcrUpload(this)" class="hidden" />
+            </label>
+            <button onclick="fillStockFormFromOcrSample('NEW_SKU')" class="cc-btn cc-btn-ghost">Sample: new item</button>
+            <button onclick="fillStockFormFromOcrSample('RESTOCK_R32')" class="cc-btn cc-btn-ghost">Sample: restock</button>
+            <span id="stock-ocr-status" class="text-xs font-semibold text-emerald-700 hidden ml-auto">Filled from scan. Check and press Add.</span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs items-end">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
             <div>
-              <label class="block font-semibold text-[#042970] mb-1">Part / SKU Code</label>
-              <input id="add-stock-sku" type="text" value="ACN-PAN-20" placeholder="e.g. ACN-PAN-20" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-mono font-bold text-[#042970]" />
+              <label for="add-stock-sku" class="cc-label">SKU code</label>
+              <input id="add-stock-sku" type="text" value="ACN-PAN-20" placeholder="e.g. ACN-PAN-20" class="cc-input font-mono font-semibold" />
             </div>
             <div class="lg:col-span-2">
-              <label class="block font-semibold text-[#042970] mb-1">Item / Product Name</label>
-              <input id="add-stock-name" type="text" value="Panasonic 2.0HP Inverter Unit" placeholder="Product Name" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-medium text-[#042970]" />
+              <label for="add-stock-name" class="cc-label">Item name</label>
+              <input id="add-stock-name" type="text" value="Panasonic 2.0HP Inverter Unit" placeholder="Product name" class="cc-input" />
             </div>
             <div>
-              <label class="block font-semibold text-[#042970] mb-1">Qty to Add (+Units)</label>
-              <input id="add-stock-qty" type="number" min="1" value="6" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-bold text-[#042970]" />
+              <label for="add-stock-qty" class="cc-label">Qty to add</label>
+              <input id="add-stock-qty" type="number" min="1" value="6" class="cc-input font-semibold" />
             </div>
             <div>
-              <label class="block font-semibold text-[#042970] mb-1">Unit Cost (RM)</label>
-              <input id="add-stock-cost" type="number" min="1" value="1050" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-bold text-[#042970]" />
+              <label for="add-stock-cost" class="cc-label">Unit cost (RM)</label>
+              <input id="add-stock-cost" type="number" min="1" value="1050" class="cc-input font-semibold" />
             </div>
             <div>
-              <label class="block font-semibold text-[#042970] mb-1">Selling Price (RM)</label>
-              <input id="add-stock-price" type="number" min="1" value="1450" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-bold text-[#0152FC]" />
+              <label for="add-stock-price" class="cc-label">Sell price (RM)</label>
+              <input id="add-stock-price" type="number" min="1" value="1450" class="cc-input font-semibold !text-[#0152FC]" />
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div class="flex items-center gap-2 text-xs">
-              <label class="font-semibold text-[#042970]">Stock-In Source:</label>
-              <select id="add-stock-source" class="bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3 py-2 font-semibold text-[#042970]">
-                <option value="OPENING">📦 Opening / Existing Warehouse Stock (Does not deduct Cash)</option>
-                <option value="CASH_PURCHASE">💵 Paid Supplier in Cash (-Deducts Unit Cost × Qty from Cash on Hand)</option>
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div class="w-full sm:w-auto sm:min-w-[320px]">
+              <label for="add-stock-source" class="cc-label">Where is it from?</label>
+              <select id="add-stock-source" class="cc-input">
+                <option value="OPENING">Already in warehouse (no cash change)</option>
+                <option value="CASH_PURCHASE">Paid supplier in cash (deduct from cash)</option>
               </select>
             </div>
-
-            <button onclick="addOrRestockItem()" class="px-6 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">
-              ➕ Add / Restock Inventory
+            <button onclick="addOrRestockItem()" class="cc-btn cc-btn-primary cc-btn-lg">
+              <svg><use href="#i-plus"/></svg> Add to stock
             </button>
           </div>
-        </div>
+        </section>
 
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <!-- Stock table -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-bold text-base text-[#042970]">📦 Live Warehouse Stock & 48-Hour Quote Holds</h2>
-              <p class="text-xs text-[#64748B]">
-                <b>Rule:</b> Sending a Quote only puts stock <b>On Hold (48h)</b>. Physical stock only deducts when the deposit is confirmed!
-              </p>
+              <h2 class="cc-h2">Warehouse stock</h2>
+              <p class="cc-sub">On hand, on hold and free to sell.</p>
             </div>
-            <div class="text-xs font-bold px-3.5 py-2 rounded-xl bg-[#E6EEFF] text-[#042970]" id="stock-table-summary">
-              Total Stock Value: RM 10,200
-            </div>
+            <span class="cc-pill !py-1.5 !px-3.5 text-sm" id="stock-table-summary">Total Stock Value: RM 10,200</span>
           </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
               <thead>
-                <tr class="border-b border-[#D5DFEE] text-[#64748B] uppercase bg-[#F2F6FF]">
-                  <th class="py-3 px-4">Part / SKU</th>
-                  <th class="py-3 px-4">Item Name</th>
-                  <th class="py-3 px-4">Physical On Hand</th>
-                  <th class="py-3 px-4">⏳ On Hold (48h Quote)</th>
-                  <th class="py-3 px-4">✅ Available to Sell</th>
-                  <th class="py-3 px-4">Stock Value</th>
-                  <th class="py-3 px-4 text-right">Action</th>
+                <tr>
+                  <th>SKU</th>
+                  <th>Item</th>
+                  <th>On hand</th>
+                  <th>On hold (48h)</th>
+                  <th>Available</th>
+                  <th>Value</th>
+                  <th class="text-right">Action</th>
                 </tr>
               </thead>
-              <tbody id="stock-tbody" class="divide-y divide-[#D5DFEE]">
-                <!-- Populated by JS -->
-              </tbody>
+              <tbody id="stock-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        <!-- WHO IS HOLDING STOCK RIGHT NOW (QUICK ACCESS CARDS) -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <!-- Holders -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-bold text-base text-[#042970]">👥 Who Is Holding Stock Right Now (Active & Expired 48h Quote Holds)</h2>
-              <p class="text-xs text-[#64748B]">
-                See every customer currently holding your stock, how much time is left on their 48h quote timer, and take instant action (View PDF, Jump to WhatsApp, Confirm Deposit, or Release Hold).
-              </p>
+              <h2 class="cc-h2">Who is holding stock</h2>
+              <p class="cc-sub">Time left on each 48h quote, with quick actions.</p>
             </div>
-            <span id="active-holds-count-badge" class="px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
-              2 Active Holds
-            </span>
+            <span id="active-holds-count-badge" class="cc-pill !bg-amber-50 !text-amber-800 !py-1.5 !px-3.5">2 Active Holds</span>
           </div>
-
-          <div id="stock-holders-list" class="space-y-3">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
+          <div id="stock-holders-list" class="space-y-3"></div>
+        </section>
       </div>
 
       <!-- ================================================================= -->
-      <!-- PAGE 4: ALL DATA & MASTER LEDGER ("SEE EVERYTHING" VIEW)          -->
+      <!-- PAGE 4: LEDGER                                                    -->
       <!-- ================================================================= -->
       <div id="page-ledger" class="hidden space-y-6">
 
-        <!-- Master Control & Search Bar -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 class="font-bold text-base text-[#042970]">📒 Master System Database & Full Ledger (See Everything)</h2>
-            <p class="text-xs text-[#64748B]">
-              View every single record in the system in one place: <b>Money In/Out Ledger</b>, <b>All Customers & LHDN TINs</b>, <b>All Active & Historical Invoices</b>, and <b>Full Audit Trail</b>.
-            </p>
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">Ledger</span>
+            <h1 class="cc-h1 mt-2">Everything, in one place.</h1>
+            <p class="cc-sub mt-1">Money, customers and every action. Search anything.</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <input id="ledger-search-input" oninput="renderWebAppView()" type="text" placeholder="🔍 Search customer, INV-#, TIN, or SKU..." class="w-64 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] px-3.5 py-2.5 text-xs text-[#042970] font-medium focus:outline-none focus:border-[#0152FC]" />
-            <button onclick="exportAllDataCSV()" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">
-              📥 Export All System Data (.xlsx / CSV)
-            </button>
+          <img src="img/mascot-chart.png" alt="" width="288" height="215" class="cc-hero-art m-chart" aria-hidden="true" />
+        </section>
+
+        <div class="cc-card p-4 flex flex-wrap items-center gap-3 reveal">
+          <div class="relative flex-1 min-w-[220px]">
+            <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5B6B85]"><use href="#i-search"/></svg>
+            <label for="ledger-search-input" class="sr-only">Search the ledger</label>
+            <input id="ledger-search-input" oninput="renderWebAppView()" type="text" placeholder="Search customer, invoice #, TIN or SKU" class="cc-input !pl-10" />
           </div>
+          <button onclick="exportAllDataCSV()" class="cc-btn cc-btn-primary i-hop">
+            <svg><use href="#i-download"/></svg> Export all data
+          </button>
         </div>
 
-        <!-- Master Section 1: Complete Money & Stock Ledger -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h3 class="font-bold text-sm text-[#042970]">💰 1. Complete Money & Stock Ledger (All Cash Inflows, Outflows, Supplier Bills & Labor)</h3>
-              <p class="text-xs text-[#64748B]">Every financial and inventory movement affecting your Cash on Hand and Stock Value.</p>
+              <h2 class="cc-h2">Money &amp; stock ledger</h2>
+              <p class="cc-sub">Every movement that changes cash or stock value.</p>
             </div>
-            <span class="px-3 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] text-xs font-bold" id="ledger-cash-summary">Live Cash & Stock Ledger</span>
+            <span class="cc-pill" id="ledger-cash-summary">Live Cash &amp; Stock Ledger</span>
           </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
               <thead>
-                <tr class="border-b border-[#D5DFEE] text-[#64748B] uppercase bg-[#F2F6FF]">
-                  <th class="py-3 px-4 whitespace-nowrap">Ref / ID</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Category</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Customer / Supplier</th>
-                  <th class="py-3 px-4 min-w-[260px]">Description & Stock Impact</th>
-                  <th class="py-3 px-4 whitespace-nowrap">LHDN e-Invoice / TIN</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Status</th>
-                  <th class="py-3 px-4 text-right whitespace-nowrap">Cash / Value Effect</th>
+                <tr>
+                  <th>Ref</th>
+                  <th>Category</th>
+                  <th>Customer / supplier</th>
+                  <th class="min-w-[260px]">Description</th>
+                  <th>e-Invoice / TIN</th>
+                  <th>Status</th>
+                  <th class="text-right">Cash effect</th>
                 </tr>
               </thead>
-              <tbody id="master-ledger-tbody" class="divide-y divide-[#D5DFEE]">
-                <!-- Populated by JS -->
-              </tbody>
+              <tbody id="master-ledger-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        <!-- Master Section 2: All Customers & Suppliers Directory (with LHDN TIN Status) -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <div>
-              <h3 class="font-bold text-sm text-[#042970]">👥 2. All Customers & Suppliers Directory (LHDN TIN & Total Volume)</h3>
-              <p class="text-xs text-[#64748B]">Every B2B corporate client, walk-in customer, and supplier in your system, with 1-click LHDN TIN editing.</p>
-            </div>
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="mb-4">
+            <h2 class="cc-h2">Customers &amp; suppliers</h2>
+            <p class="cc-sub">LHDN TIN status and total value for everyone you trade with.</p>
           </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
               <thead>
-                <tr class="border-b border-[#D5DFEE] text-[#64748B] uppercase bg-[#F2F6FF]">
-                  <th class="py-3 px-4 whitespace-nowrap">Party Name</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Type / Channel</th>
-                  <th class="py-3 px-4 whitespace-nowrap">LHDN e-Invoice TIN Status</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Total Records</th>
-                  <th class="py-3 px-4 whitespace-nowrap">Total Value (RM)</th>
-                  <th class="py-3 px-4 text-right whitespace-nowrap">Quick Action</th>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>TIN status</th>
+                  <th>Records</th>
+                  <th>Total (RM)</th>
+                  <th class="text-right">Action</th>
                 </tr>
               </thead>
-              <tbody id="master-customers-tbody" class="divide-y divide-[#D5DFEE]">
-                <!-- Populated by JS -->
-              </tbody>
+              <tbody id="master-customers-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        <!-- Master Section 3: Full System Audit Log (Every Action in Chronological Order) -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-6 shadow-xs">
-          <div class="flex items-center justify-between mb-3">
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h3 class="font-bold text-sm text-[#042970]">🛡️ 3. Complete System Audit Trail (Every Staff, Owner & AI Action)</h3>
-              <p class="text-xs text-[#64748B]">Tamper-evident chronological log of every quote hold, receipt verification, TIN update, and stock deduction.</p>
+              <h2 class="cc-h2">Audit trail</h2>
+              <p class="cc-sub">Every owner, staff and AI action, newest first.</p>
             </div>
-            <span class="px-3 py-1 rounded-full bg-[#F2F6FF] border border-[#D5DFEE] text-xs font-bold text-[#042970]" id="master-log-count">0 Events</span>
+            <span class="cc-pill" id="master-log-count">0 Events</span>
           </div>
-          <div class="space-y-2 max-h-80 overflow-y-auto pr-1" id="master-audit-log-list">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
+          <div class="space-y-2 max-h-80 overflow-y-auto pr-1" id="master-audit-log-list"></div>
+        </section>
       </div>
 
       <!-- ================================================================= -->
-      <!-- PAGE 5: WHATSAPP WEB + CHROME/EDGE EXTENSION SIDEBAR              -->
+      <!-- PAGE 5: WHATSAPP DEMO                                             -->
       <!-- ================================================================= -->
-      <!-- ================================================================= -->
-      <!-- PAGE 5: WHATSAPP DEMO PAGE (SIMULATE CUSTOMER ACTIONS & PDFS)    -->
-      <!-- ================================================================= -->
-      <div id="page-wa" class="hidden space-y-4">
+      <div id="page-wa" class="hidden space-y-6">
 
-        <!-- Top Bar: Download Sample PDF Templates & Demo Controls -->
-        <div class="bg-white border border-[#D5DFEE] rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-                📱 Interactive WhatsApp Demo Page
-              </span>
-              <span class="text-xs text-[#64748B]">Simulate real customer actions to test the AI Agent</span>
+        <!-- What the extension does: each card jumps to a live example -->
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <span class="cc-pill !bg-emerald-50 !text-emerald-800">Demo</span>
+              <h1 class="cc-h1 mt-2">AI suggests. Rules check. You decide.</h1>
+              <p class="cc-sub mt-1">The CashChase extension sits beside WhatsApp Web and does five jobs. Tap one to see it.</p>
             </div>
-            <h3 class="text-base font-bold text-[#042970] mt-1">WhatsApp Web Simulation & AI Copilot Testing Lab</h3>
+            <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-20 md:w-24 h-auto m-float shrink-0 hidden sm:block" aria-hidden="true" />
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button onclick="switchPage('overview'); setTimeout(() => { const el = document.getElementById('multi-agent-inspector-card'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 150);" class="px-3 py-1.5 rounded-xl bg-[#042970] hover:bg-[#0152FC] text-white text-xs font-bold shadow-2xs transition flex items-center gap-1.5 cursor-pointer">
-              <span>🔍 View Agent Prompts & Rules</span>
+
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+            <button onclick="showCapability('reply')" class="cap-card i-wiggle">
+              <span class="cap-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
+              <span class="cap-title">Change reply</span>
+              <span class="cap-text">Tell AI how to rewrite: discount, terms, language.</span>
             </button>
-            <span class="text-xs font-bold text-[#042970] ml-2">📥 PDF Receipt Templates:</span>
-            <button onclick="downloadSamplePdfTemplate('DUITNOW')" class="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold shadow-2xs transition">
-              📄 DuitNow Receipt (.pdf)
+            <button onclick="showCapability('reserve')" class="cap-card i-hop">
+              <span class="cap-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-box"/></svg></span>
+              <span class="cap-title">Reserve stock</span>
+              <span class="cap-text">A quote holds stock for 48 hours.</span>
             </button>
-            <button onclick="downloadSamplePdfTemplate('SUPPLIER')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold shadow-2xs transition">
-              📄 Supplier Bill (.pdf)
+            <button onclick="showCapability('confirm')" class="cap-card i-pulse">
+              <span class="cap-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
+              <span class="cap-title">Confirm order</span>
+              <span class="cap-text">Deposit in, stock out, invoice made.</span>
             </button>
-            <button onclick="downloadSamplePdfTemplate('QUOTE')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold shadow-2xs transition">
-              📄 Official Quote (.pdf)
+            <button onclick="showCapability('payment')" class="cap-card i-swipe">
+              <span class="cap-icon bg-purple-50 text-purple-600"><svg><use href="#i-wallet"/></svg></span>
+              <span class="cap-title">Check payment</span>
+              <span class="cap-text">Make sure the money is really in the bank.</span>
+            </button>
+            <button onclick="showCapability('rating')" class="cap-card i-pulse col-span-2 md:col-span-1">
+              <span class="cap-icon bg-amber-50 text-amber-600"><svg><use href="#i-users"/></svg></span>
+              <span class="cap-title">Rate customer</span>
+              <span class="cap-text">AI scores each customer from how they pay and reply.</span>
             </button>
           </div>
-        </div>
+
+          <ol class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 pt-4 border-t border-[#DCE4F2] text-sm text-[#324564]">
+            <li class="flex items-center gap-2"><span class="step-num">1</span>Pick a chat</li>
+            <li class="flex items-center gap-2"><span class="step-num">2</span>Pick a reply in the extension</li>
+            <li class="flex items-center gap-2"><span class="step-num">3</span>Press the blue button</li>
+            <li class="flex items-center gap-2 ml-auto">
+              <button onclick="openSettingsModal(); setTimeout(() => { const el = document.getElementById('multi-agent-inspector-card'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 150);" class="text-sm font-semibold text-[#0152FC] hover:underline">See agent prompts</button>
+            </li>
+          </ol>
+        </section>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-          <!-- Left 3 cols: Customer Chats on WhatsApp Web -->
-          <div class="lg:col-span-3 bg-white border border-[#D5DFEE] rounded-2xl p-4 shadow-xs space-y-3">
-            <div class="flex items-center justify-between pb-2 border-b border-[#D5DFEE]">
-              <span class="font-bold text-xs text-emerald-700">🟢 1. Select Customer Chat</span>
-              <span class="text-xs font-mono text-[#64748B]">4 Scenarios</span>
-            </div>
-            <div id="wa-chat-list" class="space-y-2">
-              <!-- Populated by JS -->
-            </div>
-            <div class="pt-2 border-t border-[#D5DFEE] text-xs text-[#64748B]">
-              💡 <b>Tip:</b> Click any chat above or trigger simulated customer actions on the right to test how the AI Copilot responds!
-            </div>
-          </div>
-
-          <!-- Middle 5 cols: Active WhatsApp Chat Window & Customer Action Simulator -->
-          <div class="lg:col-span-5 bg-white border border-[#D5DFEE] rounded-2xl shadow-xs flex flex-col justify-between overflow-hidden">
-            <div class="p-3.5 border-b border-[#D5DFEE] bg-[#F2F6FF] flex items-center justify-between">
-              <div>
-                <div id="wa-active-name" class="font-bold text-sm text-[#042970]">Tan Bros Trading</div>
-                <div id="wa-active-sub" class="text-xs text-[#64748B]">+60 12-345 6789</div>
-              </div>
-              <span id="wa-scenario-badge" class="text-xs px-2.5 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold">
-                Flow 1
-              </span>
+          <!-- WhatsApp Web window: chat list + conversation -->
+          <section class="lg:col-span-8 wa-window" aria-label="WhatsApp Web">
+            <div class="wa-titlebar">
+              <span class="wa-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="text-xs font-semibold text-[#5B6B85]">web.whatsapp.com</span>
             </div>
 
-            <!-- Customer Actions Quick-Simulate Bar -->
-            <div class="bg-gradient-to-r from-[#F8FAFC] to-[#EEF2F8] p-3 border-b border-[#D5DFEE] space-y-1.5">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-[#042970] flex items-center gap-1.5">
-                  <span>🎭</span> Simulate Customer Action:
-                </span>
-                <span class="text-xs text-[#64748B]">Click to test agent</span>
-              </div>
-              <div id="sim-buttons-container" class="flex flex-wrap gap-1.5">
-                <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 shadow-2xs transition">
-                  📎 Sends DuitNow Receipt PDF
-                </button>
-                <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs transition">
-                  📎 Sends Supplier Bill PDF
-                </button>
-                <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-200 text-xs font-bold text-[#0152FC] shadow-2xs transition">
-                  💬 Asks for Quote
-                </button>
-                <button onclick="simulateCustomerAction('MSG_DEPOSIT_PAID')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs transition">
-                  💰 "Paid Deposit"
-                </button>
-                <button onclick="simulateCustomerAction('MSG_AFTERSALES')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800 shadow-2xs transition">
-                  🛠️ "Issue Reported, Fix!"
-                </button>
-                <button onclick="simulateCustomerAction('MSG_DISCOUNT')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-900 shadow-2xs transition">
-                  🎁 "Can give discount?"
-                </button>
-                <button onclick="simulateCustomerAction('MSG_BM')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 shadow-2xs transition">
-                  🇲🇾 "Salam, sebut harga"
-                </button>
-              </div>
-            </div>
-
-            <!-- Messages Stream -->
-            <div id="wa-messages" class="p-4 space-y-3 min-h-[300px] max-h-[380px] overflow-y-auto bg-[#EEF2F8]/60">
-              <!-- Populated by JS -->
-            </div>
-
-            <div class="p-3.5 border-t border-[#D5DFEE] bg-[#F2F6FF] space-y-2.5">
-              <!-- Customer Free-Text Input Simulation -->
-              <div class="flex items-center gap-2 bg-white p-2 rounded-xl border border-[#D5DFEE]">
-                <label class="px-2 py-1 rounded-lg bg-[#F2F6FF] hover:bg-[#E6EEFF] text-[#0152FC] text-xs font-bold cursor-pointer border border-[#D5DFEE]" title="Upload real PDF or receipt screenshot to chat">
-                  📎 Upload File
-                  <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleWhatsAppChatFileUpload(this)" />
-                </label>
-                <input id="wa-test-customer-msg" type="text" placeholder="Type what the customer says (e.g. Boss, got stock?)..." class="flex-1 bg-transparent text-xs text-[#042970] focus:outline-hidden" />
-                <button onclick="simulateCustomerMessageWithLMStudio()" class="px-3.5 py-1.5 rounded-lg bg-[#042970] hover:bg-[#0152FC] text-white text-xs font-bold transition">
-                  Customer Sends 🚀
-                </button>
+            <div class="grid grid-cols-1 md:grid-cols-[260px_1fr]">
+              <!-- Chats -->
+              <div class="wa-list">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-[#E3E8EF]">
+                  <span class="text-sm font-semibold text-[#042970]">Chats</span>
+                  <span class="text-xs text-[#5B6B85]">4 scenarios</span>
+                </div>
+                <div id="wa-chat-list" class="p-2 space-y-1"></div>
               </div>
 
-              <!-- Staff Outgoing Reply Box -->
-              <div class="flex gap-2">
-                <input id="wa-input-box" type="text" placeholder="Selected reply from the Extension appears here..." class="flex-1 bg-white border border-[#D5DFEE] rounded-xl px-3.5 py-2.5 text-xs text-[#042970]" />
-                <button onclick="sendWhatsAppInput()" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition shadow-2xs">
-                  Send Reply ➤
-                </button>
-              </div>
-            </div>
-          </div>
+              <!-- Conversation -->
+              <div class="flex flex-col min-w-0">
+                <div class="px-4 py-3 border-b border-[#E3E8EF] flex items-center justify-between gap-3 bg-[#F7F8FA]">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"><svg class="w-4 h-4"><use href="#i-chat"/></svg></span>
+                    <div class="min-w-0">
+                      <div id="wa-active-name" class="font-semibold text-sm text-[#042970] truncate">Tan Bros Trading</div>
+                      <div id="wa-active-sub" class="text-xs text-[#5B6B85] truncate">+60 12-345 6789</div>
+                    </div>
+                  </div>
+                  <span id="wa-scenario-badge" class="cc-pill">Flow 1</span>
+                </div>
 
-          <!-- Right 4 cols: CASHCHASE CHROME/EDGE EXTENSION (1 BIG BUTTON!) -->
-          <div class="lg:col-span-4 bg-white border-2 border-[#0152FC] rounded-2xl overflow-hidden shadow-lg">
-            <div class="bg-[#042970] text-white px-4 py-3.5 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-md bg-[#0152FC] text-white text-xs font-bold flex items-center justify-center">C</div>
-                <div>
-                  <div class="font-bold text-xs">CashChase Chrome/Edge Extension</div>
-                  <div class="text-xs text-[#01E3FB]">Opens beside web.whatsapp.com</div>
+                <div id="wa-messages" class="wa-messages p-4 space-y-3 min-h-[320px] max-h-[420px] overflow-y-auto" aria-live="polite"></div>
+
+                <!-- Play the customer -->
+                <details class="wa-sim border-t border-[#E3E8EF]">
+                  <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer list-none text-xs font-semibold text-[#5B6B85]">
+                    <svg class="w-3.5 h-3.5"><use href="#i-users"/></svg> Play the customer
+                    <span class="font-normal">· send a test message</span>
+                    <svg class="w-4 h-4 ml-auto transition-transform wa-sim-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </summary>
+                  <div class="px-4 pb-3 space-y-2">
+                    <div id="sim-buttons-container" class="flex flex-wrap gap-1.5">
+                      <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="cc-chip !min-h-[30px] !text-xs">Asks for a quote</button>
+                      <button onclick="simulateCustomerAction('MSG_DEPOSIT_PAID')" class="cc-chip !min-h-[30px] !text-xs">Says "paid deposit"</button>
+                      <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="cc-chip !min-h-[30px] !text-xs">Sends a DuitNow receipt</button>
+                      <button onclick="simulateCustomerAction('MSG_DISCOUNT')" class="cc-chip !min-h-[30px] !text-xs">Asks for a discount</button>
+                      <button onclick="simulateCustomerAction('MSG_AFTERSALES')" class="cc-chip !min-h-[30px] !text-xs">Reports a problem</button>
+                      <button onclick="simulateCustomerAction('MSG_BM')" class="cc-chip !min-h-[30px] !text-xs">Writes in Malay</button>
+                      <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="cc-chip !min-h-[30px] !text-xs">Supplier sends a bill</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <label class="cc-close cursor-pointer border border-[#DCE4F2] bg-white" title="Attach a receipt or PDF as the customer">
+                        <svg><use href="#i-clip"/></svg><span class="sr-only">Attach file as customer</span>
+                        <input type="file" accept="image/*,application/pdf" class="hidden" onchange="handleWhatsAppChatFileUpload(this)" />
+                      </label>
+                      <label for="wa-test-customer-msg" class="sr-only">Customer message</label>
+                      <input id="wa-test-customer-msg" type="text" placeholder="Type as the customer, e.g. Boss, got stock?" class="cc-input !min-h-[38px]" />
+                      <button onclick="simulateCustomerMessageWithLMStudio()" class="cc-btn cc-btn-ghost !min-h-[38px] shrink-0">Send as customer</button>
+                    </div>
+                  </div>
+                </details>
+
+                <!-- Your reply -->
+                <div class="p-3 border-t border-[#E3E8EF] bg-[#F7F8FA] flex items-center gap-2">
+                  <label for="wa-input-box" class="sr-only">Your reply</label>
+                  <input id="wa-input-box" type="text" placeholder="Your reply appears here when you pick one" class="cc-input !min-h-[40px] !rounded-full !px-4" />
+                  <button onclick="sendWhatsAppInput()" class="wa-send i-swipe" aria-label="Send reply"><svg><use href="#i-send"/></svg></button>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div class="p-5 space-y-4" id="ext-panel-body">
-              <!-- Populated by JS: Has 1 Giant Primary Button! -->
+          <!-- CashChase extension, docked beside WhatsApp -->
+          <section class="lg:col-span-4 cc-card !border-[#0152FC]/40" style="box-shadow: var(--shadow-md)" aria-label="CashChase extension">
+            <div class="bg-[#042970] text-white px-4 py-3 flex items-center gap-3 rounded-t-2xl">
+              <img src="img/logo.png" alt="" width="28" height="29" class="w-7 h-auto bg-white rounded-lg p-0.5" />
+              <div>
+                <div class="font-semibold text-sm">CashChase extension</div>
+                <div class="text-xs text-[#01E3FB]">Sits beside web.whatsapp.com</div>
+              </div>
             </div>
-          </div>
-
+            <div class="p-5 space-y-4 bg-white/70 rounded-b-2xl" id="ext-panel-body"></div>
+          </section>
         </div>
-
       </div>
 
     </main>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- SETTINGS & SME SETUP MODAL (HIDDEN UNTIL ⚙️ SETTINGS CLICKED)         -->
+  <!-- SETTINGS MODAL                                                        -->
   <!-- ===================================================================== -->
-  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white border border-[#D5DFEE] rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5">
-
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3.5">
-        <div>
-          <h2 class="text-lg font-bold text-[#042970]">⚙️ SME Business Profile & AI Labor Pricing Rules</h2>
-          <p class="text-xs text-[#64748B]">
-            Switch active SME industry profile, pick a 1-click labor framework preset, or inspect the local <code>qwen3:4b</code> prompt.
-          </p>
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="cc-modal max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
+        <div class="flex items-center gap-3">
+          <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-16 h-auto m-laptop" aria-hidden="true" />
+          <div>
+            <h2 id="settings-title" class="text-lg font-bold text-[#042970]">Business profile &amp; AI rules</h2>
+            <p class="cc-sub">Pick your business type, choose a pricing preset, or inspect the AI prompts.</p>
+          </div>
         </div>
-        <button onclick="closeSettingsModal()" class="px-3.5 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#042970] text-xs font-bold">
-          ✕ Close
-        </button>
+        <button onclick="closeSettingsModal()" class="cc-close" aria-label="Close settings"><svg><use href="#i-x"/></svg></button>
       </div>
 
-      <!-- SME Profile Selector -->
-      <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-3">
+      <div class="p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div class="font-bold text-sm text-[#042970]">🏢 Active SME Business Profile</div>
-          <div class="text-xs text-[#64748B]">Switch between Contractor, Software Studio, or Wholesale F&B to test different SMEs:</div>
+          <div class="font-semibold text-sm text-[#042970]">Active business</div>
+          <div class="text-xs text-[#5B6B85]">Switch to test a different kind of SME.</div>
         </div>
-        <select id="sme-select" onchange="changeSMEProfile(this.value)" class="bg-white border border-[#0152FC] rounded-xl px-3.5 py-2 text-xs font-bold text-[#042970]">
-          <option value="aircond">Air-cond Contractor · Sejuk Jaya</option>
-          <option value="software">Software Studio · NexaByte IT</option>
-          <option value="fnb">Wholesale F&B · Kopi & Bakery</option>
+        <label for="sme-select" class="sr-only">Active business</label>
+        <select id="sme-select" onchange="changeSMEProfile(this.value)" class="cc-input !w-auto font-semibold">
+          <option value="aircond">Air-cond contractor · Sejuk Jaya</option>
+          <option value="software">Software studio · NexaByte IT</option>
+          <option value="fnb">Wholesale F&amp;B · Kopi &amp; Bakery</option>
         </select>
       </div>
 
-      <!-- Two-Column Body: Labor Presets on Left, qwen3:4b Prompt Inspector on Right -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
-        <div class="lg:col-span-6 p-4 rounded-xl bg-[#F2F6FF] border border-[#0152FC]/30 space-y-3 text-xs">
-          <div class="font-bold text-sm text-[#042970]">📐 Industry Labor & Extra Cost Presets</div>
+        <div class="lg:col-span-6 p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3 text-xs">
+          <div class="font-semibold text-sm text-[#042970]">Pricing presets</div>
           <div class="grid grid-cols-2 gap-2">
-            <button onclick="applyPresetFramework('contractor')" class="p-2.5 rounded-xl border border-[#0152FC]/40 bg-white hover:bg-[#E6EEFF] text-left transition">
-              <div class="font-bold text-xs text-[#0152FC]">🔧 1. Contractor / Aircond</div>
-              <div class="text-xs text-[#64748B]">Per-unit labor + extra piping</div>
+            <button onclick="applyPresetFramework('contractor')" class="cc-tile !p-3">
+              <div class="font-semibold text-sm text-[#0152FC]">Contractor</div>
+              <div class="text-xs text-[#5B6B85]">Per-unit labour + piping</div>
             </button>
-            <button onclick="applyPresetFramework('software')" class="p-2.5 rounded-xl border border-[#0152FC]/40 bg-white hover:bg-[#E6EEFF] text-left transition">
-              <div class="font-bold text-xs text-[#0152FC]">💻 2. Software / Agency</div>
-              <div class="text-xs text-[#64748B]">RM/Man-Day + Change Requests</div>
+            <button onclick="applyPresetFramework('software')" class="cc-tile !p-3">
+              <div class="font-semibold text-sm text-[#0152FC]">Software / agency</div>
+              <div class="text-xs text-[#5B6B85]">Man-day rate + changes</div>
             </button>
-            <button onclick="applyPresetFramework('wholesale')" class="p-2.5 rounded-xl border border-[#0152FC]/40 bg-white hover:bg-[#E6EEFF] text-left transition">
-              <div class="font-bold text-xs text-[#0152FC]">🚚 3. Wholesale / F&B</div>
-              <div class="text-xs text-[#64748B]">Delivery trip fee + Urgent lorry</div>
+            <button onclick="applyPresetFramework('wholesale')" class="cc-tile !p-3">
+              <div class="font-semibold text-sm text-[#0152FC]">Wholesale / F&amp;B</div>
+              <div class="text-xs text-[#5B6B85]">Delivery + urgent lorry</div>
             </button>
-            <button onclick="applyPresetFramework('custom_retail')" class="p-2.5 rounded-xl border border-[#0152FC]/40 bg-white hover:bg-[#E6EEFF] text-left transition">
-              <div class="font-bold text-xs text-[#0152FC]">🛠️ 4. PC Build / Custom Shop</div>
-              <div class="text-xs text-[#64748B]">Flat assembly fee + upgrades</div>
+            <button onclick="applyPresetFramework('custom_retail')" class="cc-tile !p-3">
+              <div class="font-semibold text-sm text-[#0152FC]">Custom shop</div>
+              <div class="text-xs text-[#5B6B85]">Flat fee + upgrades</div>
             </button>
           </div>
 
-          <div class="pt-2 border-t border-[#D5DFEE]">
-            <div class="text-xs font-semibold text-[#042970] mb-1">Or Type 1 Sentence to Generate Custom Rules:</div>
-            <div class="flex gap-1.5">
-              <input id="custom-sme-prompt" type="text" value="We install solar panels: RM 400 labor per panel (subcon cost RM 180) and RM 25/m extra DC cable" class="flex-1 bg-white border border-[#D5DFEE] rounded-lg px-2.5 py-1.5 text-xs text-[#042970]" />
-              <button onclick="generateCustomFrameworkFromPrompt()" class="px-3 py-1.5 rounded-lg bg-[#0152FC] text-white text-xs font-semibold hover:bg-[#0141C9]">
-                ⚡ Generate
-              </button>
+          <div class="pt-3 border-t border-[#DCE4F2]">
+            <label for="custom-sme-prompt" class="cc-label">Or describe your pricing in one sentence</label>
+            <div class="flex gap-2">
+              <input id="custom-sme-prompt" type="text" value="We install solar panels: RM 400 labor per panel (subcon cost RM 180) and RM 25/m extra DC cable" class="cc-input !text-xs" />
+              <button onclick="generateCustomFrameworkFromPrompt()" class="cc-btn cc-btn-primary shrink-0"><svg><use href="#i-sparkle"/></svg> Generate</button>
             </div>
           </div>
 
           <div>
-            <div class="text-xs font-semibold text-[#042970] mb-1">Active Rules Injected into AI (`qwen3:4b`):</div>
-            <textarea id="owner-framework-input" rows="4" oninput="updateFrameworkText(this.value)" class="w-full p-2.5 rounded-lg bg-white border border-[#0152FC]/40 text-xs font-mono text-[#042970]"></textarea>
+            <label for="owner-framework-input" class="cc-label">Rules the AI follows</label>
+            <textarea id="owner-framework-input" rows="4" oninput="updateFrameworkText(this.value)" class="cc-input !text-xs font-mono"></textarea>
           </div>
         </div>
 
-        <div id="multi-agent-inspector-card" class="lg:col-span-6 p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] space-y-2.5 text-xs">
-          <div class="flex items-center justify-between">
-            <div class="font-bold text-sm text-[#042970]">🔍 Multi-Agent Prompts & Logic Inspector</div>
+        <div id="multi-agent-inspector-card" class="lg:col-span-6 p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold text-sm text-[#042970]">Agent prompt inspector</div>
             <span id="lmstudio-conn-pill" class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">LM Studio Ready</span>
           </div>
-          <p class="text-xs text-[#64748B]">Inspect the exact dynamic system prompts, rules, negative constraints, and live outputs for all agents:</p>
+          <p class="text-xs text-[#5B6B85]">See the exact prompt, rules and live output for each agent.</p>
 
-          <!-- AGENT SELECTOR TABS -->
-          <div class="flex flex-wrap gap-1.5 border-b border-[#D5DFEE] pb-2">
-            <button id="agent-tab-whatsapp" onclick="switchInspectorAgent('whatsapp')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0152FC] text-white shadow-xs transition">
-              🤖 WhatsApp Copilot
-            </button>
-            <button id="agent-tab-company" onclick="switchInspectorAgent('company')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">
-              💼 Company Financial AI
-            </button>
-            <button id="agent-tab-ocr" onclick="switchInspectorAgent('ocr')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">
-              📄 Receipt OCR Agent
-            </button>
-            <button id="agent-tab-autoguard" onclick="switchInspectorAgent('autoguard')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">
-              🛡️ Auto-Guard Agent
-            </button>
+          <div class="flex flex-wrap gap-1.5 border-b border-[#DCE4F2] pb-2">
+            <button id="agent-tab-whatsapp" onclick="switchInspectorAgent('whatsapp')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0152FC] text-white shadow-xs transition">WhatsApp Copilot</button>
+            <button id="agent-tab-company" onclick="switchInspectorAgent('company')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">Company AI</button>
+            <button id="agent-tab-ocr" onclick="switchInspectorAgent('ocr')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">Receipt OCR</button>
+            <button id="agent-tab-autoguard" onclick="switchInspectorAgent('autoguard')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#042970] hover:bg-[#E6EEFF] border border-[#D5DFEE] transition">Auto-Guard</button>
           </div>
 
-          <div id="inspector-agent-meta" class="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-[#042970]">
-            <span class="font-bold">Active Agent:</span> <span id="inspector-agent-title">WhatsApp SME Copilot Agent</span>
+          <div id="inspector-agent-meta" class="p-3 rounded-xl bg-white border border-[#DCE4F2] text-xs text-[#042970]">
+            <span class="font-bold">Active agent:</span> <span id="inspector-agent-title">WhatsApp SME Copilot Agent</span>
             <div id="inspector-agent-rules" class="mt-1 text-[11px] text-[#324564] space-y-0.5">
               • Strict rules: Never leak internal stock counts · Never say 'deducted stock' or 'locked stock' · Zero-pressure decline handling
             </div>
           </div>
 
-          <div class="bg-white p-3 rounded-xl border border-[#D5DFEE] space-y-2">
-            <div class="text-xs font-bold text-[#042970]">🔑 LM Studio Local API Endpoint (Port 1234)</div>
+          <div class="bg-white p-3 rounded-xl border border-[#DCE4F2] space-y-2">
+            <div class="text-xs font-semibold text-[#042970]">LM Studio connection</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs text-[#64748B] mb-0.5">Base URL (Default :1234/v1)</label>
-                <input id="lmstudio-url-input" type="text" value="http://127.0.0.1:1234/v1" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#042970]" />
+                <label for="lmstudio-url-input" class="block text-xs text-[#5B6B85] mb-1">Base URL</label>
+                <input id="lmstudio-url-input" type="text" value="http://127.0.0.1:1234/v1" class="cc-input !min-h-[36px] !text-xs font-mono" />
               </div>
               <div>
-                <label class="block text-xs text-[#64748B] mb-0.5">API Key / Bearer Token</label>
-                <input id="lmstudio-key-input" type="password" value="lm-studio" placeholder="lm-studio (or your token)" class="w-full bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#042970]" />
+                <label for="lmstudio-key-input" class="block text-xs text-[#5B6B85] mb-1">API key</label>
+                <input id="lmstudio-key-input" type="password" value="lm-studio" placeholder="lm-studio (or your token)" class="cc-input !min-h-[36px] !text-xs font-mono" />
               </div>
             </div>
-            <div class="flex gap-2 items-center pt-1">
-              <input id="lmstudio-model-input" type="text" value="local-model" placeholder="Model ID (or local-model to auto-detect)" class="flex-1 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[#042970]" />
-              <button onclick="testLMStudioConnection()" class="px-3.5 py-1.5 rounded-lg bg-[#0152FC] text-white text-xs font-bold hover:bg-[#0141C9]">
-                🔌 Save & Test LM Studio
-              </button>
+            <div class="flex gap-2 items-center">
+              <label for="lmstudio-model-input" class="sr-only">Model ID</label>
+              <input id="lmstudio-model-input" type="text" value="local-model" placeholder="Model ID (or local-model to auto-detect)" class="cc-input !min-h-[36px] !text-xs font-mono" />
+              <button onclick="testLMStudioConnection()" class="cc-btn cc-btn-primary shrink-0 !min-h-[36px]">Save &amp; test</button>
             </div>
           </div>
 
-          <div class="text-xs font-bold text-[#042970] flex items-center justify-between">
-            <span>📥 System & User Prompt Given to LLM:</span>
-            <span id="inspector-prompt-tokens" class="text-[11px] text-[#64748B] font-mono">Live dynamic prompt</span>
+          <div class="text-xs font-semibold text-[#042970] flex items-center justify-between">
+            <span>Prompt sent to the model</span>
+            <span id="inspector-prompt-tokens" class="text-[11px] text-[#5B6B85] font-mono">Live dynamic prompt</span>
           </div>
           <pre id="llm-input-preview" class="p-3 rounded-xl bg-[#042970] text-[#E3F6FF] text-xs overflow-x-auto whitespace-pre-wrap font-mono max-h-48 overflow-y-auto"></pre>
 
-          <div class="text-xs font-bold text-[#042970] flex items-center justify-between pt-1">
-            <span>📤 Raw LLM Output & Action Handling:</span>
-            <span id="inspector-output-tokens" class="text-[11px] text-[#64748B] font-mono">Live LLM response</span>
+          <div class="text-xs font-semibold text-[#042970] flex items-center justify-between">
+            <span>Model output</span>
+            <span id="inspector-output-tokens" class="text-[11px] text-[#5B6B85] font-mono">Live LLM response</span>
           </div>
-          <pre id="llm-output-preview" class="p-3 rounded-xl bg-white border border-[#D5DFEE] text-[#042970] text-xs overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto"></pre>
+          <pre id="llm-output-preview" class="p-3 rounded-xl bg-white border border-[#DCE4F2] text-[#042970] text-xs overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto"></pre>
         </div>
-
       </div>
     </div>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- PDF GENERATOR & PREVIEW MODAL                                         -->
+  <!-- PDF PREVIEW MODAL                                                     -->
   <!-- ===================================================================== -->
-  <div id="pdf-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#D5DFEE] space-y-4">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3">
-        <div>
-          <div class="text-xs font-bold uppercase tracking-wider text-[#0152FC]" id="pdf-doc-type">OFFICIAL QUOTATION (48H STOCK HOLD)</div>
-          <h3 class="text-lg font-bold text-[#042970]" id="pdf-company-name">Sejuk Jaya Aircond Sdn Bhd</h3>
-          <div class="text-xs text-[#64748B]">SSM: 202401009921 · LHDN TIN: C2588190021</div>
+  <div id="pdf-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="cc-modal max-w-xl w-full p-6 space-y-4">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
+        <div class="flex items-start gap-3">
+          <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto" />
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-[#0152FC]" id="pdf-doc-type">OFFICIAL QUOTATION (48H STOCK HOLD)</div>
+            <h3 class="text-lg font-bold text-[#042970]" id="pdf-company-name">Sejuk Jaya Aircond Sdn Bhd</h3>
+            <div class="text-xs text-[#5B6B85]">SSM: 202401009921 · LHDN TIN: C2588190021</div>
+          </div>
         </div>
-        <div class="text-right">
+        <div class="text-right shrink-0">
           <div class="font-mono font-bold text-base text-[#042970]" id="pdf-doc-id">#QT-104</div>
-          <div class="text-xs font-semibold text-emerald-700 mt-0.5" id="pdf-lhdn-tag">🟢 LHDN e-Invoice Ready</div>
+          <div class="text-xs font-semibold text-emerald-700 mt-0.5" id="pdf-lhdn-tag">LHDN e-Invoice Ready</div>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-3 text-xs bg-[#F2F6FF] p-3.5 rounded-xl border border-[#D5DFEE]">
+      <div class="grid grid-cols-2 gap-3 text-xs bg-[#F2F6FF] p-4 rounded-xl border border-[#DCE4F2]">
         <div>
-          <div class="text-[#64748B] font-semibold">CUSTOMER / SUPPLIER:</div>
+          <div class="text-[#5B6B85] font-semibold">Customer / supplier</div>
           <div class="font-bold text-[#042970] mt-0.5" id="pdf-party-name">Tan Bros Trading</div>
-          <div class="text-[#64748B]" id="pdf-party-sub">Buyer TIN: C2088391020</div>
+          <div class="text-[#5B6B85]" id="pdf-party-sub">Buyer TIN: C2088391020</div>
         </div>
         <div>
-          <div class="text-[#64748B] font-semibold">STOCK HOLD STATUS:</div>
-          <div class="font-semibold text-[#0152FC] mt-0.5" id="pdf-stock-status">⏳ Held for 48 Hours</div>
+          <div class="text-[#5B6B85] font-semibold">Stock status</div>
+          <div class="font-semibold text-[#0152FC] mt-0.5" id="pdf-stock-status">Held for 48 Hours</div>
         </div>
       </div>
 
-      <div class="border border-[#D5DFEE] rounded-xl overflow-hidden">
+      <div class="border border-[#DCE4F2] rounded-xl overflow-hidden">
         <table class="w-full text-left text-xs">
           <thead class="bg-[#042970] text-white">
             <tr>
-              <th class="py-2.5 px-3">Items & Labor Breakdown</th>
-              <th class="py-2.5 px-3 text-right">Amount (RM)</th>
+              <th class="py-2.5 px-3 font-semibold">Items &amp; labour</th>
+              <th class="py-2.5 px-3 text-right font-semibold">Amount (RM)</th>
             </tr>
           </thead>
           <tbody>
@@ -872,132 +848,90 @@
       </div>
 
       <div class="flex items-center justify-between bg-[#E6EEFF] rounded-xl px-4 py-3">
-        <span class="text-xs font-bold text-[#042970]">TOTAL AMOUNT</span>
-        <span class="text-lg font-bold text-[#0152FC]" id="pdf-total-big">RM 6,650</span>
+        <span class="text-xs font-semibold text-[#042970]">Total</span>
+        <span class="text-xl font-bold text-[#0152FC]" id="pdf-total-big">RM 6,650</span>
       </div>
 
-      <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
-        <button onclick="attachPdfToWhatsApp()" class="px-4 py-2.5 rounded-xl bg-[#0152FC] text-white text-xs font-bold hover:bg-[#0141C9]">
-          📎 Send PDF into WhatsApp Chat
-        </button>
-        <button onclick="downloadInvoicePdf()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs">
-          📥 Download Official PDF (.pdf)
-        </button>
-        <button onclick="window.print()" class="px-3.5 py-2.5 rounded-xl bg-[#042970] text-white text-xs font-bold">
-          🖨️ Print
-        </button>
-        <button onclick="closePdfModal()" class="px-3.5 py-2.5 rounded-xl bg-[#F2F6FF] text-[#324564] border border-[#D5DFEE] text-xs font-bold">
-          Close
-        </button>
+      <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
+        <button onclick="closePdfModal()" class="cc-btn cc-btn-ghost">Close</button>
+        <button onclick="window.print()" class="cc-btn cc-btn-ghost"><svg><use href="#i-printer"/></svg> Print</button>
+        <button onclick="downloadInvoicePdf()" class="cc-btn cc-btn-ghost"><svg><use href="#i-download"/></svg> Download PDF</button>
+        <button onclick="attachPdfToWhatsApp()" class="cc-btn cc-btn-primary"><svg><use href="#i-send"/></svg> Send to WhatsApp</button>
       </div>
     </div>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- MANUAL BANK RECEIPT VERIFICATION MODAL WITH LIVE RECEIPT PHOTO/PDF     -->
+  <!-- BANK RECEIPT VERIFICATION MODAL                                       -->
   <!-- ===================================================================== -->
-  <div id="verify-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-[#D5DFEE] space-y-4 max-h-[94vh] flex flex-col">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3">
+  <div id="verify-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="ver-title">
+    <div class="cc-modal max-w-4xl w-full p-6 space-y-4 max-h-[94vh] flex flex-col">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
         <div>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-bold">
-            📱 Customer Sent a Payment Receipt Screenshot / PDF
-          </span>
-          <h3 class="text-lg font-bold text-[#042970] mt-1.5" id="ver-title">Check Bank Account · #INV-205</h3>
-          <p class="text-xs text-[#64748B]">
-            Review the customer's attached receipt copy on the left and compare against your bank statement before confirming Cash on Hand.
-          </p>
+          <span class="cc-pill !bg-purple-50 !text-purple-800">Customer sent a payment receipt</span>
+          <h3 class="text-lg font-bold text-[#042970] mt-2" id="ver-title">Check Bank Account · #INV-205</h3>
+          <p class="cc-sub">Compare the receipt with your bank statement before adding the cash.</p>
         </div>
-        <button onclick="closeVerifyModal()" class="text-xs font-bold text-[#64748B] hover:text-[#042970] cursor-pointer">✕</button>
+        <button onclick="closeVerifyModal()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
       </div>
 
-      <!-- 2-Column Responsive Layout: Left = Receipt Document / Photo, Right = Comparison & Verification -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
-        <!-- LEFT COLUMN: Real Visual Receipt Document Preview -->
-        <div class="bg-[#F8FAFC] border-2 border-[#D5DFEE] rounded-xl p-3 flex flex-col justify-between">
+        <div class="bg-[#F2F6FF] border border-[#DCE4F2] rounded-2xl p-3 flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-[#042970] flex items-center gap-1.5">
-                <span>🧾</span> Attached Receipt Document / Photo
-              </span>
-              <button type="button" onclick="downloadCurrentReceiptCopy()" class="text-[11px] font-bold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer">
-                <span>📥</span> Download Copy (.pdf)
+              <span class="text-xs font-semibold text-[#042970]">Attached receipt</span>
+              <button type="button" onclick="downloadCurrentReceiptCopy()" class="text-xs font-semibold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5"><use href="#i-download"/></svg> Download copy
               </button>
             </div>
-            
-            <!-- Real Visual Receipt Container (Authentic DuitNow slip or Supplier bill) -->
-            <div id="ver-receipt-doc-container" class="rounded-lg overflow-hidden border border-[#CBD5E1] bg-white shadow-inner">
-              <!-- Rendered by renderVisualReceiptCard(inv) -->
-            </div>
+            <div id="ver-receipt-doc-container" class="rounded-xl overflow-hidden border border-[#DCE4F2] bg-white"></div>
           </div>
-          
-          <div class="mt-2.5 text-[10px] text-[#64748B] flex items-center justify-between border-t border-[#E2E8F0] pt-2">
-            <span id="ver-receipt-filename">📄 DuitNow_Receipt_DN88412.pdf</span>
-            <span class="font-mono text-[#0152FC] font-bold">Standard %PDF-1.4</span>
+          <div class="mt-2.5 text-[10px] text-[#5B6B85] flex items-center justify-between border-t border-[#DCE4F2] pt-2">
+            <span id="ver-receipt-filename">DuitNow_Receipt_DN88412.pdf</span>
+            <span class="font-mono text-[#0152FC] font-bold">PDF-1.4</span>
           </div>
         </div>
 
-        <!-- RIGHT COLUMN: Verification Details & Bank Comparison -->
         <div class="space-y-3 flex flex-col justify-between">
-          <!-- Visual Comparison: What They Owe vs What Receipt Says -->
           <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="p-2.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE]">
-              <div class="text-[10px] font-semibold text-[#64748B]">Invoice Bill</div>
+            <div class="p-3 rounded-xl bg-[#F2F6FF] border border-[#DCE4F2]">
+              <div class="text-[10px] font-semibold text-[#5B6B85]">Invoice</div>
               <div class="text-sm font-bold text-[#042970] mt-0.5" id="ver-bill-total">RM 2,400</div>
             </div>
-            <div class="p-2.5 rounded-xl bg-blue-50 border border-blue-200">
-              <div class="text-[10px] font-semibold text-[#0152FC]">Receipt Says</div>
+            <div class="p-3 rounded-xl bg-[#E6EEFF] border border-[#C3D3F0]">
+              <div class="text-[10px] font-semibold text-[#0152FC]">Receipt says</div>
               <div class="text-sm font-bold text-[#0152FC] mt-0.5" id="ver-claimed-total">RM 2,200</div>
             </div>
-            <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200" id="ver-diff-card">
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200" id="ver-diff-card">
               <div class="text-[10px] font-semibold text-amber-800" id="ver-diff-label">Still Owes</div>
               <div class="text-sm font-bold text-amber-900 mt-0.5" id="ver-diff-total">RM 200</div>
             </div>
           </div>
 
-          <!-- Simulated Customer Receipt Card (Read by AI OCR) -->
-          <div class="p-3 rounded-xl bg-[#F8FAFC] border border-[#D5DFEE] space-y-1.5 text-xs">
-            <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-1 mb-1">
-              <span class="font-bold text-[#042970]">🧾 AI-Scanned Receipt Audit</span>
-              <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold" id="ver-payee">✅ Valid Payee & Ref</span>
+          <div class="p-3 rounded-xl bg-white border border-[#DCE4F2] space-y-1.5 text-xs">
+            <div class="flex items-center justify-between border-b border-[#DCE4F2] pb-1.5 mb-1">
+              <span class="font-semibold text-[#042970]">What AI read</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold" id="ver-payee">Valid Payee &amp; Ref</span>
             </div>
-            <div class="flex justify-between">
-              <span class="text-[#64748B]">Customer Name:</span>
-              <span class="font-bold text-[#042970]" id="ver-party">Wisma Perdana Sdn Bhd</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-[#64748B]">DuitNow Ref #:</span>
-              <span class="font-mono font-bold text-[#0152FC]" id="ver-ref">DN-20261117-88412</span>
-            </div>
+            <div class="flex justify-between"><span class="text-[#5B6B85]">Customer</span><span class="font-semibold text-[#042970]" id="ver-party">Wisma Perdana Sdn Bhd</span></div>
+            <div class="flex justify-between"><span class="text-[#5B6B85]">DuitNow ref</span><span class="font-mono font-semibold text-[#0152FC]" id="ver-ref">DN-20261117-88412</span></div>
             <div id="ver-warning-box" class="mt-1 p-2 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 font-semibold text-[11px] leading-snug">
-              ⚠️ Customer only transferred RM 2,200 out of RM 2,400. If you confirm RM 2,200 below, the remaining RM 200 will stay open automatically!
+              Customer only transferred RM 2,200 out of RM 2,400. If you confirm RM 2,200, the remaining RM 200 stays open.
             </div>
           </div>
 
-          <!-- Editable Actual Amount Received in Bank -->
-          <div class="p-3 rounded-xl bg-[#E6EEFF] border border-[#B8CEFF] space-y-1">
-            <label class="block text-xs font-bold text-[#042970]">
-              💵 Actual Money Received in Your Bank Account (RM):
-            </label>
+          <div class="p-3 rounded-xl bg-[#E6EEFF] border border-[#C3D3F0] space-y-1.5">
+            <label for="ver-actual-input" class="block text-xs font-semibold text-[#042970]">Money actually in your bank (RM)</label>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold text-[#042970]">RM</span>
-              <input id="ver-actual-input" type="number" value="2200" oninput="updateVerifyButtonLabel()"
-                class="w-full px-3 py-1.5 rounded-lg bg-white border border-[#0152FC] text-sm font-bold text-[#042970] focus:outline-hidden" />
+              <input id="ver-actual-input" type="number" value="2200" oninput="updateVerifyButtonLabel()" class="cc-input font-bold" />
             </div>
-            <p class="text-[10px] text-[#324564]" id="ver-outcome-hint">
-              👉 Adds <b>+RM 2,200</b> to Cash on Hand and keeps <b>RM 200</b> open as unpaid balance.
-            </p>
+            <p class="text-[10px] text-[#324564]" id="ver-outcome-hint">Adds <b>+RM 2,200</b> to cash and keeps <b>RM 200</b> open.</p>
           </div>
 
-          <!-- 1 Big Primary Button + 1 Reject Button -->
-          <div class="space-y-1.5 pt-1">
-            <button onclick="approveVerifiedReceipt('CONFIRM')" class="w-full py-3 px-4 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-md transition cursor-pointer" id="ver-btn-full">
-              ✅ Confirm RM 2,200 Received in Bank (+Cash)
-            </button>
-
-            <button onclick="approveVerifiedReceipt('REJECT')" class="w-full py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold transition cursor-pointer">
-              ❌ Money Not in My Bank (Reject Fake / Wrong Receipt)
-            </button>
+          <div class="space-y-2">
+            <button onclick="approveVerifiedReceipt('CONFIRM')" class="cc-btn cc-btn-primary cc-btn-lg w-full" id="ver-btn-full">Confirm RM 2,200 Received in Bank (+Cash)</button>
+            <button onclick="approveVerifiedReceipt('REJECT')" class="cc-btn cc-btn-danger w-full">Not in my bank · reject receipt</button>
           </div>
         </div>
       </div>
@@ -1005,149 +939,103 @@
   </div>
 
   <!-- ===================================================================== -->
-  <!-- STANDALONE RECEIPT VIEWER MODAL (CHECK BACK ON RECEIPT COPY ANYTIME)  -->
+  <!-- RECEIPT VIEWER MODAL                                                  -->
   <!-- ===================================================================== -->
-  <div id="receipt-viewer-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#D5DFEE] space-y-4">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3">
+  <div id="receipt-viewer-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="rec-view-title">
+    <div class="cc-modal max-w-lg w-full p-6 space-y-4">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
         <div>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 font-bold">
-            🧾 Stored Payment Receipt Copy Record
-          </span>
-          <h3 class="text-lg font-bold text-[#042970] mt-1.5" id="rec-view-title">Receipt Record</h3>
-          <p class="text-xs text-[#64748B]" id="rec-view-subtitle">Archived receipt document saved in CashChase records.</p>
+          <span class="cc-pill !bg-purple-50 !text-purple-800">Saved receipt</span>
+          <h3 class="text-lg font-bold text-[#042970] mt-2" id="rec-view-title">Receipt Record</h3>
+          <p class="cc-sub" id="rec-view-subtitle">Archived receipt document saved in CashChase records.</p>
         </div>
-        <button onclick="closeReceiptViewerModal()" class="text-xs font-bold text-[#64748B] hover:text-[#042970] cursor-pointer">✕</button>
+        <button onclick="closeReceiptViewerModal()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
       </div>
-
-      <div id="rec-view-container" class="rounded-xl overflow-hidden border border-[#CBD5E1] bg-white shadow-inner">
-        <!-- Rendered receipt copy -->
-      </div>
-
-      <div class="flex items-center justify-between pt-2 border-t border-[#D5DFEE]">
-        <button onclick="downloadCurrentReceiptCopy()" class="px-4 py-2 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center gap-1.5">
-          <span>📥</span> Download PDF Receipt Copy
-        </button>
-        <button onclick="closeReceiptViewerModal()" class="px-4 py-2 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] text-[#042970] text-xs font-bold transition cursor-pointer">
-          Close
-        </button>
+      <div id="rec-view-container" class="rounded-xl overflow-hidden border border-[#DCE4F2] bg-white"></div>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button onclick="closeReceiptViewerModal()" class="cc-btn cc-btn-ghost">Close</button>
+        <button onclick="downloadCurrentReceiptCopy()" class="cc-btn cc-btn-primary"><svg><use href="#i-download"/></svg> Download PDF</button>
       </div>
     </div>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- QUICK STOCK HOLD INSPECTOR MODAL (SEE WHO IS HOLDING & QUICK ACTIONS) -->
+  <!-- STOCK HOLD INSPECTOR MODAL                                            -->
   <!-- ===================================================================== -->
-  <div id="hold-inspector-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#D5DFEE] space-y-4">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3">
+  <div id="hold-inspector-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="hold-modal-title">
+    <div class="cc-modal max-w-2xl w-full p-6 space-y-4">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
         <div>
-          <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold" id="hold-modal-sku-pill">
-            ⏳ Stock Hold Breakdown · ACN-DAI-15
-          </span>
-          <h3 class="text-lg font-bold text-[#042970] mt-1.5" id="hold-modal-title">Daikin 1.5HP Inverter Unit</h3>
-          <p class="text-xs text-[#64748B]" id="hold-modal-subtitle">
-            Physical On Hand: 8 units · On Hold: 3 units · Available to Sell: 5 units
-          </p>
+          <span class="cc-pill !bg-amber-50 !text-amber-800" id="hold-modal-sku-pill">Stock Hold Breakdown · ACN-DAI-15</span>
+          <h3 class="text-lg font-bold text-[#042970] mt-2" id="hold-modal-title">Daikin 1.5HP Inverter Unit</h3>
+          <p class="cc-sub" id="hold-modal-subtitle">Physical On Hand: 8 units · On Hold: 3 units · Available to Sell: 5 units</p>
         </div>
-        <button onclick="closeHoldInspector()" class="px-3 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] text-xs font-bold text-[#042970]">✕ Close</button>
+        <button onclick="closeHoldInspector()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
       </div>
-
-      <div class="space-y-3 max-h-96 overflow-y-auto pr-1" id="hold-modal-list">
-        <!-- Populated by JS -->
-      </div>
+      <div class="space-y-3 max-h-96 overflow-y-auto pr-1" id="hold-modal-list"></div>
     </div>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- FLOATING "ASK COMPANY AI" BUTTON & COMPANY AI COPILOT MODAL           -->
+  <!-- ASK COMPANY AI                                                        -->
   <!-- ===================================================================== -->
-  <button onclick="openCompanyAgentModal()" class="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-[#042970] hover:bg-[#0152FC] text-white font-bold text-xs shadow-2xl border-2 border-[#01E3FB] transition">
-    <span class="text-base">🤖</span>
-    <span>Ask Company AI</span>
+  <button onclick="openCompanyAgentModal()" class="cc-fab" aria-label="Ask Company AI">
+    <img src="img/mascot-happy.png" alt="" width="293" height="232" class="m-float" />
+    <span>Ask AI</span>
   </button>
 
-  <div id="company-agent-modal" class="hidden fixed inset-0 z-50 bg-[#042970]/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#D5DFEE] flex flex-col max-h-[88vh]">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3.5">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full bg-[#042970] text-[#01E3FB] text-xs font-bold">🤖 Orbyte Company AI Agent</span>
-            <span class="text-xs text-[#64748B]" id="agent-lm-badge">Connected to Live Company Data + LM Studio</span>
+  <div id="company-agent-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="agent-title">
+    <div class="cc-modal max-w-2xl w-full p-6 flex flex-col max-h-[88vh]">
+      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
+        <div class="flex items-center gap-3">
+          <img src="img/mascot-happy.png" alt="" width="293" height="232" class="w-16 h-auto m-float" aria-hidden="true" />
+          <div>
+            <h3 id="agent-title" class="text-lg font-bold text-[#042970]">Ask anything about your business</h3>
+            <p class="text-xs text-[#5B6B85]" id="agent-lm-badge">Connected to Live Company Data + LM Studio</p>
           </div>
-          <h3 class="text-lg font-bold text-[#042970] mt-1">Ask Anything About Your Business</h3>
-          <p class="text-xs text-[#64748B]">
-            Has real-time access to your Cash on Hand, Warehouse Stock, 48h Quote Holders, Unverified Receipts, and LHDN TINs.
-          </p>
         </div>
-        <button onclick="closeCompanyAgentModal()" class="px-3 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] text-xs font-bold text-[#042970]">✕ Close</button>
+        <button onclick="closeCompanyAgentModal()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
       </div>
 
-      <!-- 1-Click Quick Question Chips -->
-      <div class="py-3 border-b border-[#D5DFEE] flex flex-wrap gap-1.5">
-        <button onclick="askCompanyAgent('What is our exact Net Worth, Cash on Hand, and Stock Value right now?')" class="px-3 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-          💰 Net Worth & Cash
-        </button>
-        <button onclick="askCompanyAgent('Who is holding our stock right now and which 48h holds are expired?')" class="px-3 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-          ⏳ Who Is Holding Stock?
-        </button>
-        <button onclick="askCompanyAgent('Which pending customer receipts, aftersales issues, or unpaid invoices need my action today?')" class="px-3 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-purple-800 transition">
-          🕵️‍♂️ Pending Receipts & Action Items
-        </button>
-        <button onclick="askCompanyAgent('Show me our warehouse stock breakdown and profit margin per unit for each SKU.')" class="px-3 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-emerald-800 transition">
-          📦 Stock & Profit Margins
-        </button>
-        <button onclick="askCompanyAgent('Which customers are missing LHDN TINs vs ready for e-Invoice?')" class="px-3 py-1.5 rounded-full bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-amber-800 transition">
-          🟢 LHDN TIN Check
-        </button>
+      <div class="py-3 border-b border-[#DCE4F2] flex flex-wrap gap-2">
+        <button onclick="askCompanyAgent('What is our exact Net Worth, Cash on Hand, and Stock Value right now?')" class="cc-chip">Net worth &amp; cash</button>
+        <button onclick="askCompanyAgent('Who is holding our stock right now and which 48h holds are expired?')" class="cc-chip">Who holds stock?</button>
+        <button onclick="askCompanyAgent('Which pending customer receipts, aftersales issues, or unpaid invoices need my action today?')" class="cc-chip">What needs me today?</button>
+        <button onclick="askCompanyAgent('Show me our warehouse stock breakdown and profit margin per unit for each SKU.')" class="cc-chip">Stock &amp; margins</button>
+        <button onclick="askCompanyAgent('Which customers are missing LHDN TINs vs ready for e-Invoice?')" class="cc-chip">LHDN TIN check</button>
       </div>
 
-      <!-- Chat Messages Container -->
-      <div id="company-agent-messages" class="flex-1 overflow-y-auto py-4 space-y-3 min-h-[260px] max-h-[360px] pr-1">
-        <!-- Populated by JS -->
-      </div>
+      <div id="company-agent-messages" class="flex-1 overflow-y-auto py-4 space-y-3 min-h-[260px] max-h-[360px] pr-1" aria-live="polite"></div>
 
-      <!-- Question Input Box -->
-      <div class="pt-3 border-t border-[#D5DFEE] flex gap-2">
-        <input id="company-agent-input" type="text" onkeydown="if(event.key==='Enter') sendCompanyAgentInput()" placeholder="Ask anything (e.g. 'How many Daikin units are available?' or 'How much does Klinik Dr Lim owe?')..." class="flex-1 bg-[#F2F6FF] border border-[#D5DFEE] rounded-xl px-3.5 py-2.5 text-xs text-[#042970] font-medium focus:outline-none focus:border-[#0152FC]" />
-        <button onclick="sendCompanyAgentInput()" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-sm transition">
-          Ask AI ➤
-        </button>
+      <div class="pt-3 border-t border-[#DCE4F2] flex gap-2">
+        <label for="company-agent-input" class="sr-only">Your question</label>
+        <input id="company-agent-input" type="text" onkeydown="if(event.key==='Enter') sendCompanyAgentInput()" placeholder="e.g. How much does Klinik Dr Lim owe?" class="cc-input" />
+        <button onclick="sendCompanyAgentInput()" class="cc-btn cc-btn-primary shrink-0 i-swipe"><svg><use href="#i-send"/></svg> Ask</button>
       </div>
     </div>
   </div>
 
   <!-- ===================================================================== -->
-  <!-- UNIVERSAL ACTION CONFIRMATION MODAL (SAFETY CHECK FOR ALL BUTTONS)    -->
+  <!-- CONFIRMATION MODAL                                                    -->
   <!-- ===================================================================== -->
-  <div id="universal-confirm-modal" class="hidden fixed inset-0 z-[70] bg-[#042970]/75 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white text-[#324564] rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-[#0152FC] space-y-4">
-      <div class="flex items-start justify-between border-b border-[#D5DFEE] pb-3">
-        <div>
-          <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold">
-            🛡️ Action Confirmation
-          </span>
-          <h3 class="text-base font-bold text-[#042970] mt-1.5" id="uconf-title">Please Confirm Action</h3>
+  <div id="universal-confirm-modal" class="hidden fixed inset-0 z-[70] cc-overlay flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="uconf-title">
+    <div class="cc-modal max-w-md w-full p-6 space-y-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-12 h-auto" aria-hidden="true" />
+          <h3 class="text-base font-bold text-[#042970]" id="uconf-title">Please Confirm Action</h3>
         </div>
-        <button onclick="closeUniversalConfirm()" class="text-xs font-bold text-[#64748B] hover:text-[#042970]">✕</button>
+        <button onclick="closeUniversalConfirm()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
       </div>
-
-      <div class="p-3.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-xs text-[#042970] leading-relaxed whitespace-pre-line font-medium" id="uconf-message">
-        Are you sure you want to proceed with this action?
-      </div>
-
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button onclick="closeUniversalConfirm()" class="px-4 py-2.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E2E8F0] text-[#324564] border border-[#D5DFEE] text-xs font-bold transition cursor-pointer">
-          Cancel
-        </button>
-        <button onclick="proceedUniversalConfirm()" id="uconf-ok-btn" class="px-5 py-2.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-md transition cursor-pointer">
-          ✅ Yes, Confirm & Proceed
-        </button>
+      <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#DCE4F2] text-sm text-[#042970] leading-relaxed whitespace-pre-line" id="uconf-message">Are you sure you want to proceed with this action?</div>
+      <div class="flex items-center justify-end gap-2">
+        <button onclick="closeUniversalConfirm()" class="cc-btn cc-btn-ghost">Cancel</button>
+        <button onclick="proceedUniversalConfirm()" id="uconf-ok-btn" class="cc-btn cc-btn-primary">Yes, confirm</button>
       </div>
     </div>
   </div>
 
-    <!-- CashChase Modular JavaScript Architecture -->
+  <!-- CashChase modules -->
   <script src="js/state.js"></script>
   <script src="js/inspector.js"></script>
   <script src="js/dashboard.js"></script>
@@ -1156,6 +1044,6 @@
   <script src="js/company_ai.js"></script>
   <script src="js/pdf_export.js"></script>
   <script src="js/main.js"></script>
-
+  <script src="js/ui.js"></script>
 </body>
 </html>
