@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
+  <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=20261022" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -1176,15 +1177,15 @@
   </div>
 
   <!-- CashChase modules -->
-  <script src="js/state.js"></script>
-  <script src="js/inspector.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script src="js/stock_ocr.js"></script>
-  <script src="js/copilot.js"></script>
-  <script src="js/company_ai.js"></script>
-  <script src="js/pdf_export.js"></script>
-  <script src="js/main.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/state.js?v=20261022"></script>
+  <script src="js/inspector.js?v=20261022"></script>
+  <script src="js/dashboard.js?v=20261022"></script>
+  <script src="js/stock_ocr.js?v=20261022"></script>
+  <script src="js/copilot.js?v=20261022"></script>
+  <script src="js/company_ai.js?v=20261022"></script>
+  <script src="js/pdf_export.js?v=20261022"></script>
+  <script src="js/main.js?v=20261022"></script>
+  <script src="js/ui.js?v=20261022"></script>
+  <script src="js/auth.js?v=20261022"></script>
 </body>
 </html>
