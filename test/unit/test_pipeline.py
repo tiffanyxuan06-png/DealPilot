@@ -68,6 +68,7 @@ def test_fnb_profile_and_software_removed(client):
 def test_old_cash_and_stock_database_is_rebuilt(client):
     with get_engine().begin() as conn:
         conn.execute(text("CREATE TABLE invoices (id TEXT)"))
+        conn.execute(text("DROP TABLE schema_migrations"))  # the cash & stock version had no migrations
     init_database()
     assert "invoices" not in inspect(get_engine()).get_table_names()
     with get_engine().connect() as conn:

@@ -97,7 +97,7 @@ def api_decide_approval(approval_id: int, req: ApprovalDecisionRequest) -> Actio
         return ActionResponse(status="ok", state=build_state(req.role))
 
     # Re-run the original request as the Owner. The route re-checks the current data (e.g. the deal is still open).
-    fn, model, _ = HANDLERS[handler]
+    fn, model = HANDLERS[handler]
     payload = json.loads(payload_json)
     body = {**payload.get("body", {}), "role": Role.OWNER.value}
     try:

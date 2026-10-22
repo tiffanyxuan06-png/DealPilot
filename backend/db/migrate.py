@@ -11,7 +11,20 @@ from sqlalchemy import Engine, MetaData, inspect, text
 from backend.services.clock import now_stamp
 
 MIGRATIONS_ROOT = Path(__file__).resolve().parent.parent / "schema" / "migrations"
-LEGACY_TABLE = "invoices"  # only exists in the old cash & stock version, whose database held demo data only
+VERSIONS_TABLE = "schema_migrations"
+
+
+def _is_pre_migration(engine: Engine) -> bool:
+    """A database made before migrations existed (the cash & stock version, or the branch before doc 12):
+    it has app tables but no recorded migration (schema_migrations missing, or left empty by a failed start).
+    Those only ever held demo data, so they are rebuilt."""
+    tables = set(inspect(engine).get_table_names())
+    if not tables - {VERSIONS_TABLE}:
+        return False
+    if VERSIONS_TABLE not in tables:
+        return True
+    with engine.connect() as conn:
+        return not conn.execute(text(f"SELECT COUNT(*) FROM {VERSIONS_TABLE}")).scalar()
 
 
 def migrations_dir(engine: Engine) -> Path:
@@ -28,39 +41,38 @@ def drop_all(engine: Engine) -> None:
     meta.drop_all(engine)
 
 
-def _run_script(conn, sql: str) -> None:
-    if conn.dialect.name == "sqlite":
-        # The sqlite driver runs one statement per execute(); executescript runs a whole file (incl. triggers),
-        # wrapped in BEGIN/COMMIT so a failing file changes nothing.
-        db = conn.connection.driver_connection
-        try:
-            db.executescript(f"BEGIN;\n{sql}\nCOMMIT;")
-        except Exception:
-            if db.in_transaction:
-                db.rollback()
-            raise
-    else:
-        conn.exec_driver_sql(sql)
+def _apply(engine: Engine, version: str, sql: str) -> None:
+    """Runs one migration file and records it in the same transaction, so a file is never half-applied or unrecorded."""
+    record = f"INSERT INTO {VERSIONS_TABLE} (version, applied_at) VALUES ('{version}', '{now_stamp()}');"
+    with engine.begin() as conn:
+        if conn.dialect.name == "sqlite":
+            # The sqlite driver runs one statement per execute(); executescript runs a whole file (incl. triggers).
+            db = conn.connection.driver_connection
+            try:
+                db.executescript(f"BEGIN;\n{sql}\n{record}\nCOMMIT;")
+            except Exception:
+                if db.in_transaction:
+                    db.rollback()
+                raise
+        else:
+            conn.exec_driver_sql(f"{sql}\n{record}")
 
 
 def migrate(engine: Engine) -> List[str]:
     """Applies the migrations not yet recorded. Returns the versions applied now."""
     folder = migrations_dir(engine)
-    if LEGACY_TABLE in inspect(engine).get_table_names():
+    if _is_pre_migration(engine):
         drop_all(engine)
     with engine.begin() as conn:
-        conn.execute(text("CREATE TABLE IF NOT EXISTS schema_migrations (version VARCHAR(255) PRIMARY KEY, applied_at VARCHAR(32) NOT NULL)"))
-        done = set(conn.execute(text("SELECT version FROM schema_migrations")).scalars())
+        conn.execute(text(f"CREATE TABLE IF NOT EXISTS {VERSIONS_TABLE} (version VARCHAR(255) PRIMARY KEY, applied_at VARCHAR(32) NOT NULL)"))
+        done = set(conn.execute(text(f"SELECT version FROM {VERSIONS_TABLE}")).scalars())
 
     applied = []
     for path in sorted(folder.glob("*.sql")):
         if path.stem in done:
             continue
-        sql = path.read_text(encoding="utf-8")
         try:
-            with engine.begin() as conn:
-                _run_script(conn, sql)
-                conn.execute(text("INSERT INTO schema_migrations (version, applied_at) VALUES (:v, :t)"), {"v": path.stem, "t": now_stamp()})
+            _apply(engine, path.stem, path.read_text(encoding="utf-8"))
         except Exception as exc:
             raise RuntimeError(f"Migration {engine.dialect.name}/{path.name} failed: {exc}") from exc
         applied.append(path.stem)

@@ -54,7 +54,7 @@ def compute_client_memory_rating(customer: str, phone: str = "", message: str = 
     deals = []
     if len(cust) >= 3:
         deals = [
-            d for d in session.scalars(select(orm.Deal).where(orm.Deal.customer.contains(cust)))
+            d for d in session.scalars(select(orm.Deal).where(func.lower(orm.Deal.customer).contains(cust.lower(), autoescape=True)))
             if d.customer.lower() == cust.lower() or len(cust) >= 4
         ]
 

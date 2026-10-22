@@ -4,6 +4,7 @@ Every file is validated by the Pydantic models below, so a typo fails with a cle
 instead of a half-seeded database. Times are relative to now, so follow-ups are live after every reset.
 """
 from datetime import datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -117,6 +118,7 @@ def _read(name: str, model: type) -> Any:
     return model.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)  # read on every request via load_business; edits to defaults.json need a restart
 def load_defaults() -> DefaultsFile:
     return _read(DEFAULTS_FILE, DefaultsFile)
 

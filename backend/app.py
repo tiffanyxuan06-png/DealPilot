@@ -2,6 +2,7 @@ from pathlib import Path
 import jwt
 from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -38,6 +39,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_as_text(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Bad input is a 400 with one plain sentence, like every other error the WebApp and extension show."""
+    first = exc.errors()[0] if exc.errors() else {}
+    msg = str(first.get("msg", "Invalid request.")).removeprefix("Value error, ")
+    field = ".".join(str(p) for p in first.get("loc", ())[1:] if not isinstance(p, int))
+    custom = first.get("type") == "value_error"  # our own validators already write a full sentence
+    return JSONResponse({"detail": msg if custom or not field else f"{field}: {msg}"}, status_code=400)
+
 
 # Uploads arrive as base64 inside JSON: 15 MB of JSON is about a 10 MB file.
 MAX_REQUEST_BYTES = 15 * 1024 * 1024

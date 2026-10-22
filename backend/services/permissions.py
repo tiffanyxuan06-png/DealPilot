@@ -61,12 +61,13 @@ MANDATORY_RULES: List[str] = [
     "The activity log is append-only and records every action, request, decision and permission change.",
 ]
 
-# Handlers that an approved request re-runs: name -> (function, request model or None, path param names)
-HANDLERS: Dict[str, Tuple[Callable, Any, List[str]]] = {}
+# Handlers that an approved request re-runs: name -> (route function, request model or None).
+# The stored payload keeps the path params ({"path": {...}, "body": {...}}), so they are not listed here.
+HANDLERS: Dict[str, Tuple[Callable, Any]] = {}
 
 
-def register_handler(name: str, fn: Callable, model: Any, path_params: Optional[List[str]] = None) -> None:
-    HANDLERS[name] = (fn, model, path_params or [])
+def register_handler(name: str, fn: Callable, model: Any) -> None:
+    HANDLERS[name] = (fn, model)
 
 
 def normalize_role(role: Optional[str]) -> str:
@@ -83,10 +84,6 @@ def staff_mode(session: Session, key: str) -> str:
     mode = row.staff_mode if row else ACTIONS[key]["default"]
     allowed = ACTIONS[key].get("modes", [ALLOW, APPROVAL, DENY])
     return mode if mode in allowed else ACTIONS[key]["default"]
-
-
-def margin_floor(session: Session) -> float:
-    return load_business(session).margin_floor_pct
 
 
 def require_owner(role: Optional[str], key: str) -> None:

@@ -67,9 +67,14 @@ def lhdn_for(session: Session, name: str) -> str:
 
 
 def open_deal_ids(session: Session, name: str) -> List[str]:
+    # Case-insensitive on every database (LIKE ignores case on SQLite but not on Postgres); tags like
+    # "(Phone Order)" are stripped in Python, so the query only narrows by the clean name.
     key = customer_key(name).lower()
     rows = session.scalars(
-        select(orm.Deal).where(orm.Deal.stage.in_([s.value for s in OPEN_STAGES]), orm.Deal.customer.contains(customer_key(name)))
+        select(orm.Deal).where(
+            orm.Deal.stage.in_([s.value for s in OPEN_STAGES]),
+            func.lower(orm.Deal.customer).contains(key, autoescape=True),
+        )
     )
     return [r.id for r in rows if customer_key(r.customer).lower() == key]
 

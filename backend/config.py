@@ -43,6 +43,17 @@ class AppSettings(BaseSettings):
         v = (v or "").strip()
         return "" if "your_" in v else v
 
+    @field_validator("database_url")
+    @classmethod
+    def _sqlite_path_from_project(cls, v: str) -> str:
+        # A relative SQLite path means "inside the project", wherever the server is started from.
+        prefix = "sqlite:///"
+        if v.startswith(prefix):
+            path = Path(v[len(prefix):])
+            if str(path) not in ("", ":memory:") and not path.is_absolute():
+                return prefix + (ROOT / path).as_posix()
+        return v
+
     @field_validator("ai_provider")
     @classmethod
     def _lower(cls, v: str) -> str:

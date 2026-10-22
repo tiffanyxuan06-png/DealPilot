@@ -121,21 +121,24 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
     fallback = deterministic_fallback_analysis(req.customer, req.phone or "", req.message, state, user_instruction=req.user_instruction or "")
     fallback["clientMemory"] = mem
 
+    # The model call happens outside any database session: it can take 10s+ and must not hold a connection.
+    try:
+        llm_res = call_lmstudio_chat(ai["base_url"], ai["model"], system_prompt, user_prompt, api_key=ai["api_key"])
+    except Exception as e:
+        with session_scope() as s:
+            _add_tin_request(s, fallback, req.customer)
+            _save_memory(s, req, mem, fallback)
+        return {
+            "source": "deterministic_fallback",
+            "lmstudio_connected": False,
+            "error": str(e),
+            "raw_prompt": system_prompt + "\n\n" + user_prompt,
+            "raw_llm_output": json.dumps(fallback, indent=2),
+            "analysis": fallback,
+        }
+
     with session_scope() as s:
         _add_tin_request(s, fallback, req.customer)
-        try:
-            llm_res = call_lmstudio_chat(ai["base_url"], ai["model"], system_prompt, user_prompt, api_key=ai["api_key"])
-        except Exception as e:
-            _save_memory(s, req, mem, fallback)
-            return {
-                "source": "deterministic_fallback",
-                "lmstudio_connected": False,
-                "error": str(e),
-                "raw_prompt": system_prompt + "\n\n" + user_prompt,
-                "raw_llm_output": json.dumps(fallback, indent=2),
-                "analysis": fallback,
-            }
-
         parsed = extract_json_from_llm(llm_res["clean_content"]) or {}
         merged = {**fallback, **{k: v for k, v in parsed.items() if v is not None and v != ""}, "clientMemory": mem}
         # Code, not the AI, decides the action and prices the quote.

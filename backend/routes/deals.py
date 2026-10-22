@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.db import orm, session_scope
@@ -219,7 +219,7 @@ def api_upsert_rep(req: RepUpsertRequest) -> ActionResponse:
     require_owner(req.role, "reps.manage")
     name = req.name.strip()
     with session_scope() as s:
-        clash = s.scalars(select(orm.Rep).where(orm.Rep.name.ilike(name), orm.Rep.id != (req.id or -1))).first()
+        clash = s.scalars(select(orm.Rep).where(func.lower(orm.Rep.name) == name.lower(), orm.Rep.id != (req.id or -1))).first()
         if clash:
             raise HTTPException(status_code=409, detail=f"There is already a rep called {name}.")
         if req.id:
@@ -271,4 +271,4 @@ def api_upsert_product(req: ProductUpsertRequest) -> ActionResponse:
 
 
 register_handler("deal_create", api_create_deal, DealCreateRequest)
-register_handler("deal_action", api_deal_action, DealActionRequest, ["deal_id"])
+register_handler("deal_action", api_deal_action, DealActionRequest)
