@@ -12,7 +12,6 @@ from backend.services.lmstudio import check_lmstudio_health, DEFAULT_LMSTUDIO_UR
 from backend.routes.state import router as state_router
 from backend.routes.whatsapp import router as whatsapp_router
 from backend.routes.company_ai import router as company_ai_router
-from backend.routes.invoices import router as invoices_router
 from backend.routes.exports import router as exports_router
 from backend.routes.team import router as team_router
 from backend.routes.onboarding import router as onboarding_router
@@ -78,7 +77,6 @@ async def require_login(request: Request, call_next):
 app.include_router(state_router)
 app.include_router(whatsapp_router)
 app.include_router(company_ai_router)
-app.include_router(invoices_router)
 app.include_router(exports_router)
 app.include_router(team_router)
 app.include_router(onboarding_router)

@@ -126,27 +126,26 @@ def apply_onboarding(conn: sqlite3.Connection, setup: Dict[str, Any], ts: str) -
     """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it."""
     settings = {
         "company_name": setup["companyName"],
-        "cash_on_hand": str(int(setup["startingCash"])),
-        "hold_hours": str(int(setup["holdHours"])),
+        "follow_up_hours": str(int(setup["holdHours"])),
         "owner_approval_threshold": str(int(setup["threshold"])),
         "sme_preset": "custom",
-        "framework": setup.get("framework") or "Quotes hold stock for the hold time; physical stock is only deducted after the deposit is confirmed.",
+        "framework": setup.get("framework") or "Quote from the price list. Prices are subject to stock availability.",
         "onboarding_json": json.dumps(setup),
     }
     for k, v in settings.items():
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
     for k in ("ssm", "tin"):
         conn.execute("DELETE FROM settings WHERE key = ?", (k,))
+    # Quantities in the uploaded list are ignored: the sales agent quotes "subject to stock availability".
     conn.executemany(
-        "INSERT INTO stock (sku, name, on_hand, on_hold, hold_note, unit_cost, sell_price) VALUES (?, ?, ?, 0, '-', ?, ?)",
-        [(i["sku"], i["name"], i["qty"], i["unitCost"], i["sellPrice"]) for i in setup["items"]],
+        "INSERT INTO products (sku, name, sell_price, unit_cost) VALUES (?, ?, ?, ?)",
+        [(i["sku"], i["name"], i["sellPrice"], i["unitCost"]) for i in setup["items"]],
     )
-    stock_value = sum(i["qty"] * i["unitCost"] for i in setup["items"])
     conn.execute(
         "INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)",
         (
-            f"{ts} · [OWNER] Set up {setup['companyName']}: {len(setup['items'])} stock items (RM {stock_value:,} stock value), "
-            f"starting cash RM {int(setup['startingCash']):,}, {int(setup['holdHours'])}h quote hold, RM {int(setup['threshold']):,} approval threshold.",
+            f"{ts} · [OWNER] Set up {setup['companyName']}: {len(setup['items'])} price-list items, "
+            f"follow-up after {int(setup['holdHours'])}h, RM {int(setup['threshold']):,} approval threshold.",
             ts,
         ),
     )

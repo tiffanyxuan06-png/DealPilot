@@ -221,7 +221,7 @@ def receipt_check_reasons(conn: sqlite3.Connection, inv: sqlite3.Row, paid_rm: O
 def permissions_payload(conn: sqlite3.Connection) -> Dict[str, Any]:
     return {
         "threshold": approval_threshold(conn),
-        "holdHours": int(get_setting(conn, "hold_hours", "48") or 48),
+        "holdHours": int(get_setting(conn, "follow_up_hours", "48") or 48),  # follow-up hours; renamed with the UI in Phase 5
         "modeLabels": MODE_LABELS,
         "actions": [
             {

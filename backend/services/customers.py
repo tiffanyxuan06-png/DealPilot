@@ -1,7 +1,7 @@
 """Customer records with LHDN e-Invoice details (Buyer TIN, SSM BRN).
 
-Invoices still store the customer name as text; customers are matched by their clean name
-(e.g. "Tan Bros Trading (Phone Order)" -> "Tan Bros Trading").
+Deals store the customer name as text; customers are matched by their clean name
+(e.g. "Tan Bros Trading (Phone Order)" -> "Tan Bros Trading"). The TIN goes to the accountant in the CSV.
 """
 import re
 import sqlite3
@@ -75,27 +75,19 @@ def lhdn_for(conn: sqlite3.Connection, name: str) -> str:
     return f"🟢 LHDN TIN: {row['tin']}" if row and row["tin"] else MISSING_TIN
 
 
-def apply_tin(conn: sqlite3.Connection, name: str, tin: str, ssm_brn: str, ts: str) -> List[str]:
-    """Saves the TIN on the customer and on their invoices that still need one. Returns the invoice ids updated."""
-    upsert_customer(conn, name, ts, tin=tin, ssm_brn=ssm_brn)
-    key = customer_key(name)
-    updated = []
+def _open_deal_ids(conn: sqlite3.Connection, name: str) -> List[str]:
+    key = customer_key(name).lower()
     rows = conn.execute(
-        "SELECT id, party, lhdn FROM invoices WHERE type != 'SUPPLIER_COST' AND party LIKE ?", (f"%{key}%",)
+        "SELECT id, customer FROM deals WHERE stage IN ('INQUIRY', 'QUOTED', 'FOLLOW_UP') AND customer LIKE ?",
+        (f"%{customer_key(name)}%",),
     ).fetchall()
-    for r in rows:
-        if customer_key(r["party"]).lower() == key.lower() and "Consolidated" not in (r["lhdn"] or ""):
-            conn.execute("UPDATE invoices SET lhdn = ? WHERE id = ?", (f"🟢 LHDN TIN: {tin}", r["id"]))
-            updated.append(r["id"])
-    return updated
+    return [r["id"] for r in rows if customer_key(r["customer"]).lower() == key]
 
 
-def sync_customers_from_invoices(conn: sqlite3.Connection, ts: str) -> None:
-    """Builds customer records from existing invoices (name, phone, TIN found in the LHDN text)."""
-    rows = conn.execute("SELECT party, phone, lhdn FROM invoices WHERE type != 'SUPPLIER_COST'").fetchall()
-    for r in rows:
-        phone = r["phone"] if (r["phone"] or "").startswith("+") else ""
-        upsert_customer(conn, r["party"], ts, phone=phone, tin=parse_tin(r["lhdn"] or "") or "")
+def apply_tin(conn: sqlite3.Connection, name: str, tin: str, ssm_brn: str, ts: str) -> List[str]:
+    """Saves the TIN on the customer. Returns the customer's open deal ids (they will carry it into the CSV)."""
+    upsert_customer(conn, name, ts, tin=tin, ssm_brn=ssm_brn)
+    return _open_deal_ids(conn, name)
 
 
 def customers_payload(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
@@ -103,10 +95,7 @@ def customers_payload(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     company = row["value"] if row else "us"
     out = []
     for c in conn.execute("SELECT * FROM customers ORDER BY name").fetchall():
-        open_invoices = conn.execute(
-            "SELECT COUNT(*) AS n FROM invoices WHERE type IN ('PENDING', 'PENDING_VERIFY', 'AFTERSALES', 'QUOTE_HOLD') AND party LIKE ?",
-            (f"%{c['name']}%",),
-        ).fetchone()["n"]
+        open_invoices = len(_open_deal_ids(conn, c["name"]))
         out.append(
             {
                 "name": c["name"],

@@ -2,16 +2,14 @@ import json
 from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Query
 
+# Phase 3 of docs/06 rewrites /api/whatsapp/execute for deals; its old stock and cash actions no longer run.
 from backend.database import (
     resolve_active_ai_credentials,
-    expire_holds,
-    hold_expiry_str,
     add_log,
     build_state_payload,
     get_db,
     get_setting,
     now_time_str,
-    recompute_stock_holds,
     set_setting,
 )
 from backend.models.schemas import WhatsAppAnalyzeRequest, WhatsAppExecuteRequest

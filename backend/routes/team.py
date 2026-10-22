@@ -5,13 +5,13 @@ from fastapi import APIRouter, HTTPException
 from datetime import timedelta
 
 from backend.database import (
-    HOLD_TIME_FORMAT,
+    TIME_FORMAT,
     add_log,
     build_state_payload,
+    follow_up_hours,
     get_db,
-    get_setting,
     now_time_str,
-    parse_hold_time,
+    parse_time,
     set_setting,
 )
 from backend.models.schemas import ApprovalDecisionRequest, FastForwardRequest, PermissionsUpdateRequest
@@ -83,10 +83,10 @@ def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
 
     if req.holdHours is not None:
         new_hours = min(720, max(1, int(req.holdHours)))
-        old_hours = int(get_setting(conn, "hold_hours", "48") or 48)
+        old_hours = follow_up_hours(conn)
         if new_hours != old_hours:
-            set_setting(conn, "hold_hours", str(new_hours))
-            add_log(conn, f"[OWNER] Setting changed · Quote stock hold: {old_hours}h → {new_hours}h (applies to new quotes).")
+            set_setting(conn, "follow_up_hours", str(new_hours))
+            add_log(conn, f"[OWNER] Setting changed · Follow-up after: {old_hours}h → {new_hours}h (applies to new quotes).")
 
     conn.commit()
     conn.close()
@@ -95,19 +95,19 @@ def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
 
 @router.post("/api/demo/fast-forward")
 def api_demo_fast_forward(req: FastForwardRequest) -> Dict[str, Any]:
-    """Demo helper: moves every hold expiry earlier, as if `hours` had passed, so judges can watch a hold expire."""
+    """Demo helper: moves every follow-up time earlier, as if `hours` had passed, so judges can watch one fall due."""
     conn = get_db()
     require_owner(req.role, "demo.time", conn)
     hours = min(240, max(1, int(req.hours)))
-    rows = conn.execute("SELECT id, hold_expires_at FROM invoices WHERE hold_expires_at IS NOT NULL").fetchall()
+    rows = conn.execute("SELECT id, follow_up_at FROM deals WHERE follow_up_at IS NOT NULL").fetchall()
     for r in rows:
-        expires = parse_hold_time(r["hold_expires_at"])
-        if expires:
+        due = parse_time(r["follow_up_at"])
+        if due:
             conn.execute(
-                "UPDATE invoices SET hold_expires_at = ? WHERE id = ?",
-                ((expires - timedelta(hours=hours)).strftime(HOLD_TIME_FORMAT), r["id"]),
+                "UPDATE deals SET follow_up_at = ? WHERE id = ?",
+                ((due - timedelta(hours=hours)).strftime(TIME_FORMAT), r["id"]),
             )
-    add_log(conn, f"[OWNER] Demo: fast-forwarded the clock {hours}h for all quote holds.")
+    add_log(conn, f"[OWNER] Demo: fast-forwarded the clock {hours}h for all follow-ups.")
     conn.commit()
     conn.close()
     return {"status": "ok", "state": build_state_payload()}
