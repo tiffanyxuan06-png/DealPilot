@@ -40,18 +40,18 @@ So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsAp
 
 ---
 
-## 1. Data / 数据 (roadmap Phase 1)
+## 1. Data / 数据 (roadmap Phase 1) — verified 22 Oct 2026
 
-| Roadmap item | Status | What exists now |
-|---|---|---|
-| Price list (`products`) | ⚠️ | The `stock` table already has sku, name, sell price and unit cost; remove the quantity columns (`backend/database.py`) |
-| Salespeople (`reps`) | ❌ | Only Owner/Staff roles, no list of reps |
-| Deals with stages | ❌ | The `invoices` table mixes quotes, invoices and bills; `QUOTE_HOLD` is the closest to "Quoted" |
-| 48h follow-up timer | ⚠️ | `hold_expires_at`, `expire_holds()` and the demo fast-forward (`backend/routes/team.py`) can be reused |
-| Follow-up count and "mark lost?" after 3 | ❌ | — |
-| Loss reason | ❌ | A "declined" intent exists, but no reason is saved |
-| Slip reference (info only) | ⚠️ | `receipt_ref` and `claimed_amount` exist on invoices |
-| Complaint pauses follow-ups | ⚠️ | `AFTERSALES_PAUSED` exists, but it pauses one invoice, not a customer's follow-ups |
+| Roadmap item | Status | What exists now | Now (after Phase 1) |
+|---|---|---|---|
+| Price list (`products`) | ⚠️ | The `stock` table already has sku, name, sell price and unit cost; remove the quantity columns (`backend/database.py`) | ✅ Done · `products` table, no quantity (`001_initial.sql`) · `test_deals.py::test_price_list_edit_changes_new_quotes`, `test_data_layer.py::test_schema_matches_orm` |
+| Salespeople (`reps`) | ❌ | Only Owner/Staff roles, no list of reps | ✅ Done · `reps` table with commission % and active flag · `test_data_layer.py::test_rep_names_are_matched_exactly`, `test_deals.py::test_reassign_moves_only_open_deals` |
+| Deals with stages | ❌ | The `invoices` table mixes quotes, invoices and bills; `QUOTE_HOLD` is the closest to "Quoted" | ✅ Done · `deals` table, stage limited to INQUIRY / QUOTED / FOLLOW_UP / WON / LOST · `test_deals.py::test_inquiry_then_quote` |
+| 48h follow-up timer | ⚠️ | `hold_expires_at`, `expire_holds()` and the demo fast-forward (`backend/routes/team.py`) can be reused | ✅ Done · `follow_up_at` + demo fast-forward · `test_pipeline.py::test_quote_moves_to_follow_up_when_time_passes`, `test_phase2_verification.py::test_follow_up_hours_apply_to_new_quotes` |
+| Follow-up count and "mark lost?" after 3 | ❌ | — | ✅ Done · `follow_up_count`, `suggestLost` (a person still decides) · `test_deals.py::test_follow_up_and_suggest_lost` |
+| Loss reason | ❌ | A "declined" intent exists, but no reason is saved | ✅ Done · reason required to mark lost · `test_deals.py::test_mark_lost_needs_reason` |
+| Slip reference (info only) | ⚠️ | `receipt_ref` and `claimed_amount` exist on invoices | ✅ Done · `deposit_ref`, `deposit_amount` on deals, never checked against a bank · `test_deals.py::test_mark_won_and_commission` |
+| Complaint pauses follow-ups | ⚠️ | `AFTERSALES_PAUSED` exists, but it pauses one invoice, not a customer's follow-ups | ✅ Done per deal · `paused` stops the timer · `test_pipeline.py::test_follow_up_due_and_complaint_pause`, `test_deals.py::test_pause_and_tin`. Pausing **all** of a customer's open deals from a WhatsApp complaint is Phase 3 |
 
 ## 2. Sales logic / 销售逻辑 (roadmap Phase 2) — verified 22 Oct 2026
 

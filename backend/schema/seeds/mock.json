@@ -1,0 +1,649 @@
+{
+  "settings": {
+    "company_name": "Mock Test Electrical Sdn Bhd",
+    "ssm": "202501004455 (1600123-K)",
+    "tin": "C2611223344",
+    "framework": "Test data only. 1. Delivery free above RM 2,000 in the Klang Valley. 2. Cable sold by the 100m roll."
+  },
+  "products": [
+    {
+      "sku": "LED-T8-4FT",
+      "name": "LED T8 Tube 4ft 18W",
+      "sell_price": 12,
+      "unit_cost": 7
+    },
+    {
+      "sku": "LED-DL-12W",
+      "name": "LED Downlight 12W",
+      "sell_price": 25,
+      "unit_cost": 15
+    },
+    {
+      "sku": "CBL-25-100",
+      "name": "2.5mm Cable 100m Roll",
+      "sell_price": 210,
+      "unit_cost": 168
+    },
+    {
+      "sku": "CBL-40-100",
+      "name": "4.0mm Cable 100m Roll",
+      "sell_price": 330,
+      "unit_cost": 270
+    },
+    {
+      "sku": "DB-12W",
+      "name": "Distribution Board 12-way",
+      "sell_price": 380,
+      "unit_cost": 250
+    },
+    {
+      "sku": "MCB-32A",
+      "name": "MCB 32A Single Pole",
+      "sell_price": 22,
+      "unit_cost": 13
+    },
+    {
+      "sku": "RCCB-63A",
+      "name": "RCCB 63A 30mA",
+      "sell_price": 145,
+      "unit_cost": 98
+    },
+    {
+      "sku": "SW-2G",
+      "name": "Wall Switch 2-gang",
+      "sell_price": 9,
+      "unit_cost": 4
+    },
+    {
+      "sku": "FAN-56",
+      "name": "Ceiling Fan 56 inch",
+      "sell_price": 320,
+      "unit_cost": 230
+    },
+    {
+      "sku": "GEN-5KVA",
+      "name": "Generator 5kVA",
+      "sell_price": 4200,
+      "unit_cost": 3400
+    }
+  ],
+  "reps": [
+    {
+      "name": "Aina",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Ahmad",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Mei Ling",
+      "commission_pct": 2.5
+    },
+    {
+      "name": "Ravi",
+      "commission_pct": 5.0
+    },
+    {
+      "name": "Siti",
+      "commission_pct": 3.0
+    }
+  ],
+  "customers": [
+    {
+      "name": "Tan Bros Trading",
+      "phone": "+60 12-345 6789",
+      "tin": "C2088391020"
+    },
+    {
+      "name": "Kedai Elektrik Ah Seng",
+      "phone": "+60 19-221 0091",
+      "tin": ""
+    },
+    {
+      "name": "Syarikat Bina Jaya",
+      "phone": "+60 12-773 8810",
+      "tin": "C21884920"
+    },
+    {
+      "name": "Hotel Seri Alam",
+      "phone": "+60 3-5511 2020",
+      "tin": ""
+    },
+    {
+      "name": "Klinik Dr. Lim",
+      "phone": "+60 16-882 1920",
+      "tin": "C20114892"
+    },
+    {
+      "name": "Restoran Selera Kampung",
+      "phone": "+60 13-551 9022",
+      "tin": "C20449102"
+    },
+    {
+      "name": "Pusat Servis Jaya",
+      "phone": "+60 17-660 3321",
+      "tin": ""
+    },
+    {
+      "name": "Wisma Perdana Sdn Bhd",
+      "phone": "+60 12-998 4410",
+      "tin": "C20991820"
+    },
+    {
+      "name": "Sekolah Tadika Ceria",
+      "phone": "+60 11-2345 6677",
+      "tin": ""
+    },
+    {
+      "name": "Kilang Plastik Maju",
+      "phone": "+60 7-355 8899",
+      "tin": "C23456789012"
+    },
+    {
+      "name": "Pejabat Guaman Lee & Co",
+      "phone": "+60 3-2161 4455",
+      "tin": ""
+    },
+    {
+      "name": "Masjid Al-Hidayah",
+      "phone": "+60 13-778 1200",
+      "tin": ""
+    },
+    {
+      "name": "Apartment Mutiara JMB",
+      "phone": "+60 3-7781 0099",
+      "tin": "C25550011"
+    },
+    {
+      "name": "Bengkel Kereta Ravi",
+      "phone": "+60 16-330 4411",
+      "tin": ""
+    },
+    {
+      "name": "Gudang Logistik Selatan",
+      "phone": "+60 7-288 6600",
+      "tin": "C27770033"
+    }
+  ],
+  "deals": [
+    {
+      "id": "QT-2026-501",
+      "customer": "Hotel Seri Alam",
+      "rep": "Siti",
+      "stage": "INQUIRY",
+      "items": [
+        {
+          "sku": "LED-DL-12W",
+          "qty": 40
+        }
+      ],
+      "created_hours_ago": 2,
+      "notes": "Newest deal for this customer, so the customer's rep becomes Siti (was Mei Ling)."
+    },
+    {
+      "id": "QT-2026-502",
+      "customer": "Masjid Al-Hidayah",
+      "rep": "Ahmad",
+      "stage": "INQUIRY",
+      "items": [
+        {
+          "sku": "FAN-56",
+          "qty": 6
+        }
+      ],
+      "created_hours_ago": 30,
+      "notes": "Old inquiry, still no quote sent."
+    },
+    {
+      "id": "QT-2026-503",
+      "customer": "Pejabat Guaman Lee & Co (Phone Order)",
+      "rep": "Mei Ling",
+      "stage": "INQUIRY",
+      "items": [
+        {
+          "sku": "SW-2G",
+          "qty": 20
+        }
+      ],
+      "created_hours_ago": 5,
+      "notes": "Tagged name: matches customer 'Pejabat Guaman Lee & Co'."
+    },
+    {
+      "id": "QT-2026-504",
+      "customer": "Wisma Perdana Sdn Bhd",
+      "rep": "Aina",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "DB-12W",
+          "qty": 2
+        },
+        {
+          "sku": "MCB-32A",
+          "qty": 24
+        }
+      ],
+      "created_hours_ago": 10,
+      "follow_up_in_hours": 38
+    },
+    {
+      "id": "QT-2026-505",
+      "customer": "Sekolah Tadika Ceria",
+      "rep": "Siti",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "LED-T8-4FT",
+          "qty": 60
+        }
+      ],
+      "created_hours_ago": 20,
+      "follow_up_in_hours": 28
+    },
+    {
+      "id": "QT-2026-506",
+      "customer": "Kilang Plastik Maju",
+      "rep": "Ravi",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "GEN-5KVA",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 6,
+      "follow_up_in_hours": 42,
+      "notes": "Big quote, but not in follow-up yet: not at risk."
+    },
+    {
+      "id": "QT-2026-507",
+      "customer": "Apartment Mutiara JMB",
+      "rep": "Mei Ling",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "RCCB-63A",
+          "qty": 10
+        }
+      ],
+      "created_hours_ago": 52,
+      "follow_up_in_hours": -4
+    },
+    {
+      "id": "QT-2026-508",
+      "customer": "Klinik Dr. Lim",
+      "rep": "Mei Ling",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "FAN-56",
+          "qty": 3
+        }
+      ],
+      "created_hours_ago": 70,
+      "follow_up_in_hours": -20,
+      "paused": true,
+      "notes": "Paused: fan from the last order is wobbling. Clear once a technician has checked it."
+    },
+    {
+      "id": "QT-2026-509",
+      "customer": "Bengkel Kereta Ravi",
+      "rep": "Ahmad",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "CBL-25-100",
+          "qty": 3
+        }
+      ],
+      "created_hours_ago": 200,
+      "follow_up_in_hours": 10,
+      "follow_ups": 3
+    },
+    {
+      "id": "QT-2026-510",
+      "customer": "Syarikat Bina Jaya",
+      "rep": "Ahmad",
+      "stage": "FOLLOW_UP",
+      "items": [
+        {
+          "sku": "GEN-5KVA",
+          "qty": 1
+        },
+        {
+          "sku": "CBL-40-100",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 80,
+      "follow_up_in_hours": -30,
+      "follow_ups": 1,
+      "notes": "RM 4,860 in follow-up: at risk (big deal)."
+    },
+    {
+      "id": "QT-2026-511",
+      "customer": "Kedai Elektrik Ah Seng",
+      "rep": "Siti",
+      "stage": "FOLLOW_UP",
+      "items": [
+        {
+          "sku": "MCB-32A",
+          "qty": 30
+        }
+      ],
+      "created_hours_ago": 60,
+      "follow_up_in_hours": -10,
+      "follow_ups": 1,
+      "notes": "Small deal in follow-up: overdue but not at risk."
+    },
+    {
+      "id": "QT-2026-512",
+      "customer": "Restoran Selera Kampung",
+      "rep": "Aina",
+      "stage": "FOLLOW_UP",
+      "items": [
+        {
+          "sku": "LED-DL-12W",
+          "qty": 12
+        },
+        {
+          "sku": "SW-2G",
+          "qty": 8
+        }
+      ],
+      "created_hours_ago": 120,
+      "follow_up_in_hours": -50,
+      "follow_ups": 4
+    },
+    {
+      "id": "QT-2026-513",
+      "customer": "Pusat Servis Jaya",
+      "rep": "Ravi",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "CBL-25-100",
+          "qty": 10
+        }
+      ],
+      "created_hours_ago": 8,
+      "follow_up_in_hours": 40,
+      "discount": 200,
+      "notes": "Discount takes margin to 11.6%, under the 15% floor: marginOk false."
+    },
+    {
+      "id": "QT-2026-514",
+      "customer": "Tan Bros Trading",
+      "rep": "Aina",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "LED-T8-4FT",
+          "qty": 100
+        },
+        {
+          "sku": "LED-DL-12W",
+          "qty": 50
+        }
+      ],
+      "created_hours_ago": 15,
+      "follow_up_in_hours": 33,
+      "discount": 100
+    },
+    {
+      "id": "QT-2026-515",
+      "customer": "Kilang Plastik Maju",
+      "rep": "Aina",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "GEN-5KVA",
+          "qty": 1
+        }
+      ],
+      "created_hours_ago": 150,
+      "won_hours_ago": 48,
+      "deposit_ref": "DN-20261020-55120",
+      "deposit_amount": 1260
+    },
+    {
+      "id": "QT-2026-516",
+      "customer": "Tan Bros Trading",
+      "rep": "Ravi",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "GEN-5KVA",
+          "qty": 1
+        }
+      ],
+      "created_hours_ago": 160,
+      "won_hours_ago": 72,
+      "deposit_ref": "DN-20261019-40218",
+      "deposit_amount": 4200
+    },
+    {
+      "id": "QT-2026-517",
+      "customer": "Wisma Perdana Sdn Bhd",
+      "rep": "Mei Ling",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "DB-12W",
+          "qty": 4
+        },
+        {
+          "sku": "RCCB-63A",
+          "qty": 6
+        },
+        {
+          "sku": "MCB-32A",
+          "qty": 48
+        }
+      ],
+      "created_hours_ago": 90,
+      "won_hours_ago": 60,
+      "deposit_ref": "IBG-88213004",
+      "deposit_amount": 1000
+    },
+    {
+      "id": "QT-2026-518",
+      "customer": "Hotel Seri Alam",
+      "rep": "Mei Ling",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "FAN-56",
+          "qty": 20
+        }
+      ],
+      "created_hours_ago": 100,
+      "won_hours_ago": 30,
+      "discount": 400,
+      "deposit_ref": "DN-20261021-77001",
+      "deposit_amount": 3000
+    },
+    {
+      "id": "QT-2026-519",
+      "customer": "Masjid Al-Hidayah",
+      "rep": "Ahmad",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "LED-T8-4FT",
+          "qty": 50
+        }
+      ],
+      "created_hours_ago": 140,
+      "won_hours_ago": 100
+    },
+    {
+      "id": "QT-2026-520",
+      "customer": "Syarikat Bina Jaya",
+      "rep": "Ahmad",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "CBL-40-100",
+          "qty": 10
+        }
+      ],
+      "created_hours_ago": 1080,
+      "won_hours_ago": 960,
+      "deposit_ref": "DN-20260912-10022",
+      "deposit_amount": 3300
+    },
+    {
+      "id": "QT-2026-521",
+      "customer": "Restoran Selera Kampung",
+      "rep": "Aina",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "FAN-56",
+          "qty": 4
+        }
+      ],
+      "created_hours_ago": 1488,
+      "won_hours_ago": 1440
+    },
+    {
+      "id": "QT-2026-522",
+      "customer": "Kedai Elektrik Ah Seng",
+      "rep": "Ravi",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "MCB-32A",
+          "qty": 100
+        }
+      ],
+      "created_hours_ago": 912,
+      "won_hours_ago": 840,
+      "deposit_ref": "DN-20260917-20931",
+      "deposit_amount": 500
+    },
+    {
+      "id": "QT-2026-523",
+      "customer": "Apartment Mutiara JMB",
+      "rep": "Siti",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "GEN-5KVA",
+          "qty": 1
+        }
+      ],
+      "created_hours_ago": 480,
+      "loss_reason": "Competitor price"
+    },
+    {
+      "id": "QT-2026-524",
+      "customer": "Bengkel Kereta Ravi",
+      "rep": "Ravi",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "LED-DL-12W",
+          "qty": 30
+        }
+      ],
+      "created_hours_ago": 288,
+      "loss_reason": "Competitor price"
+    },
+    {
+      "id": "QT-2026-525",
+      "customer": "Sekolah Tadika Ceria",
+      "rep": "Mei Ling",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "FAN-56",
+          "qty": 8
+        }
+      ],
+      "created_hours_ago": 360,
+      "follow_ups": 3,
+      "loss_reason": "No reply"
+    },
+    {
+      "id": "QT-2026-526",
+      "customer": "Pusat Servis Jaya",
+      "rep": "Ahmad",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "RCCB-63A",
+          "qty": 4
+        }
+      ],
+      "created_hours_ago": 600,
+      "loss_reason": "Budget moved to next year"
+    },
+    {
+      "id": "QT-2026-527",
+      "customer": "Klinik Dr. Lim",
+      "rep": "Aina",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "CBL-25-100",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 216,
+      "loss_reason": "Cancelled after win: clinic renovation called off"
+    },
+    {
+      "id": "QT-2026-528",
+      "customer": "Tan Bros Trading",
+      "rep": "Mei Ling",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "SW-2G",
+          "qty": 200
+        }
+      ],
+      "created_hours_ago": 720,
+      "loss_reason": "No reply"
+    }
+  ],
+  "memories": [
+    {
+      "customer": "Tan Bros Trading",
+      "phone": "+60 12-345 6789",
+      "tier": "VIP_FAST_PAYER",
+      "score": 92,
+      "style_summary": "Short Manglish messages · wants itemised quotes",
+      "payment_behavior": "Pays deposit within a day",
+      "total_orders": 5,
+      "total_paid_rm": 18200,
+      "last_message": "Boss, the generator can deliver Friday?"
+    },
+    {
+      "customer": "Kedai Elektrik Ah Seng",
+      "phone": "+60 19-221 0091",
+      "tier": "SLOW_PAYER_GHOST_RISK",
+      "score": 38,
+      "style_summary": "Replies late, asks for discounts",
+      "payment_behavior": "Often goes quiet after a quote",
+      "total_orders": 1,
+      "total_paid_rm": 500
+    },
+    {
+      "customer": "Hotel Seri Alam",
+      "phone": "+60 3-5511 2020",
+      "tier": "REPEAT_CLIENT",
+      "score": 75,
+      "style_summary": "Formal English, purchasing department",
+      "payment_behavior": "Pays on PO terms",
+      "total_orders": 2,
+      "total_paid_rm": 6000
+    }
+  ],
+  "logs": [
+    "09:00 AM · [System] Loaded mock test data: 5 reps, 28 deals."
+  ]
+}
