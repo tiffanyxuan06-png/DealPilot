@@ -218,9 +218,13 @@
 
         ${activeChat.isAILoading ? `
           <div class="pt-4 border-t border-[#DCE4F2] flex flex-col items-center text-center gap-2 py-6" role="status">
-            <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-24 h-auto m-laptop" />
+            <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-24 h-auto m-laptop animate-pulse" />
             <div class="font-semibold text-sm text-[#042970]">Writing a reply…</div>
-            <div class="text-xs text-[#5B6B85]">Checking your prices and stock first.</div>
+            <div class="text-xs text-[#5B6B85]">Connecting to LM Studio (port 1234)… usually takes ~10–15s.</div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[11px] text-[#0152FC] font-medium mt-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0152FC] animate-ping"></span>
+              Generating live tokens on local model
+            </div>
           </div>
         ` : `
           <!-- Reply picker: pick one, the chosen reply shows in full -->
@@ -407,21 +411,31 @@
 
     async function triggerLiveAIForChat(chat, instruction = '') {
       if (!chat) return;
+      if (chat.isAILoading) {
+        showToast('⏳ AI is already analyzing the chat, please wait...');
+        return;
+      }
       const st = getState();
       const lastMsg = (chat.messages && chat.messages.length > 0)
         ? (chat.messages[chat.messages.length - 1].text || '')
         : '';
+
+      if (!lastMsg && !instruction) {
+        renderWhatsAppView();
+        return;
+      }
 
       chat.isAILoading = true;
       if (instruction) chat.lastCustomPrompt = instruction;
       const inputBox = document.getElementById('wa-input-box');
       if (inputBox) {
         inputBox.value = '';
-        inputBox.placeholder = '🤖 Generating live reply with AI Copilot...';
+        inputBox.placeholder = '🤖 Generating live reply with AI Copilot (~10–15s)...';
         inputBox.disabled = true;
       }
       renderWhatsAppView();
 
+      const startTime = Date.now();
       try {
         const res = await fetch(`${BACKEND_API_BASE}/api/whatsapp/analyze`, {
           method: 'POST',
@@ -442,6 +456,8 @@
             }))
           })
         });
+
+        const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
 
         if (res.ok) {
           const data = await res.json();
@@ -477,16 +493,21 @@
               };
             }
           }
-          if (data.raw_prompt) {
+          if (data.raw_prompt && typeof agentInspectorData !== 'undefined') {
             agentInspectorData.whatsapp.prompt = data.raw_prompt;
             agentInspectorData.whatsapp.output = data.raw_llm_output || JSON.stringify(data.analysis, null, 2);
-            if (currentInspectorAgent === 'whatsapp') {
+            if (typeof currentInspectorAgent !== 'undefined' && currentInspectorAgent === 'whatsapp' && typeof renderAgentInspector === 'function') {
               renderAgentInspector();
             }
           }
+          showToast(`🤖 Live reply generated via LM Studio (${data.model_used || 'qwen2.5-3b-instruct'}) in ${elapsedSec}s!`);
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          showToast(`⚠️ AI Service: ${errData.detail || 'Could not generate reply'}`);
         }
       } catch (err) {
         console.warn('AI prompt offline, keeping local options', err);
+        showToast(`⚠️ Connection error: ${err.message || 'Could not reach backend'}`);
       } finally {
         chat.isAILoading = false;
         const opts = getReplyOptionsForChat(chat);
@@ -497,7 +518,7 @@
           inputBox.placeholder = 'Type a message (or click the Big Button on the right)...';
           if (opts[selIdx]) inputBox.value = opts[selIdx].text;
         }
-        updatePromptPreview(chat);
+        if (typeof updatePromptPreview === 'function') updatePromptPreview(chat);
         renderWhatsAppView();
       }
     }
@@ -527,9 +548,7 @@
 
     function selectChat(idx) {
       currentChatIndex = idx;
-      const st = getState();
-      const chat = st.chats[idx];
-      triggerLiveAIForChat(chat);
+      renderWhatsAppView();
     }
 
     function executeExtensionAction() {
@@ -768,6 +787,7 @@
       const msgEl = document.getElementById('wa-test-customer-msg');
       const msgText = (msgEl ? msgEl.value : '').trim();
       if (!msgText) return;
+      if (msgEl) msgEl.value = '';
 
       const st = getState();
       const chat = st.chats[currentChatIndex];
@@ -778,81 +798,7 @@
       });
       chat.done = false;
 
-      const low = msgText.toLowerCase().trim();
-      const cleanCust = cleanCustomerName(chat.customer);
-      const isDecline = ['no', 'nope', 'not now', 'tak', 'takpe', 'tak nak', 'tak jadi', 'cancel', 'batal', 'pass', 'no thanks', 'next time'].includes(low) || low.startsWith('no ') || low.startsWith('tak ');
-      if (isDecline && !low.includes('bank in') && !low.includes('deposit') && !low.includes('quote')) {
-        const opt1 = `Understood ${cleanCust}, no problem at all! Thanks for letting us know. Reach out anytime if you need anything in the future!`;
-        const opt2 = `Alright Boss, noted with thanks! Reach out anytime if you need supply down the road.`;
-        const opt3 = `Baik ${cleanCust}, tidak mengapa. Terima kasih kerana maklumkan. Hubungi kami bila-bila masa jika perlukan bekalan nanti ya!`;
-        chat.badge = 'Decline Acknowledged';
-        chat.extTitle = `🤝 ${cleanCust} Passed / Declined`;
-        chat.extCheck = `🟢 Customer politely declined the quotation or follow-up.\nNo payment chasing or deposit required.`;
-        chat.extActionDesc = 'Insert a friendly, zero-pressure reply to keep the customer relationship warm.';
-        chat.extDraft = opt1;
-        chat.replyOptions = [
-          { label: '🤝 Option 1: Polite & Friendly Close (Recommended)', text: opt1 },
-          { label: '👍 Option 2: Casual Boss Style', text: opt2 },
-          { label: '🇲🇾 Option 3: Bahasa Melayu (Terima Kasih)', text: opt3 }
-        ];
-        chat.selectedReplyIdx = 0;
-        chat.extBtnLabel = '💬 Insert Polite Acknowledgment';
-        chat.extActionType = 'NO_ACTION';
-      }
-
-      const inputBox = document.getElementById('wa-input-box');
-      if (inputBox && chat.extDraft) inputBox.value = chat.extDraft;
-      renderWhatsAppView();
-
-      try {
-        const res = await fetch(`${BACKEND_API_BASE}/api/whatsapp/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customer: chat.customer,
-            phone: chat.phone,
-            message: msgText,
-            role: currentRole,
-            smePreset: currentSME,
-            companyName: st.name,
-            stock: st.stock,
-            framework: st.framework,
-            recentMessages: (chat.messages || []).map(m => ({ sender: m.from === 'customer' ? 'Them' : 'ME', text: m.text }))
-          })
-        });
-        const data = await res.json();
-        const a = data.analysis;
-        if (a) {
-          chat.badge = a.badge || a.intent;
-          chat.extTitle = a.extTitle || chat.extTitle;
-          chat.extCheck = a.extCheck || chat.extCheck;
-          chat.extActionDesc = a.extActionDesc || chat.extActionDesc;
-          chat.extDraft = a.extDraft || chat.extDraft;
-          if (Array.isArray(a.replyOptions) && a.replyOptions.length > 0) {
-            chat.replyOptions = a.replyOptions;
-            chat.selectedReplyIdx = 0;
-            chat.extDraft = a.replyOptions[0].text;
-          }
-          chat.extBtnLabel = a.extBtnLabel || chat.extBtnLabel;
-          chat.extActionType = a.extActionType || chat.extActionType;
-        }
-        if (data.raw_prompt) {
-          document.getElementById('llm-input-preview').textContent = data.raw_prompt;
-        }
-        if (data.raw_llm_output) {
-          document.getElementById('llm-output-preview').textContent = data.raw_llm_output;
-        }
-        const inputBox = document.getElementById('wa-input-box');
-      if (inputBox && chat.extDraft) inputBox.value = chat.extDraft;
-      renderWhatsAppView();
-        showToast(
-          data.lmstudio_connected
-            ? `🤖 Analyzed via LM Studio (${data.model_used})! Click the Big Blue Button on the right.`
-            : `🤖 Analyzed via Backend Engine (Start LM Studio on :1234 for live LLM)!`
-        );
-      } catch (err) {
-        showToast('Message added! Start backend (python run_server.py) to run live /api/whatsapp/analyze.');
-      }
+      triggerLiveAIForChat(chat);
     }
 
     function simulateCustomerAction(actionKey) {

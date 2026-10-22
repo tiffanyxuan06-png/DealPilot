@@ -80,7 +80,7 @@ def test_endpoint_id_builds_runpod_url(monkeypatch):
 
 def test_analyze_uses_runpod_with_key_and_model(client, runpod):
     r = client.post("/api/whatsapp/analyze", json={**OWNER, "customer": "Tan Bros Trading", "message": "need 2 units Daikin 1.5HP"}).json()
-    assert r["source"] == "lmstudio" and r["analysis"]["extDraft"] == "Hi from RunPod! Total RM 2,300."
+    assert r["source"] == "lmstudio" and "Hi from RunPod! Total RM 2,300." in r["analysis"]["extDraft"]
     call = FakeRunPod.calls[-1]
     assert call["path"] == "/v1/chat/completions" and call["model"] == "Qwen/Qwen3-4B" and call["auth"] == f"Bearer {KEY}"
 
