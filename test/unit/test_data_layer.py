@@ -29,7 +29,11 @@ def test_migrations_apply_once(client):
 
 def test_seed_files_are_valid():
     presets = available_presets()
-    assert presets == {"aircond": "Sejuk Jaya Aircond Sdn Bhd", "fnb": "Kopi & Bakery Wholesale Sdn Bhd"}
+    assert presets == {
+        "aircond": "Sejuk Jaya Aircond Sdn Bhd",
+        "fnb": "Kopi & Bakery Wholesale Sdn Bhd",
+        "mock": "Mock Test Electrical Sdn Bhd",
+    }
     for name in presets:
         load_seed(name)  # raises if a teammate's edit breaks the file
     assert load_defaults().settings["follow_up_hours"] == 48
