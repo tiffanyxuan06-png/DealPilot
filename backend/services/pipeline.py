@@ -1,4 +1,5 @@
 """Sales pipeline rules shared by the routes: follow-up timer, margin, commission, the activity log and /api/state."""
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,21 @@ from backend.services.business import load_business
 from backend.services.clock import TIME_FORMAT, now_stamp, now_time_str, parse_time
 
 FOLLOW_UPS_BEFORE_SUGGEST_LOST = 3
+AT_RISK_FOLLOW_UP_RM = 3000  # a big deal already in follow-up is worth watching
+# Loss reason prefix written by the CANCEL_WON action; the dashboard groups all cancellations under it.
+CANCELLED_AFTER_WIN = "Cancelled after win"
+
+
+def loss_bucket(reason: Optional[str]) -> str:
+    """The dashboard group for a lost deal's reason.
+
+    Cancelled orders all count as one "Cancelled after win" bar (each carries its own free-text reason),
+    and a missing reason counts as "No reason". Every other reason is its own group.
+    """
+    reason = reason or ""
+    if reason.startswith(CANCELLED_AFTER_WIN + ":"):
+        return CANCELLED_AFTER_WIN
+    return reason or "No reason"
 
 
 def log(session: Session, message: str) -> None:
@@ -98,8 +114,15 @@ def resolve_active_ai_credentials(biz: Optional[BusinessSettings] = None) -> Dic
 
 
 def _deal(row: orm.Deal, costs: Dict[str, int], floor: float, is_owner: bool) -> entities.Deal:
+    """One deal as the API shows it, with the flags the dashboards use.
+
+    `costs` are unit costs per SKU and `floor` the Owner's margin floor (%). `margin_pct` is only filled in
+    for the Owner; everyone gets `margin_ok`, so Staff can see a quote is too cheap without seeing the cost.
+    """
     items = row.items
     pct = deal_margin_pct(items, row.amount, costs)
+    # Only quotes still waiting for an answer can be "suggest lost" or "at risk"; won and lost deals are settled.
+    suggest_lost = row.stage in PIPELINE_STAGES and row.follow_up_count >= FOLLOW_UPS_BEFORE_SUGGEST_LOST
     return entities.Deal(
         id=row.id,
         order_no=row.order_no,
@@ -113,7 +136,7 @@ def _deal(row: orm.Deal, costs: Dict[str, int], floor: float, is_owner: bool) ->
         follow_up_at=row.follow_up_at,
         follow_up_text=follow_up_text(row.stage, row.follow_up_at, row.paused),
         follow_up_count=row.follow_up_count,
-        suggest_lost=row.stage in PIPELINE_STAGES and row.follow_up_count >= FOLLOW_UPS_BEFORE_SUGGEST_LOST,
+        suggest_lost=suggest_lost,
         paused=row.paused,
         loss_reason=row.loss_reason or "",
         deposit_ref=row.deposit_ref or "",
@@ -123,6 +146,10 @@ def _deal(row: orm.Deal, costs: Dict[str, int], floor: float, is_owner: bool) ->
         won_at=row.won_at,
         margin_ok=pct >= floor,
         margin_pct=pct if is_owner else None,
+        # At risk = an open quote the Owner should look at: 3+ unanswered follow-ups, paused by a complaint,
+        # or a big deal (≥ RM 3,000) whose follow-up is already due.
+        at_risk=row.stage in PIPELINE_STAGES
+        and (suggest_lost or row.paused or (row.stage == Stage.FOLLOW_UP.value and row.amount >= AT_RISK_FOLLOW_UP_RM)),
     )
 
 
@@ -166,8 +193,17 @@ def build_state(role: Optional[str] = None) -> StatePayload:
                     commission_rm=sum(deal_commission(d.amount, r.commission_pct) for d in won),
                     open_deals=sum(1 for d in mine if d.stage in OPEN_STAGES),
                     overdue=sum(1 for d in mine if overdue(d)),
+                    # What the rep would earn if every quote still waiting for an answer closed. Inquiries
+                    # (no price sent yet) and settled deals don't count.
+                    potential_rm=sum(
+                        deal_commission(d.amount, r.commission_pct) for d in mine if d.stage in PIPELINE_STAGES
+                    ),
                 )
             )
+        # Competition ranking by this month's won RM among active reps: equal totals share a rank and the next
+        # rank is skipped (1, 1, 3). With no wins yet, everyone is rank 1.
+        for rep in reps:
+            rep.rank = 1 + sum(1 for o in reps if o.won_rm > rep.won_rm)
 
         won_count = sum(1 for d in deals if d.stage == Stage.WON)
         lost_count = sum(1 for d in deals if d.stage == Stage.LOST)
@@ -179,6 +215,7 @@ def build_state(role: Optional[str] = None) -> StatePayload:
             },
             win_rate=round(won_count / (won_count + lost_count), 2) if won_count + lost_count else 0.0,
             overdue=sum(1 for d in deals if overdue(d)),
+            loss_reasons=dict(Counter(loss_bucket(d.loss_reason) for d in deals if d.stage == Stage.LOST)),  # all time
         )
 
         memories = {

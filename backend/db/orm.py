@@ -11,16 +11,20 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    pass
+    """Base for every table model. Tables come from the migrations, never from create_all."""
 
 
 class Setting(Base):
+    """One business setting per row (company name, follow-up hours, margin floor...); read through BusinessSettings."""
+
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(Text, primary_key=True)
     value: Mapped[str] = mapped_column(Text)
 
 
 class Product(Base):
+    """The price list. Prices and costs are whole RM; unit_cost is Owner-only and never sent to Staff."""
+
     __tablename__ = "products"
     sku: Mapped[str] = mapped_column(Text, primary_key=True)
     name: Mapped[str] = mapped_column(Text)
@@ -29,6 +33,8 @@ class Product(Base):
 
 
 class Rep(Base):
+    """A sales rep. commission_pct applies to the deal amount after discount; inactive reps keep their old deals."""
+
     __tablename__ = "reps"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, unique=True)
@@ -37,6 +43,15 @@ class Rep(Base):
 
 
 class Deal(Base):
+    """One quote from inquiry to won or lost.
+
+    `id` is the quote number (QT-2026-101) and `order_no` the sales order number given when it is won.
+    `stage` holds a Stage value; `items_json` is the line list (use the `items` property). `follow_up_at`
+    is when the next follow-up is due and `paused` stops the timer after a complaint. `deposit_ref` and
+    `deposit_amount` are what the customer says they paid: information only, never checked against a bank.
+    Times are local text in clock.TIME_FORMAT, so they sort as strings.
+    """
+
     __tablename__ = "deals"
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     order_no: Mapped[Optional[str]] = mapped_column(Text, default=None)
@@ -67,6 +82,8 @@ class Deal(Base):
 
 
 class AuditLog(Base):
+    """The activity log. Append-only: database triggers reject UPDATE and DELETE."""
+
     __tablename__ = "audit_logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     entry: Mapped[str] = mapped_column(Text)
@@ -74,6 +91,11 @@ class AuditLog(Base):
 
 
 class ClientMemory(Base):
+    """What the AI remembers about a customer: tier code, trust score (0-100), chat style and payment habits.
+
+    `recent_history_json` keeps the last messages and `cached_analysis_json` the last AI reply for them.
+    """
+
     __tablename__ = "client_memories"
     customer: Mapped[str] = mapped_column(Text, primary_key=True)
     phone: Mapped[str] = mapped_column(Text, default="")
@@ -90,6 +112,8 @@ class ClientMemory(Base):
 
 
 class Customer(Base):
+    """A customer's LHDN e-Invoice details. `name` is the clean name deals are matched on (tags stripped)."""
+
     __tablename__ = "customers"
     name: Mapped[str] = mapped_column(Text, primary_key=True)
     phone: Mapped[str] = mapped_column(Text, default="")
@@ -99,6 +123,8 @@ class Customer(Base):
 
 
 class RolePermission(Base):
+    """The Owner's choice for one Staff action: ALLOW, APPROVAL or DENY. Missing rows use the default."""
+
     __tablename__ = "role_permissions"
     action_key: Mapped[str] = mapped_column(Text, primary_key=True)
     staff_mode: Mapped[str] = mapped_column(Text)
@@ -107,6 +133,12 @@ class RolePermission(Base):
 
 
 class ApprovalRequest(Base):
+    """A Staff action waiting for the Owner.
+
+    `handler` names the registered function that replays the action with `payload_json` once approved.
+    `status` is PENDING, APPROVED or REJECTED.
+    """
+
     __tablename__ = "approval_requests"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     action_key: Mapped[str] = mapped_column(Text)

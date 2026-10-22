@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BusinessSettings(BaseModel):
+    """The settings rows as one object. Unknown keys are ignored."""
+
     model_config = ConfigDict(extra="ignore")
 
     company_name: str = ""

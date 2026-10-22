@@ -50,6 +50,7 @@ OWNER_ONLY = {
     "reps.reassign": "Reassign a rep's customers and deals",
     "pricelist.edit": "Edit the price list",
     "export.csv": "Download the won-orders CSV",
+    "deal.cancel_won": "Cancel a won order",
 }
 
 MANDATORY_RULES: List[str] = [
@@ -57,6 +58,7 @@ MANDATORY_RULES: List[str] = [
     "Only the Owner can approve or reject a request. Staff cannot approve their own requests.",
     "A price or discount below the margin floor always needs Owner approval for Staff, whatever the setting.",
     "Only the Owner can reassign customers and download the won-orders CSV.",
+    "Only the Owner can cancel a won order. Cancelling it reverses that order's commission.",
     "Every RM amount in an AI reply must be one CashChase calculated; quotes always say 'subject to stock availability'.",
     "The activity log is append-only and records every action, request, decision and permission change.",
 ]

@@ -8,6 +8,8 @@ from backend.models.entities import Approval, ClientMemory, Customer, Deal, Perm
 
 
 class Company(ApiModel):
+    """Business settings and the active AI server."""
+
     name: str
     preset: str
     framework: str
@@ -20,18 +22,25 @@ class Company(ApiModel):
 
 
 class StageTotals(ApiModel):
+    """Deal count and value (RM) for one stage."""
+
     count: int
     value_rm: int
 
 
 class Pipeline(ApiModel):
+    """Pipeline totals for the dashboard. `win_rate` is won / (won + lost), all time."""
+
     value_rm: int  # quoted but not yet won or lost
     by_stage: Dict[str, StageTotals]
     win_rate: float
     overdue: int
+    loss_reasons: Dict[str, int]  # lost deals per reason, all time
 
 
 class StatePayload(ApiModel):
+    """Everything the WebApp and extension show, from GET /api/state. Built by pipeline.build_state."""
+
     company: Company
     products: List[Product]
     reps: List[Rep]
@@ -45,6 +54,7 @@ class StatePayload(ApiModel):
 
 
 def _only_when_set():
+    """An optional field that is left out of the JSON unless the route fills it in."""
     return Field(None, exclude_if=lambda v: v is None)
 
 
