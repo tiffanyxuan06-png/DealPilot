@@ -35,7 +35,7 @@ app = FastAPI(
 # worker is not limited by CORS (it has host_permissions), and logins travel as a Bearer header, not cookies.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

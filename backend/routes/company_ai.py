@@ -43,7 +43,7 @@ def api_company_agent_ask(req: CompanyAgentAskRequest) -> AgentAnswer:
     )
 
     try:
-        llm_res = call_lmstudio_chat(ai["base_url"], ai["model"], system_prompt, req.question, api_key=ai["api_key"], timeout=20.0)
+        llm_res = call_lmstudio_chat(ai["base_url"], ai["model"], system_prompt, req.question, api_key=ai["api_key"], timeout=60.0)
         return AgentAnswer(
             lmstudio_connected=True,
             model_used=llm_res["model_used"],

@@ -41,18 +41,23 @@ def select_best_lmstudio_model(
         if not any(emb in m.lower() for emb in ("embed", "nomic-embed", "bge-", "text-embedding"))
     ] or available_models
 
+    vision_keywords = ("vl", "vision", "llava", "pixtral", "minicpm", "gemma-3", "moondream")
+
     if task == "vision":
-        vision_keywords = ("vl", "vision", "llava", "pixtral", "minicpm", "gemma-3", "moondream")
         for m in chat_models:
             if any(vk in m.lower() for vk in vision_keywords):
                 return m
 
+    # For text tasks, prefer dedicated text models over vision models (which are slower on CPU)
+    pure_text_models = [m for m in chat_models if not any(vk in m.lower() for vk in vision_keywords)]
+    candidates = pure_text_models or chat_models
+
     text_preferred = ("qwen", "llama", "mistral", "deepseek", "gemma", "phi")
-    for m in chat_models:
+    for m in candidates:
         if any(tk in m.lower() for tk in text_preferred):
             return m
 
-    return chat_models[0]
+    return candidates[0]
 
 
 def call_lmstudio_chat(
@@ -61,7 +66,7 @@ def call_lmstudio_chat(
     system_prompt: str,
     user_prompt: str,
     api_key: str = "",
-    timeout: float = 25.0,
+    timeout: float = 60.0,
 ) -> Dict[str, Any]:
     health = check_lmstudio_health(base_url, api_key=api_key)
     active_model = select_best_lmstudio_model(

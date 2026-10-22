@@ -692,9 +692,9 @@ let currentRole = 'OWNER';
 
 
 // --- API BASE URL ---
-    const BACKEND_API_BASE = window.location.protocol.startsWith('http')
+    const BACKEND_API_BASE = (window.location.protocol.startsWith('http') && (window.location.port === '8000' || window.location.port === ''))
       ? window.location.origin
-      : 'http://localhost:8000';
+      : 'http://127.0.0.1:8000';
 
 
 // --- BACKEND SYNC ---
@@ -745,6 +745,11 @@ let currentRole = 'OWNER';
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         backendOnline = true;
+        const pill = document.getElementById('backend-status-pill');
+        if (pill) {
+          pill.className = 'mt-1 inline-block px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-[11px] font-semibold text-emerald-800';
+          pill.textContent = '● Backend Connected · Port 8000';
+        }
         const signature = backendSignature(data);
         if (signature === lastBackendSignature) return;
         applyBackendState(data);
@@ -755,6 +760,11 @@ let currentRole = 'OWNER';
         }
       } catch (err) {
         backendOnline = false;
+        const pill = document.getElementById('backend-status-pill');
+        if (pill) {
+          pill.className = 'mt-1 inline-block px-2 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-[11px] font-semibold text-amber-900';
+          pill.textContent = '○ Backend Offline · Run python run_server.py';
+        }
       }
     }
 
