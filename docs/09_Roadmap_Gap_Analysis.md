@@ -3,8 +3,25 @@
 > Compares `06_Sales_Agent_Implementation_Roadmap.md` (and the sidebar/dashboard spec in `08_Sidebar_Flows_and_Dashboards.md`) with the code on `main` as of 22 Oct 2026.
 > 对比路线图（06）与侧边栏/看板规格（08）和 2026 年 10 月 22 日的现有代码。
 
-✅ = exists and can be reused · ⚠️ = partly exists, needs changing · ❌ = missing
-✅ 已有可复用 · ⚠️ 部分有，要改 · ❌ 没有
+✅ = exists and can be reused (it may still need edits) · ⚠️ = partly exists, needs changing · ❌ = missing
+✅ 已有可复用（可能仍需修改）· ⚠️ 部分有，要改 · ❌ 没有
+
+> **⚠️ This is a snapshot of `main` before any sales-agent work.** The tables below are kept as the original analysis. For where each item stands now, read the status block below; for what to build next, follow [doc 11](11_Remaining_Build_Plan.md).
+> 本文是开工前 `main` 的快照。最新进度看下面的状态表，接下来做什么看文档 11。
+
+### Status after Phases 1–2 (branch `reposition-sales-crm`, 22 Oct 2026) / 第一、二阶段后的状态
+
+| Area | Done in the backend | Backend work still left (Phase 3, doc 11 §4) | Frontend work left |
+|---|---|---|---|
+| Data | Price list, reps, deals with stages, 48h follow-up timer, follow-up count + "suggest lost", loss reason, slip ref, complaint pause | — | — |
+| Sales logic | Mark won/lost, margin guard, commission, reassign, log inquiry, won-orders CSV, quote PDF with disclaimer, permissions, price-list import, "Ask AI" on the pipeline | Disclaimer and margin guard inside **WhatsApp replies**; customer memory scored from deals | Webapp pages (Phase 5) |
+| AI | — | New intents incl. discount request; prompt uses the price list (no stock); `/api/whatsapp/execute` creates and moves deals; photo → quote (`/api/whatsapp/photo-quote`) | — |
+| Privacy | — | **Backend half:** skip non-customers before calling the AI, don't save casual chats, `POST /api/customers` | **Extension half (Phase 4):** Analyse button only, "Add as customer" |
+| Extension | — | — | All of Phase 4 |
+| Webapp | — | — | All of Phase 5 |
+
+So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsApp routes, photo → quote, privacy). Phases 4–5 are frontend.
+后端还没做完：第三阶段（AI、WhatsApp 接口、照片报价、隐私）都是后端工作；第四、五阶段才是前端。
 
 **Totals / 统计：** ✅ 13 · ⚠️ 13 · ❌ 18. About a third can be reused, but the core of a sales agent is missing: deals and stages, reps, commission, margin guard, CSV and the dashboards.
 约三分之一能复用，但销售助理的核心还没有：商机与阶段、业务员、佣金、利润底线、CSV、看板。
@@ -24,26 +41,26 @@
 | Slip reference (info only) | ⚠️ | `receipt_ref` and `claimed_amount` exist on invoices |
 | Complaint pauses follow-ups | ⚠️ | `AFTERSALES_PAUSED` exists, but it pauses one invoice, not a customer's follow-ups |
 
-## 2. Sales logic / 销售逻辑 (roadmap Phase 2)
+## 2. Sales logic / 销售逻辑 (roadmap Phase 2) — verified 22 Oct 2026
 
-| Roadmap item | Status | What exists now |
-|---|---|---|
-| Code-priced quotes | ✅ | `deterministic_fallback_analysis` in `backend/services/prompts.py` prices items from the list |
-| RM amount check on AI replies | ✅ | `check_ai_replies` in `backend/services/prompts.py` |
-| "Subject to stock availability" disclaimer | ❌ | Replies currently say "Stock is available!" |
-| Margin guard | ❌ | Unit cost data exists, but nothing checks margin |
-| Discounts need the owner | ⚠️ | The `discount.apply` permission is approval-only, but it isn't tied to a margin floor (`backend/services/permissions.py`) |
-| Mark won / Mark lost | ❌ | `CONFIRM_DEPOSIT_DEDUCT` is the closest, and it deducts stock and adds cash |
-| Commission | ❌ | — |
-| Reassign customers | ❌ | — |
-| "Log inquiry" form | ⚠️ | The walk-in / phone order form can be repurposed (`POST /api/orders/walkin`) |
-| Won-orders CSV | ❌ | Only the multi-sheet Excel export (`/api/export/xlsx` in `backend/routes/exports.py`) |
-| Quote PDF | ✅ | `/api/invoices/{id}/pdf`; needs the disclaimer and the "48h stock hold" wording removed |
-| Owner approvals, permissions, audit log | ✅ | Complete, including append-only database triggers |
-| LHDN TIN collection | ✅ | Detects a TIN in chat and saves it on the customer (`backend/services/customers.py`) |
-| Customer memory and rating | ⚠️ | Works, but scores from paid invoices and expired holds (`backend/services/memory.py`); needs won/lost |
-| Price-list import (60-second setup) | ⚠️ | The stock-list import already reads SKU, name, cost and price (`backend/services/onboarding.py`); remove quantity and starting cash |
-| "Ask AI" company Q&A | ⚠️ | Answers from net worth and stock (`backend/routes/company_ai.py`); needs to use the pipeline |
+| Roadmap item | Status | What exists now | Now (after Phase 2) |
+|---|---|---|---|
+| Code-priced quotes | ✅ | `deterministic_fallback_analysis` in `backend/services/prompts.py` prices items from the list | ✅ Done · `test_deals.py::test_quote_is_priced_by_code` |
+| RM amount check on AI replies | ✅ | `check_ai_replies` in `backend/services/prompts.py` | ⏳ Phase 3 · only runs inside `/api/whatsapp/analyze`; `test_receipts_and_replies.py::test_ai_reply_check` fails until then |
+| "Subject to stock availability" disclaimer | ❌ | Replies currently say "Stock is available!" | PDF ✅ `test_deals.py::test_quote_pdf_has_disclaimer`; WhatsApp replies ⏳ Phase 3 |
+| Margin guard | ❌ | Unit cost data exists, but nothing checks margin | ✅ Done · `test_deals.py::test_margin_guard`, `test_phase2_verification.py::test_margin_floor_applies_to_new_quotes` |
+| Discounts need the owner | ⚠️ | The `discount.apply` permission is approval-only, but it isn't tied to a margin floor (`backend/services/permissions.py`) | ✅ Done · `test_deals.py::test_margin_guard`, `test_permissions.py::test_approval_only_owner_decides_once` |
+| Mark won / Mark lost | ❌ | `CONFIRM_DEPOSIT_DEDUCT` is the closest, and it deducts stock and adds cash | ✅ Done · `test_deals.py::test_mark_won_and_commission`, `test_deals.py::test_mark_lost_needs_reason` |
+| Commission | ❌ | — | ✅ Done · `test_deals.py::test_mark_won_and_commission`, `test_pipeline.py::test_pipeline_and_commission` |
+| Reassign customers | ❌ | — | ✅ Done · `test_deals.py::test_reassign_moves_only_open_deals` |
+| "Log inquiry" form | ⚠️ | The walk-in / phone order form can be repurposed (`POST /api/orders/walkin`) | ✅ Done · `test_deals.py::test_inquiry_then_quote` |
+| Won-orders CSV | ❌ | Only the multi-sheet Excel export (`/api/export/xlsx` in `backend/routes/exports.py`) | ✅ Done · `test_deals.py::test_won_orders_csv`, `test_phase2_verification.py::test_csv_date_range` |
+| Quote PDF | ✅ | `/api/invoices/{id}/pdf`; needs the disclaimer and the "48h stock hold" wording removed | ✅ Done · `test_deals.py::test_quote_pdf_has_disclaimer` |
+| Owner approvals, permissions, audit log | ✅ | Complete, including append-only database triggers | ✅ Done · `test_permissions.py::test_owner_turns_action_off_and_change_is_logged`, `test_phase2_verification.py::test_approval_and_permission_changes_are_audited`, `test_permissions.py::test_audit_log_is_append_only` |
+| LHDN TIN collection | ✅ | Detects a TIN in chat and saves it on the customer (`backend/services/customers.py`) | Saving a TIN on a deal ✅ `test_deals.py::test_pause_and_tin`; detecting it in WhatsApp chat ⏳ Phase 3 (`test_customers_lhdn.py` 2 tests fail) |
+| Customer memory and rating | ⚠️ | Works, but scores from paid invoices and expired holds (`backend/services/memory.py`); needs won/lost | ⏳ Phase 3 · `backend/services/memory.py` still scores from invoices, not won/lost deals |
+| Price-list import (60-second setup) | ⚠️ | The stock-list import already reads SKU, name, cost and price (`backend/services/onboarding.py`); remove quantity and starting cash | ✅ Done · `test_onboarding.py::test_preview_and_apply` (creates one rep "Owner") |
+| "Ask AI" company Q&A | ⚠️ | Answers from net worth and stock (`backend/routes/company_ai.py`); needs to use the pipeline | ✅ Done · `test_phase2_verification.py::test_ask_ai_prompt_uses_pipeline_and_hides_costs` (no unit costs in prompt) |
 
 ## 3. AI / AI (roadmap Phase 3)
 
@@ -82,7 +99,7 @@
 
 ## Most important findings / 最重要的发现
 
-1. **Privacy conflict / 隐私冲突：** the extension analyses chats automatically, so a chat with a friend or colleague is sent to the AI and its memory is saved. Fix this before the demo, or a judge could expose it with a non-customer chat. Phase 4 must add the allowlist, a manual trigger and "don't save casual chat".
+1. **Privacy conflict / 隐私冲突：** the extension analyses chats automatically, so a chat with a friend or colleague is sent to the AI and its memory is saved. Fix this before the demo, or a judge could expose it with a non-customer chat. The fix has two halves: the **backend (Phase 3)** skips non-customers and doesn't save casual chat; the **extension (Phase 4)** only analyses on the Analyse button and offers "Add as customer".
    插件会自动分析，和朋友、同事的聊天也会发给 AI 并存进记忆。演示前必须修好。
 2. **The core is missing / 核心缺失：** deals and stages, reps, commission, margin guard and the dashboards are all new work, most of Phases 1, 2 and 5.
    商机/阶段、业务员、佣金、利润底线、看板都要新写。

@@ -5,7 +5,7 @@
 >
 > Overview page: https://claude.ai/artifact/2z6vfqbfjL66cf9gUcJKUe · Team briefing: https://claude.ai/artifact/5UkD8eRp5tqUPrCCUxLjFd
 >
-> Related docs: [07 comparison with the original plan](07_Original_vs_Sales_Agent_Comparison.md) · [08 sidebar, flows and dashboards](08_Sidebar_Flows_and_Dashboards.md) · [09 gap analysis: what the code already has](09_Roadmap_Gap_Analysis.md) · [10 Phase 2 build plan](10_Phase2_Build_Plan.md)
+> Related docs: [07 comparison with the original plan](07_Original_vs_Sales_Agent_Comparison.md) · [08 sidebar, flows and dashboards](08_Sidebar_Flows_and_Dashboards.md) · [09 gap analysis: what the code already has](09_Roadmap_Gap_Analysis.md) · [10 Phase 2 build plan](10_Phase2_Build_Plan.md) · **[11 remaining build plan (phases 3–7): start here](11_Remaining_Build_Plan.md)**
 
 ---
 
