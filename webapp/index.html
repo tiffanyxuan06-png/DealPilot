@@ -8,6 +8,28 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    // If a picture fails from /img/ (e.g. a server started before /img existed),
+    // retry it once from /static/img/, which every server version serves
+    (function () {
+      function retry(img) {
+        if (img.dataset.imgRetry) return;
+        var src = img.getAttribute('src') || '';
+        var m = src.match(/^(?:\.\/|\/)?img\/(.+)$/);
+        if (!m || location.protocol === 'file:') return;
+        img.dataset.imgRetry = '1';
+        img.src = '/static/img/' + m[1];
+      }
+      document.addEventListener('error', function (e) {
+        if (e.target && e.target.tagName === 'IMG') retry(e.target);
+      }, true);
+      document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('img').forEach(function (img) {
+          if (img.complete && img.naturalWidth === 0) retry(img);
+        });
+      });
+    })();
+  </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
   <link rel="stylesheet" href="css/style.css?v=20261022" />
