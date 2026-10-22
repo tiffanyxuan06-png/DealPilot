@@ -45,8 +45,8 @@ class WhatsAppAnalyzeResponse(BaseModel):
     lmstudio_connected: bool
     model_used: Optional[str] = None
     error: Optional[str] = None
-    raw_prompt: str
-    raw_llm_output: str
+    raw_prompt: Optional[str] = ''
+    raw_llm_output: Optional[str] = ''
     # ponytail: the old copilot's free-form AI output; Phase 3 (docs/11 §4) rewrites analyze and gives it a model.
     analysis: Dict[str, Any]
 
@@ -72,3 +72,59 @@ class PriceListPreview(ApiModel):
 class AuthConfig(ApiModel):
     url: str  # empty = login off
     anon_key: str
+
+
+class PhotoQuoteItem(ApiModel):
+    sku: str
+    name: str
+    qty: int
+    unit_price: int
+    line_total: int
+    matched: bool = True
+
+
+class RawOcrItem(ApiModel):
+    name: str = ""
+    qty: int = 1
+
+
+class PhotoQuoteReplyOption(ApiModel):
+    label: str
+    text: str
+
+
+class PhotoQuoteAnalysis(ApiModel):
+    intent: str
+    is_customer: bool = True
+    badge: str
+    ext_title: str
+    ext_check: str
+    ext_action_desc: str
+    ext_draft: str
+    reply_options: List[PhotoQuoteReplyOption] = []
+    ext_action_type: str
+    ext_btn_label: str
+    items: List[PhotoQuoteItem] = []
+    amount: int
+    discount: int = 0
+    margin_ok: bool = True
+
+
+class PhotoQuoteResponse(ApiModel):
+    status: str
+    editable: bool
+    items: List[PhotoQuoteItem] = []
+    subtotal: int = 0
+    disclaimer: str = ""
+    analysis: PhotoQuoteAnalysis
+
+
+class OcrExtractResponse(ApiModel):
+    success: bool
+    items: List[RawOcrItem] = []
+    method: Optional[str] = ""
+    message: Optional[str] = ""
+
+
+class ReceiptSaveResponse(ApiModel):
+    status: str = "ok"

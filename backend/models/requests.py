@@ -29,19 +29,41 @@ class WhatsAppAnalyzeRequest(RoleRequest):
     sme_preset: Optional[str] = None
     company_name: Optional[str] = None
     framework: Optional[str] = None
-
-
-class WhatsAppExecuteRequest(RoleRequest):  # Phase 3 replaces the action list with deal actions
-    customer: str
-    phone: Optional[str] = ""
-    action_type: str
-    tin: Optional[str] = None  # SAVE_LHDN_TIN
-    ssm_brn: Optional[str] = None
+    strict_ai: Optional[bool] = None
 
 
 class DealItemRequest(ApiModel):
     sku: str = Field(min_length=1)
     qty: int = Field(1, ge=1)
+
+
+class WhatsAppExecuteRequest(RoleRequest):
+    customer: str
+    phone: Optional[str] = ""
+    action_type: str
+    deal_id: Optional[str] = None
+    items: Optional[List[DealItemRequest]] = None
+    sku: Optional[str] = None
+    qty: Optional[int] = 1
+    discount: Optional[int] = 0
+    deposit_ref: Optional[str] = ""
+    deposit_amount: Optional[int] = None
+    reason: Optional[str] = ""
+    note: Optional[str] = ""
+    tin: Optional[str] = None
+    ssm_brn: Optional[str] = None
+
+
+class PhotoQuoteRequest(RoleRequest):
+    customer: str
+    phone: Optional[str] = ""
+    image_base64: str
+    file_name: Optional[str] = "photo.jpg"
+
+
+class CustomerCreateRequest(RoleRequest):
+    name: str
+    phone: Optional[str] = ""
 
 
 class DealCreateRequest(RoleRequest):

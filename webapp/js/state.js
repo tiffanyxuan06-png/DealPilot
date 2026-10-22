@@ -59,193 +59,281 @@ let currentRole = 'OWNER';
         ],
         chats: [
           {
+            id: 'chat-0',
+            customer: 'Tan Bros Trading',
+            phone: '+60 12-345 6789',
+            badge: '0. Sandbox (Live LLM)',
+            messages: [],
+            extTitle: '🧪 Live LLM Sales Sandbox',
+            extCheck: 'Type any customer inquiry below to test live AI pricing, intent detection, and margin rules.\nNo templated presets.',
+            extActionDesc: 'Use "Play the customer" below to send custom WhatsApp messages to your live model.',
+            extDraft: '',
+            selectedReplyIdx: 0,
+            replyOptions: [],
+            extBtnLabel: 'Send quote & insert reply',
+            extActionType: 'CREATE_QUOTE',
+            done: false,
+            memory: {
+              tier: 'VIP_FAST_PAYER',
+              score: 94,
+              totalOrders: 6,
+              totalPaidRM: 28400,
+              notes: ['Sandbox active · Live LLM evaluation enabled'],
+              timeline: [{ time: 'Just Now', note: 'Sandbox ready' }]
+            }
+          },
+          {
             id: 'chat-1',
             customer: 'Tan Bros Trading',
-            phone: '+60 12-345 6789 · TIN: C2088391020',
+            phone: '+60 12-345 6789',
             badge: '1. Buying Inquiry',
             messages: [
               { from: 'customer', time: '10:38 AM', text: 'Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah? Need quote urgently.' }
             ],
-            extTitle: '🤖 Buying Inquiry → Hold Stock for 48h',
-            extCheck: '✅ Daikin 1.5HP: 5 Available\n✅ R32 Gas: 15 Available\n💰 Quote Total: RM 6,650',
-            extActionDesc: 'Choose a recommended reply below, then press the big button to lock 5x Daikin + 5x R32 ON HOLD for 48h.',
-            extDraft: 'Hi Tan Bros! Both in stock. Quote #QT-104 for 5x Daikin 1.5HP (RM 5,750) + 5x R32 Gas (RM 900) = RM 6,650. Let us know if you want to proceed!',
+            extTitle: '🤖 Buying Inquiry → Quote Deal',
+            extCheck: '✅ 5x Daikin 1.5HP = RM 5,750\n✅ 5x R32 Gas = RM 900\n💰 Total Quote: RM 6,650\nSubject to stock availability · prices valid 7 days',
+            extActionDesc: 'Generates formal sales quote from the price list and logs deal in Pipeline.',
+            extDraft: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650. Subject to stock availability · prices valid 7 days.',
             selectedReplyIdx: 0,
             replyOptions: [
               {
-                label: '💼 Option 1: Formal Quote & Stock Info',
-                text: 'Hi Tan Bros! Both in stock. Quote #QT-104 for 5x Daikin 1.5HP + 5x R32 Gas = RM 6,650. Let us know if you want to proceed!'
+                label: '💼 Option 1: Official Quote (Manglish)',
+                text: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650. Subject to stock availability · prices valid 7 days.'
               },
               {
-                label: '🤝 Option 2: Friendly Boss Style (Ask 40% Deposit)',
-                text: 'Ready stock Boss! 5x Daikin + 5x R32 total RM 6,650. Just DuitNow RM 2,660 (40% deposit) and we arrange lorry for you!'
+                label: '🤝 Option 2: Friendly Boss Style',
+                text: 'Ready stock Boss! 5x Daikin + 5x R32 total RM 6,650. Can arrange lorry today. Subject to stock availability · prices valid 7 days.'
               },
               {
-                label: '🇲🇾 Option 3: Bahasa Melayu (Sebut Harga Rasmi)',
-                text: 'Salam Tan Bros! Stok sedia ada. Sebut Harga #QT-104 untuk 5x Daikin 1.5HP + 5x Gas R32 = Jumlah RM 6,650. Boleh buat deposit 40% untuk pengesahan.'
+                label: '🇲🇾 Option 3: Bahasa Melayu (Sebut Harga)',
+                text: 'Salam Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas jumlah RM 6,650. Tertakluk kepada stok sedia ada · sah 7 hari.'
               }
             ],
-            extBtnLabel: '✅ Hold Stock (48h) & Insert Selected Reply',
-            extActionType: 'CREATE_QUOTE_HOLD',
-            sku: 'ACN-DAI-15', qty: 5, extraSku: 'GAS-R32', extraQty: 5, amount: 6650,
+            extBtnLabel: 'Send quote & insert reply',
+            extActionType: 'CREATE_QUOTE',
+            items: [{ sku: 'ACN-DAI-15', name: 'Daikin 1.5HP Inverter', qty: 5, unitPrice: 1150 }, { sku: 'GAS-R32', name: 'R32 Refrigerant Gas Cylinder', qty: 5, unitPrice: 180 }],
+            amount: 6650,
             done: false,
             memory: {
-              tier: 'VIP Fast Payer',
+              tier: 'VIP_FAST_PAYER',
               score: 94,
               totalOrders: 6,
               totalPaidRM: 28400,
-              notes: [
-                'Direct business owner · Prefers fast quotes via WhatsApp',
-                'Always pays 40% DuitNow deposit promptly within 2 hours',
-                'Prefers morning delivery slots'
-              ],
-              timeline: [
-                { time: '10:38 AM', note: 'Customer sent inquiry for 5x Daikin + 5x R32' }
-              ]
+              notes: ['Direct business owner · Prefers fast quotes via WhatsApp', 'Always pays promptly via corporate DuitNow'],
+              timeline: [{ time: '10:38 AM', note: 'Inquired for 5x Daikin + 5x R32' }]
             }
           },
           {
             id: 'chat-2',
-            customer: 'Wisma Perdana Sdn Bhd',
-            phone: '+60 12-998 4410 · Quote #QT-104',
-            badge: '2. Deposit Paid',
+            customer: 'Restoran Selera Kampung',
+            phone: '+60 17-332 1190',
+            badge: '2. Discount Request',
             messages: [
-              { from: 'customer', time: '11:15 AM', text: 'Ok boss confirm order for QT-104! I just bank in RM 2,000 deposit via DuitNow (Ref: DN-99281).' }
+              { from: 'customer', time: '11:02 AM', text: 'Boss, quote for 2 units Daikin 1.5HP can less or give discount sikit? Best price please.' }
             ],
-            extTitle: '💰 Deposit Paid → Deduct Physical Stock',
-            extCheck: '💵 Deposit Received: RM 2,000\n📦 Converts 5x Daikin + 5x R32 from Hold → Deducted',
-            extActionDesc: 'Choose a confirmation reply below, then press the big button to deduct physical stock & create Invoice #INV-204.',
-            extDraft: 'Thanks Wisma Perdana! Received RM 2,000 deposit for INV-204. Your order is confirmed and scheduled for delivery. Remaining balance: RM 4,650.',
+            extTitle: '🏷️ Discount Request → Counter-Offer',
+            extCheck: '🛡️ Margin Floor Guard: 15% minimum\n💡 Recommended: Offer Free Delivery (Protects Margin)\nTotal: RM 2,300 · Subject to stock availability · prices valid 7 days',
+            extActionDesc: 'Send a margin-safe counter offer without cutting unit prices.',
+            extDraft: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today! Subject to stock availability · prices valid 7 days.',
             selectedReplyIdx: 0,
             replyOptions: [
               {
-                label: '✅ Option 1: Confirm Deposit & Schedule Delivery',
-                text: 'Thanks Wisma Perdana! Received RM 2,000 deposit for INV-204. Your order is confirmed and scheduled for delivery. Remaining balance: RM 4,650.'
+                label: '🚚 Option 1: Value-Add Free Delivery (Margin Safe)',
+                text: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today! Subject to stock availability · prices valid 7 days.'
               },
               {
-                label: '🚚 Option 2: Friendly Boss Style (Delivery Slot)',
-                text: 'Thanks Boss! Received your RM 2,000 DuitNow deposit (Ref: DN-99281). Order is ready—what time tomorrow suits your team for delivery?'
-              },
-              {
-                label: '🇲🇾 Option 3: Bahasa Melayu (Pengesahan Deposit)',
-                text: 'Terima kasih Wisma Perdana! Deposit RM 2,000 diterima untuk #INV-204 (Baki: RM 4,650). Pesanan disahkan dan kami aturkan penghantaran esok.'
+                label: '💰 Option 2: Round Down RM 50 (Owner Allowed)',
+                text: 'Hi Boss, we can round down to RM 2,250 as a gesture for your restaurant! Subject to stock availability · prices valid 7 days.'
               }
             ],
-            extBtnLabel: '💰 Confirm Deposit & Deduct Stock',
-            extActionType: 'CONFIRM_DEPOSIT_DEDUCT',
-            amount: 2000,
+            extBtnLabel: 'Send counter-offer & reply',
+            extActionType: 'SEND_COUNTER_OFFER',
+            discount: 50,
+            amount: 2250,
             done: false,
             memory: {
-              tier: 'Corporate Commercial',
-              score: 85,
-              totalOrders: 4,
-              totalPaidRM: 18400,
-              notes: [
-                'Commercial corporate client · Requires official receipt & invoice',
-                'Always confirms deposit promptly via corporate DuitNow'
-              ],
-              timeline: [
-                { time: '10:38 AM', note: 'Received quote for #QT-104' },
-                { time: '11:15 AM', note: 'Transferred RM 2,000 deposit via DuitNow' }
-              ]
+              tier: 'REPEAT_CLIENT',
+              score: 75,
+              totalOrders: 2,
+              totalPaidRM: 4500,
+              notes: ['Restaurant owner · Often asks for best price, pays promptly when confirmed'],
+              timeline: [{ time: '11:02 AM', note: 'Requested discount on 2 units Daikin' }]
             }
           },
           {
             id: 'chat-3',
-            customer: 'Klinik Dr. Lim',
-            phone: '+60 16-882 1920 · Invoice #INV-201',
-            badge: '3. Aftersales Issue',
+            customer: 'Wisma Perdana Sdn Bhd',
+            phone: '+60 12-998 4410',
+            badge: '3. Customer Confirmed',
             messages: [
-              { from: 'customer', time: '09:50 AM', text: 'Boss, 1 bottle R32 gas from INV-201 valve leaking la. I hold the RM 4,800 payment until you replace.' }
+              { from: 'customer', time: '11:15 AM', text: 'Ok boss confirm order for QT-2026-101! Just bank in RM 2,000 deposit via DuitNow (Ref: DN-99281).' }
             ],
-            extTitle: '⚠️ Faulty Item Reported (Reminders Paused)',
-            extCheck: '🛡️ Payment chasing on #INV-201 is AUTO-PAUSED.\n📦 Recommended Fix: Send 1x replacement R32 bottle (-1 Stock)',
-            extActionDesc: 'Choose how you want to reply & resolve this aftersales issue below:',
-            extDraft: 'So sorry Dr. Lim! We will send 1x replacement R32 bottle to your clinic today right away at no charge.',
+            extTitle: '🎉 Order Confirmed → Mark Won',
+            extCheck: '💵 Deposit Slip Ref: DN-99281\n💰 Deposit Amount: RM 2,000\nDeal: #QT-2026-101 moves to WON',
+            extActionDesc: 'Marks deal as WON and records deposit reference.',
+            extDraft: 'Thanks Wisma Perdana! Received your RM 2,000 deposit (Ref: DN-99281). Order is confirmed and scheduled for delivery tomorrow morning!',
             selectedReplyIdx: 0,
-            rebateAmount: 180,
-            techVisitTime: 'before 3:00 PM today',
             replyOptions: [
               {
-                kind: 'REPLACE',
-                label: '📦 Option 1: Free 1-to-1 Replacement Today (-1 Stock)',
-                text: 'So sorry Dr. Lim! We will send 1x replacement R32 bottle to your clinic today right away at no charge.'
+                label: '✅ Option 1: Confirm Deposit & Schedule',
+                text: 'Thanks Wisma Perdana! Received your RM 2,000 deposit (Ref: DN-99281). Order is confirmed and scheduled for delivery tomorrow morning!'
               },
               {
-                kind: 'REBATE',
-                label: '💸 Option 2: Offer RM 180 Instant Credit Rebate',
-                text: 'Hi Dr. Lim, sincere apologies! We can deduct RM 180 off #INV-201 immediately (revised balance RM 4,620) if that suits you.'
-              },
-              {
-                kind: 'TECH_VISIT',
-                label: '🛠️ Option 3: Dispatch Technician to Swap On-Site',
-                text: 'Sorry about that Dr. Lim! Our technician is nearby and can drop by your clinic before 3:00 PM today to swap the bottle.'
+                label: '🇲🇾 Option 2: Bahasa Melayu (Pengesahan)',
+                text: 'Terima kasih Wisma Perdana! Deposit RM 2,000 diterima (Ref: DN-99281). Pesanan disahkan untuk penghantaran esok pagi.'
               }
             ],
-            extBtnLabel: '📦 Send -1 Replacement Stock & Insert Reply',
-            extActionType: 'AFTERSALES_REPLACE',
-            sku: 'GAS-R32', qty: 1,
+            extBtnLabel: 'Mark Won & insert reply',
+            extActionType: 'MARK_WON',
+            depositRef: 'DN-99281',
+            depositAmount: 2000,
+            dealId: 'QT-2026-101',
             done: false,
             memory: {
-              tier: 'Long-Term Clinic Partner',
-              score: 88,
+              tier: 'VIP_FAST_PAYER',
+              score: 92,
               totalOrders: 4,
-              totalPaidRM: 19200,
-              notes: [
-                'Medical clinic · Values fast, clean technical service',
-                'Reliable payer on previous invoices, currently has 1 leaking R32 valve'
-              ],
-              timeline: [
-                { time: '3 Days Ago', note: 'Delivered INV-201 (4x Daikin, 4x R32)' },
-                { time: '09:50 AM', note: 'Reported leaking valve on 1x R32 cylinder. Chasing auto-paused.' }
-              ]
+              totalPaidRM: 18400,
+              notes: ['Commercial client · Pays promptly via corporate DuitNow'],
+              timeline: [{ time: '11:15 AM', note: 'Sent DuitNow deposit slip DN-99281' }]
             }
           },
           {
             id: 'chat-4',
             customer: 'Kedai Runcit Ah Seng',
-            phone: '+60 19-221 0091 · Quote #QT-101',
-            badge: '4. Expired 48h Hold',
+            phone: '+60 19-221 0091',
+            badge: '4. Follow-Up Due',
             messages: [
-              { from: 'staff', time: '2 Days Ago', text: 'Sent Quote #QT-101 for 3x Daikin 1.5HP (RM 3,450). Held for 48 hours.' },
-              { from: 'customer', time: 'Today', text: '(No deposit after 50 hours — 48h Hold Expired)' }
+              { from: 'staff', time: '2 Days Ago', text: 'Quote sent for 3x Daikin 1.5HP (RM 3,450). Prices valid 7 days.' },
+              { from: 'system', time: '48h elapsed', text: '⏳ 48-hour follow-up SLA timer reached. No customer reply yet.' }
             ],
-            extTitle: '⏳ 48h Quote Hold Expired (#QT-101)',
-            extCheck: '📦 3x Daikin 1.5HP locked for >48h without deposit.',
-            extActionDesc: 'Choose a follow-up message below, then press the big button to release the 3x Daikin units back to Available Stock.',
-            extDraft: 'Hi Boss! Just checking in on your 3x Daikin inquiry. Do you still need these units arranged for you today?',
+            extTitle: '⏰ 48h SLA Follow-Up Due',
+            extCheck: 'Deal #QT-2026-102: Follow-up 1 of 3\nCustomer has not responded for 48 hours.',
+            extActionDesc: 'Sends polite non-pushy follow-up and increments follow-up count.',
+            extDraft: 'Hi Boss! Just checking in on your 3x Daikin 1.5HP quotation. Let us know if you would like us to reserve stock for delivery this week!',
             selectedReplyIdx: 0,
             replyOptions: [
               {
-                label: '💬 Option 1: Friendly Follow-Up (Recommended)',
-                text: 'Hi Boss! Just checking in on your 3x Daikin inquiry. Do you still need these units arranged for you today?'
+                label: '💬 Option 1: Friendly Follow-Up',
+                text: 'Hi Boss! Just checking in on your 3x Daikin 1.5HP quotation. Let us know if you would like us to reserve stock for delivery this week!'
               },
               {
-                label: '🤝 Option 2: Casual Boss Style',
-                text: 'Hi Boss! Following up to see if your team still needs this order scheduled? Let us know whenever you are ready.'
-              },
-              {
-                label: '🇲🇾 Option 3: Bahasa Melayu (Pertanyaan Santai)',
-                text: 'Salam Boss! Sekadar bertanya khabar mengenai sebut harga 3 unit Daikin hari itu. Maklumkan jika masih ingin teruskan pesanan ya.'
+                label: '🇲🇾 Option 2: Bahasa Melayu (Santai)',
+                text: 'Salam Boss! Sekadar bertanya khabar mengenai sebut harga Daikin hari itu. Maklumkan jika ingin teruskan pesanan ya!'
               }
             ],
-            extBtnLabel: '🔓 Release 3x Held Stock & Insert Follow-Up',
-            extActionType: 'RELEASE_EXPIRED_HOLD',
-            sku: 'ACN-DAI-15', qty: 3,
+            extBtnLabel: 'Send follow-up & reply',
+            extActionType: 'SEND_FOLLOW_UP',
+            dealId: 'QT-2026-102',
             done: false,
             memory: {
-              tier: 'Slow Payer / Ghosting Risk',
+              tier: 'SLOW_PAYER_GHOST_RISK',
               score: 42,
               totalOrders: 1,
               totalPaidRM: 1200,
-              notes: [
-                'High ghosting risk · Frequently delays deposit past 48 hours',
-                'Requires strict 50% deposit before locking warehouse stock'
-              ],
-              timeline: [
-                { time: '2 Days Ago', note: 'Sent Quote #QT-101 for 3x Daikin (RM 3,450)' },
-                { time: 'Today', note: '48h hold expired without deposit payment' }
-              ]
+              notes: ['Often goes quiet after quote · Follow up early with gentle tone'],
+              timeline: [{ time: '2 Days Ago', note: 'Quoted RM 3,450' }]
+            }
+          },
+          {
+            id: 'chat-5',
+            customer: 'Klinik Dr. Lim',
+            phone: '+60 16-882 1920',
+            badge: '5. Complaint / Pause',
+            messages: [
+              { from: 'customer', time: '09:50 AM', text: 'Boss, 1 bottle R32 gas from last order valve leaking la. Very dangerous. Please check.' }
+            ],
+            extTitle: '⚠️ Complaint Reported → Auto Pause',
+            extCheck: '🛡️ Follow-up reminders AUTO-PAUSED on customer deal.\nLog complaint and notify service team.',
+            extActionDesc: 'Pauses active follow-up timers and drafts apology response.',
+            extDraft: 'So sorry Dr. Lim! We have paused all reminders. Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.',
+            selectedReplyIdx: 0,
+            replyOptions: [
+              {
+                label: '🛠️ Option 1: Apology & Free Swap Today',
+                text: 'So sorry Dr. Lim! We have paused all reminders. Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.'
+              }
+            ],
+            extBtnLabel: 'Log complaint & pause deal',
+            extActionType: 'LOG_COMPLAINT',
+            complaintNote: 'R32 gas cylinder valve leaking',
+            done: false,
+            memory: {
+              tier: 'VIP_FAST_PAYER',
+              score: 88,
+              totalOrders: 4,
+              totalPaidRM: 19200,
+              notes: ['Medical clinic · Values prompt technical support and safety'],
+              timeline: [{ time: '09:50 AM', note: 'Reported leaking valve on R32' }]
+            }
+          },
+          {
+            id: 'chat-6',
+            customer: 'Pelanggan Batal',
+            phone: '+60 11-234 5678',
+            badge: '6. Customer Declined',
+            messages: [
+              { from: 'customer', time: '11:40 AM', text: 'Sorry boss, budget tak lepas kali ini. We pass first ya.' }
+            ],
+            extTitle: '👋 Customer Declined → Mark Lost',
+            extCheck: 'Objection Detected: Price / Budget\nDefault Loss Reason: Customer declined on WhatsApp\nPreserve relationship with warm closing.',
+            extActionDesc: 'Marks deal as LOST with reason and keeps the door open for future business.',
+            extDraft: 'Understood Boss, no problem at all! Thanks for letting us know. Reach out anytime if you need supply down the road!',
+            selectedReplyIdx: 0,
+            replyOptions: [
+              {
+                label: '🤝 Option 1: Warm Zero-Pressure Close',
+                text: 'Understood Boss, no problem at all! Thanks for letting us know. Reach out anytime if you need supply down the road!'
+              },
+              {
+                label: '🇲🇾 Option 2: Bahasa Melayu (Terima Kasih)',
+                text: 'Baik Boss, tidak mengapa. Terima kasih kerana maklumkan. Hubungi kami bila-bila masa jika perlukan bekalan nanti ya!'
+              }
+            ],
+            extBtnLabel: 'Mark Lost & insert reply',
+            extActionType: 'MARK_LOST',
+            lossReasonSuggestion: 'Price / Budget',
+            done: false,
+            memory: {
+              tier: 'NEW_CLIENT',
+              score: 50,
+              totalOrders: 0,
+              totalPaidRM: 0,
+              notes: ['Declined quote due to budget · Zero pressure closing'],
+              timeline: [{ time: '11:40 AM', note: 'Customer politely declined quote' }]
+            }
+          },
+          {
+            id: 'chat-7',
+            customer: 'Syarikat Bina Jaya',
+            phone: '+60 12-773 8810',
+            badge: '7. LHDN TIN Captured',
+            messages: [
+              { from: 'customer', time: '12:10 PM', text: 'Boss, for e-Invoice, our Buyer TIN is C21884920000, SSM 202401009921.' }
+            ],
+            extTitle: '🧾 LHDN TIN → Save e-Invoice Details',
+            extCheck: '🟢 Valid Malaysian Buyer TIN: C21884920000\n🟢 Valid SSM BRN: 202401009921\nApplies to open deals for accountant CSV export.',
+            extActionDesc: 'Saves Buyer TIN & SSM directly to customer record in database.',
+            extDraft: 'Thank you Syarikat Bina Jaya! We have recorded your LHDN TIN (C21884920000) and SSM (202401009921). Your e-Invoice will be processed accordingly.',
+            selectedReplyIdx: 0,
+            replyOptions: [
+              {
+                label: '🧾 Option 1: Confirm TIN Received',
+                text: 'Thank you Syarikat Bina Jaya! We have recorded your LHDN TIN (C21884920000) and SSM (202401009921). Your e-Invoice will be processed accordingly.'
+              }
+            ],
+            extBtnLabel: 'Save LHDN TIN & reply',
+            extActionType: 'SAVE_LHDN_TIN',
+            tin: 'C21884920000',
+            ssmBrn: '202401009921',
+            done: false,
+            memory: {
+              tier: 'REPEAT_CLIENT',
+              score: 80,
+              totalOrders: 2,
+              totalPaidRM: 300,
+              notes: ['Contractor client · LHDN e-Invoice ready'],
+              timeline: [{ time: '12:10 PM', note: 'Submitted LHDN TIN' }]
             }
           }
         ],

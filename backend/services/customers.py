@@ -38,6 +38,23 @@ def parse_ssm(text: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
+def is_customer(session: Session, name: str, phone: str = "") -> bool:
+    """Checks if either clean_customer_name(name) or the digits of phone match an existing row in customers."""
+    key = customer_key(name).lower()
+    if key:
+        row = session.scalars(select(orm.Customer).where(func.lower(orm.Customer.name) == key)).first()
+        if row is not None:
+            return True
+    clean_digits = re.sub(r"\D", "", phone or "")
+    if clean_digits and len(clean_digits) >= 7:
+        rows = session.scalars(select(orm.Customer.phone).where(orm.Customer.phone != "")).all()
+        for p in rows:
+            p_digits = re.sub(r"\D", "", p)
+            if p_digits and (clean_digits in p_digits or p_digits in clean_digits):
+                return True
+    return False
+
+
 def get_customer(session: Session, name: str) -> Optional[orm.Customer]:
     key = customer_key(name)
     if not key:

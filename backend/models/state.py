@@ -54,6 +54,7 @@ class ActionResponse(ApiModel):
     status: str
     state: StatePayload
     created_id: Optional[str] = _only_when_set()
+    created_deal_id: Optional[str] = _only_when_set()
     moved: Optional[List[str]] = _only_when_set()
     approval_id: Optional[int] = _only_when_set()
     reason: Optional[str] = _only_when_set()
