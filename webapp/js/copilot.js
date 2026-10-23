@@ -702,7 +702,17 @@
           ? `Confirm deposit from ${chat.customer}, allocate ${itemsLabel}, add cash, and insert reply into WhatsApp.`
           : chat.extActionType === 'AFTERSALES_REPLACE'
             ? `Apply selected aftersales resolution for ${chat.customer} and insert reply into WhatsApp.`
-            : `Release expired 48h reservation for ${chat.customer} and insert follow-up reply into WhatsApp.`;
+            : chat.extActionType === 'RELEASE_EXPIRED_HOLD'
+              ? `Release expired 48h reservation for ${chat.customer} and insert follow-up reply into WhatsApp.`
+              : (chat.extActionDesc || `${chat.extBtnLabel || 'Run this action'} for ${chat.customer}.`);
+
+      // Quote lines come from the analysis (quote preview, photo, or sku + extra sku), never from guessed demo stock.
+      const execItems = (chat.quotePreview && chat.quotePreview.items) || chat.items
+        || (chat.sku ? [{ sku: chat.sku, qty: chat.qty || 1 }].concat(chat.extraSku ? [{ sku: chat.extraSku, qty: chat.extraQty || 1 }] : []) : null);
+      if (!chat.done && usesBackend() && chat.extActionType === 'CREATE_QUOTE' && !execItems) {
+        showToast('⚠️ Nothing to quote yet: send the customer\'s message and let the AI analyse it first.');
+        return;
+      }
 
       askUserConfirm(
         `Confirm WhatsApp Copilot Action`,
@@ -727,13 +737,6 @@
           }
 
           const staffDeposit = !usesBackend() && chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
-          // Quote lines come from the analysis (quote preview, photo, or sku + extra sku), never from guessed demo stock.
-          const execItems = (chat.quotePreview && chat.quotePreview.items) || chat.items
-            || (chat.sku ? [{ sku: chat.sku, qty: chat.qty || 1 }].concat(chat.extraSku ? [{ sku: chat.extraSku, qty: chat.extraQty || 1 }] : []) : null);
-          if (!chat.done && usesBackend() && chat.extActionType === 'CREATE_QUOTE' && !execItems) {
-            showToast('⚠️ Analyse the chat first so the quote has items.');
-            return;
-          }
           if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
             const msgs = {
               OFFER_QUOTE: `Quotation offer sent to ${chat.customer}! Awaiting customer confirmation.`,
@@ -1065,8 +1068,8 @@
         extDraft: '',
         selectedReplyIdx: 0,
         replyOptions: [],
-        extBtnLabel: 'Send quote & insert reply',
-        extActionType: 'CREATE_QUOTE',
+        extBtnLabel: 'Insert reply',  // the AI sets the real action once it has read a customer message
+        extActionType: 'REPLY_ONLY',
         done: false,
         memory: {
           tier: 'NEW_CLIENT',

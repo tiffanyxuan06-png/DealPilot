@@ -195,8 +195,8 @@ let currentRole = 'OWNER';
             extDraft: '',
             selectedReplyIdx: 0,
             replyOptions: [],
-            extBtnLabel: 'Send quote & insert reply',
-            extActionType: 'CREATE_QUOTE',
+            extBtnLabel: 'Insert reply',  // the AI sets the real action once it has read a customer message
+            extActionType: 'REPLY_ONLY',
             done: false,
             memory: {
               tier: 'VIP_FAST_PAYER',
