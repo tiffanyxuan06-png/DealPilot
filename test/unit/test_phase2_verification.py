@@ -23,6 +23,25 @@ def test_ask_ai_prompt_uses_pipeline_and_hides_costs(client, monkeypatch):
     p = seen["prompt"]
     assert "QT-2026-103" in p and "Wisma Perdana" in p and "Aina" in p and "commission" in p
     assert "850" not in p and "unitCost" not in p and "margin" not in p.lower()
+    client.post("/api/agent/ask", json={**OWNER, "question": "Who is winning?"})  # Owner sees every rep, still no costs
+    p = seen["prompt"]
+    assert "Ahmad" in p and "Mei Ling" in p and "850" not in p and "margin" not in p.lower()
+
+
+def test_ask_ai_offline_answers_from_sales_data(client, monkeypatch):
+    def down(*a, **kw):
+        raise OSError("timed out")
+
+    monkeypatch.setattr(company_ai, "call_lmstudio_chat", down)
+    ask = lambda q: client.post("/api/agent/ask", json={**OWNER, "question": q}).json()  # noqa: E731
+    today = ask("What needs me today?")
+    assert today["lmstudio_connected"] is False and today["answer"].startswith(company_ai.OFFLINE_NOTE)
+    assert "QT-2026-101" in today["answer"]  # Kedai Ah Seng's follow-up is due in the seed
+    assert "Aina" in ask("Who is winning on commission?")["answer"]
+    product = ask("create new product query")["answer"]
+    assert "Price list" in product and "ACN-DAI-15" in product and "Net Worth" not in product
+    other = ask("Write a poem about aircond")["answer"]
+    assert "can't answer free-form" in other and "Pipeline value" in other
 
 
 def test_approval_and_permission_changes_are_audited(client):

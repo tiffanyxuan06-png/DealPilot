@@ -4,7 +4,7 @@
 const companyAgentMessages = [
   {
     role: 'ai',
-    text: 'Hello Boss! 👋 I am your Orbyte Company AI Copilot. I have live access to your Cash on Hand, Warehouse Stock, 48-Hour Quote Holders, Unverified Receipts, and LHDN TINs. Tap any question chip above or ask me anything!'
+    text: 'Hello Boss! 👋 I can see your live pipeline: quotes, follow-ups, reps and commission, approvals and LHDN TINs. Tap a question above or ask me anything.'
   }
 ];
 
@@ -42,121 +42,47 @@ function sendCompanyAgentInput() {
   askCompanyAgent(q);
 }
 
-function buildLocalCompanyAnswer(q) {
-  const st = getState();
-  const qLow = q.toLowerCase();
-  const stockVal = (st.stock || []).reduce((sum, s) => sum + (s.onHand * s.unitCost), 0);
-  const coreNW = (st.cashOnHand || 0) + stockVal;
-  const pendingIn = (st.invoices || [])
-    .filter(i => i.type === 'PENDING' || i.type === 'AFTERSALES' || i.type === 'PENDING_VERIFY')
-    .reduce((sum, i) => sum + i.amount, 0);
-  const pendingOut = (st.invoices || [])
-    .filter(i => i.type === 'SUPPLIER_COST' && i.status === 'UNPAID_PAYABLE')
-    .reduce((sum, i) => sum + i.amount, 0);
-  const fullNW = coreNW + pendingIn - pendingOut;
-
-  if (qLow.includes('hold') || qLow.includes('who is holding') || qLow.includes('expired')) {
-    const holds = (st.invoices || []).filter(i => i.type === 'QUOTE_HOLD' && i.status !== 'HOLD_RELEASED');
-    if (holds.length === 0) {
-      return `🎉 Zero units are currently locked on hold! All physical warehouse stock is 100% Available to Sell.`;
-    }
-    const lines = holds.map(h =>
-      `• ${h.id} — 👤 ${h.party} (${h.phone || 'No Phone'}): Holding [${h.itemsText}] worth RM ${h.amount.toLocaleString()} · Status: ${h.holdTimer || h.status}`
-    ).join('\n');
-    return `⏳ Current 48-Hour Stock Holds (${holds.length} Active/Expired):\n${lines}\n\n💡 Tip: Go to "📦 3. Stock & Holds" to release expired holds or confirm deposits in 1 click.`;
-  }
-
-  if (qLow.includes('pending') || qLow.includes('verify') || qLow.includes('overdue') || qLow.includes('action') || qLow.includes('owe')) {
-    const actionItems = (st.invoices || []).filter(i =>
-      i.type === 'PENDING_VERIFY' || i.type === 'PENDING' || i.type === 'AFTERSALES' || (i.type === 'SUPPLIER_COST' && i.status === 'UNPAID_PAYABLE')
-    );
-    const lines = actionItems.map(i =>
-      `• ${i.id} (${i.party}) — RM ${i.amount.toLocaleString()} [${i.status}]: ${i.itemsText}`
-    ).join('\n');
-    return `🕵️‍♂️ Items Needing Your Attention (${actionItems.length} records):\n${lines}\n\n💰 Total Receivables to Collect: RM ${pendingIn.toLocaleString()} | Supplier Bills to Pay: RM ${pendingOut.toLocaleString()}.`;
-  }
-
-  if (qLow.includes('stock') || qLow.includes('margin') || qLow.includes('profit') || qLow.includes('sku') || qLow.includes('daikin') || qLow.includes('available')) {
-    const lines = (st.stock || []).map(s => {
-      const avail = Math.max(0, s.onHand - s.onHold);
-      const margin = s.sellPrice - s.unitCost;
-      const pct = Math.round((margin / s.sellPrice) * 100);
-      return `• ${s.sku} (${s.name}): On Hand=${s.onHand}, Held=${s.onHold}, Available=${avail} | Cost: RM ${s.unitCost}, Sell: RM ${s.sellPrice} (Profit: +RM ${margin}/unit · ${pct}%)`;
-    }).join('\n');
-    return `📦 Live Warehouse Stock & Unit Profit Margins:\n${lines}\n\n💎 Total Physical Stock Value (at cost): RM ${stockVal.toLocaleString()}.`;
-  }
-
-  if (qLow.includes('lhdn') || qLow.includes('tin') || qLow.includes('e-invoice') || qLow.includes('einvoice')) {
-    const missing = (st.invoices || []).filter(i => (i.lhdn || '').includes('Missing'));
-    const ready = (st.invoices || []).filter(i => !(i.lhdn || '').includes('Missing'));
-    return `🟢 LHDN e-Invoice Compliance Summary:\n• Ready / Consolidated / Verified TIN: ${ready.length} record(s)\n• Missing Buyer TIN: ${missing.length} record(s) ${missing.length > 0 ? '(' + missing.map(m => `${m.id}: ${m.party}`).join(', ') + ')' : ''}\n\n💡 For walk-in/B2C buyers without a TIN, click "✏️ Key In Buyer TIN" and leave blank to classify under Monthly Consolidated e-Invoice (EI00000000010).`;
-  }
-
-  return `📊 Live Financial Snapshot for ${st.name}:\n• 💎 Core Net Worth (Cash + Stock): RM ${coreNW.toLocaleString()}\n  ├─ 💵 Verified Cash on Hand: RM ${(st.cashOnHand || 0).toLocaleString()}\n  └─ 📦 Physical Stock Value: RM ${stockVal.toLocaleString()}\n• 💰 Pending Customer Receivables: +RM ${pendingIn.toLocaleString()}\n• 🚚 Unpaid Supplier Payables: -RM ${pendingOut.toLocaleString()}\n• 🏦 Projected Full Net Worth: RM ${fullNW.toLocaleString()}`;
-}
-
 async function askCompanyAgent(questionText) {
   if (!questionText || !questionText.trim()) return;
   const cleanQ = questionText.trim();
 
-  // Push user question
   companyAgentMessages.push({ role: 'user', text: cleanQ });
-  // Push live thinking status bubble
   const loadingIdx = companyAgentMessages.length;
-  companyAgentMessages.push({
-    role: 'ai',
-    text: '⚡ Thinking... querying live data & LM Studio (~3–8s)...',
-    loading: true
-  });
+  companyAgentMessages.push({ role: 'ai', text: '⚡ Thinking... reading your live pipeline...', loading: true });
   renderCompanyAgentMessages();
 
-  const localAns = buildLocalCompanyAnswer(cleanQ);
-
+  // The backend answers every question: with the AI model when it is running, from the live data when it is not.
+  let text = '⚠️ Could not reach the CashChase backend. Start it with python run_server.py and ask again.';
   try {
     const res = await fetch(`${BACKEND_API_BASE}/api/agent/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: cleanQ })
+      headers: { 'Content-Type': 'application/json', 'X-CashChase-Role': currentRole },
+      body: JSON.stringify({ question: cleanQ, role: currentRole })
     });
-
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      const data = await res.json();
-      const finalAns = (data.lmstudio_connected && data.answer && !data.answer.includes('Not available'))
-        ? data.answer
-        : (localAns || data.answer);
-
-      companyAgentMessages[loadingIdx] = {
-        role: 'ai',
-        text: finalAns,
-        loading: false
-      };
+      text = data.answer || `⚠️ No answer: ${data.error || 'the AI model did not reply'}.`;
 
       if (data.raw_prompt && typeof agentInspectorData !== 'undefined') {
         agentInspectorData.company.prompt = data.raw_prompt;
-        agentInspectorData.company.output = data.answer || localAns;
+        agentInspectorData.company.output = data.answer || '';
         if (typeof currentInspectorAgent !== 'undefined' && currentInspectorAgent === 'company' && typeof renderAgentInspector === 'function') {
           renderAgentInspector();
         }
       }
-
       const badge = document.getElementById('agent-lm-badge');
       if (badge) {
         badge.textContent = data.lmstudio_connected
-          ? `⚡ Answered by LM Studio (${data.model_used || 'qwen2.5-3b-instruct'})`
-          : `🏢 Answered by Live Company Analytics Engine`;
+          ? `⚡ Answered by the AI model (${data.model_used || 'LM Studio'})`
+          : '🏢 AI offline: answered from your live sales data';
       }
-      renderCompanyAgentMessages();
-      return;
+    } else {
+      text = `⚠️ ${data.detail || `Backend error (HTTP ${res.status})`}`;
     }
   } catch (err) {
-    console.warn('Backend ask offline, using local answer:', err);
+    console.warn('Company agent: backend unreachable', err);
   }
 
-  // Fallback to local snapshot answer
-  companyAgentMessages[loadingIdx] = {
-    role: 'ai',
-    text: localAns,
-    loading: false
-  };
+  companyAgentMessages[loadingIdx] = { role: 'ai', text, loading: false };
   renderCompanyAgentMessages();
 }

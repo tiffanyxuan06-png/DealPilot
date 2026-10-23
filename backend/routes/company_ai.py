@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from backend.models.enums import Stage
 from backend.models.requests import CompanyAgentAskRequest
 from backend.models.responses import AgentAnswer
 from backend.services.lmstudio import call_lmstudio_chat
@@ -11,8 +12,11 @@ router = APIRouter(tags=["Company AI Agent"])
 
 @router.post("/api/agent/ask", response_model=AgentAnswer)
 def api_company_agent_ask(req: CompanyAgentAskRequest) -> AgentAnswer:
-    """Answers questions about the sales pipeline with live data injected into the prompt (no unit costs: Staff ask too)."""
-    st = build_state()  # Staff view: never includes unit costs or margin %
+    """Answers questions about the sales pipeline with live data injected into the prompt.
+
+    The Owner gets the whole team, Staff their own deals. The prompt lists sell prices only, never unit costs or margin %.
+    """
+    st = build_state(req.role)
     ai = resolve_active_ai_credentials()
     p = st.pipeline
     reps = {r.id: r.name for r in st.reps}
@@ -52,4 +56,37 @@ def api_company_agent_ask(req: CompanyAgentAskRequest) -> AgentAnswer:
             raw_system_prompt=system_prompt,
         )
     except Exception as e:
-        return AgentAnswer(lmstudio_connected=False, error=str(e))
+        return AgentAnswer(
+            lmstudio_connected=False,
+            error=str(e),
+            answer=_offline_answer(req.question, st, reps, summary_lines, rep_lines, product_lines),
+        )
+
+
+OFFLINE_NOTE = "⚠️ The AI model is offline (LM Studio isn't reachable), so this comes straight from your live sales data."
+
+
+def _offline_answer(question: str, st, reps, summary_lines: str, rep_lines: str, product_lines: str) -> str:
+    """No AI: answer the common questions from the pipeline instead of leaving the Owner with nothing."""
+    # ponytail: keyword routing; free-form questions need the AI model.
+    q = question.lower()
+    if any(w in q for w in ("follow", "overdue", "today", "need me", "due", "approval", "pending")):
+        due = [d for d in st.deals if d.stage == Stage.FOLLOW_UP and not d.paused]
+        approvals = [a for a in st.approvals if a.status == "PENDING"]
+        lines = [f"- {d.id} {d.customer} ({reps.get(d.rep_id, '-')}): RM {d.amount:,} · {d.follow_up_text}" for d in due]
+        lines += [f"- Approval #AP-{a.id}: {a.summary}" for a in approvals]
+        body = "Needs you today:\n" + ("\n".join(lines) if lines else "- Nothing: no follow-ups due and no approvals waiting.")
+    elif any(w in q for w in ("commission", "rep", "leader", "salesm", "staff", "who is winning", "best")):
+        body = "Sales reps this month:\n" + rep_lines
+    elif any(w in q for w in ("tin", "lhdn", "e-invoice", "einvoice")):
+        missing = [c.name for c in st.customers if not c.lhdn_ready]
+        body = f"LHDN e-Invoice: {len(st.customers) - len(missing)} customer(s) ready, {len(missing)} missing a TIN" + (
+            ":\n" + "\n".join(f"- {n}" for n in missing) if missing else "."
+        )
+    elif any(w in q for w in ("price", "product", "sku", "catalog", "how much")):
+        body = "Price list:\n" + product_lines
+    elif any(w in q for w in ("pipeline", "won", "lost", "win rate", "sales", "quote", "deal")):
+        body = "Pipeline:\n" + summary_lines
+    else:
+        body = "I can't answer free-form questions while the AI is offline. Start LM Studio (or set AI_PROVIDER=runpod) and ask again.\n\nPipeline right now:\n" + summary_lines
+    return f"{OFFLINE_NOTE}\n\n{body}"

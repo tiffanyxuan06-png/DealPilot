@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_12" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_13" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -1135,10 +1135,10 @@
       </div>
 
       <div class="py-3 border-b border-[#DCE4F2] flex flex-wrap gap-2">
-        <button onclick="askCompanyAgent('What is our exact Net Worth, Cash on Hand, and Stock Value right now?')" class="cc-chip">Net worth &amp; cash</button>
-        <button onclick="askCompanyAgent('Who is holding our stock right now and which 48h holds are expired?')" class="cc-chip">Who holds stock?</button>
-        <button onclick="askCompanyAgent('Which pending customer receipts, aftersales issues, or unpaid invoices need my action today?')" class="cc-chip">What needs me today?</button>
-        <button onclick="askCompanyAgent('Show me our warehouse stock breakdown and profit margin per unit for each SKU.')" class="cc-chip">Stock &amp; margins</button>
+        <button onclick="askCompanyAgent('What needs me today? Follow-ups due and approvals waiting.')" class="cc-chip">What needs me today?</button>
+        <button onclick="askCompanyAgent('How is the pipeline? Quoted value, won, lost and win rate.')" class="cc-chip">Pipeline</button>
+        <button onclick="askCompanyAgent('Which rep is winning, and how much commission has each rep earned this month?')" class="cc-chip">Reps &amp; commission</button>
+        <button onclick="askCompanyAgent('Show me our price list.')" class="cc-chip">Price list</button>
         <button onclick="askCompanyAgent('Which customers are missing LHDN TINs vs ready for e-Invoice?')" class="cc-chip">LHDN TIN check</button>
       </div>
 
@@ -1146,7 +1146,7 @@
 
       <div class="pt-3 border-t border-[#DCE4F2] flex gap-2">
         <label for="company-agent-input" class="sr-only">Your question</label>
-        <input id="company-agent-input" type="text" onkeydown="if(event.key==='Enter') sendCompanyAgentInput()" placeholder="e.g. How much does Klinik Dr Lim owe?" class="cc-input" />
+        <input id="company-agent-input" type="text" onkeydown="if(event.key==='Enter') sendCompanyAgentInput()" placeholder="e.g. Which quotes for Tan Bros are still open?" class="cc-input" />
         <button onclick="sendCompanyAgentInput()" class="cc-btn cc-btn-primary shrink-0 i-swipe"><svg><use href="#i-send"/></svg> Ask</button>
       </div>
     </div>
@@ -1199,17 +1199,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_12"></script>
-  <script src="js/inspector.js?v=20261023_12"></script>
-  <script src="js/dashboard.js?v=20261023_12"></script>
-  <script src="js/copilot.js?v=20261023_12"></script>
-  <script src="js/company_ai.js?v=20261023_12"></script>
-  <script src="js/pdf_export.js?v=20261023_12"></script>
-  <script src="js/team.js?v=20261023_12"></script>
-  <script src="js/onboarding.js?v=20261023_12"></script>
-  <script src="js/main.js?v=20261023_12"></script>
-  <script src="js/ui.js?v=20261023_12"></script>
-  <script src="js/auth.js?v=20261023_12"></script>
+  <script src="js/state.js?v=20261023_13"></script>
+  <script src="js/inspector.js?v=20261023_13"></script>
+  <script src="js/dashboard.js?v=20261023_13"></script>
+  <script src="js/copilot.js?v=20261023_13"></script>
+  <script src="js/company_ai.js?v=20261023_13"></script>
+  <script src="js/pdf_export.js?v=20261023_13"></script>
+  <script src="js/team.js?v=20261023_13"></script>
+  <script src="js/onboarding.js?v=20261023_13"></script>
+  <script src="js/main.js?v=20261023_13"></script>
+  <script src="js/ui.js?v=20261023_13"></script>
+  <script src="js/auth.js?v=20261023_13"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

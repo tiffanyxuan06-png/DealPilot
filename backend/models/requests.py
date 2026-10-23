@@ -153,8 +153,8 @@ class SettingsUpdateRequest(RoleRequest):
     lmstudio_model: Optional[str] = None
 
 
-class CompanyAgentAskRequest(ApiModel):
-    """A question for the company agent about the business data."""
+class CompanyAgentAskRequest(RoleRequest):
+    """A question for the company agent about the business data (Owner: whole team; Staff: their own deals)."""
 
     question: str
 
