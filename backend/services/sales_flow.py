@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.services.price_match import brands_in_text, match_price_list_lines
+
 from backend.services.prompts import is_business_message
 from backend.services.product_knowledge import (
     calculate_quote_preview,
@@ -95,100 +97,19 @@ def _get_item_prop(obj: Any, key: str, default: Any = None) -> Any:
 
 
 def _extract_product_slots(all_text: str, products: List[Any]) -> List[Dict[str, Any]]:
-    """Scan conversation text to find mentioned products and quantities."""
-    items = []
+    """Products and quantities the customer asked for, matched against the business's own price list."""
     text_lower = all_text.lower()
-
-    sku_map = {_get_item_prop(p, "sku", ""): p for p in products}
-
-    # Detect HP and Brand
-    hp_matches = re.findall(r"(\d+(?:\.\d+)?)\s*(?:hp|horse\s*power|kuda)", text_lower)
-    daikin_present = "daikin" in text_lower
-    panasonic_present = "panasonic" in text_lower
-    midea_present = "midea" in text_lower
-
-    # Quantity check
-    qty = 1
-    qty_match = re.search(r"(\d+)\s*(?:units?|sets?|biji|buah|unit)", text_lower)
-    if not qty_match:
-        qty_match = re.search(r"(?:need|want|beli|order)\s+(\d+)", text_lower)
-    if not qty_match:
-        qty_match = re.search(r"(\d+)\s*x", text_lower)
-    if qty_match:
-        try:
-            qty = max(1, int(qty_match.group(1)))
-        except ValueError:
-            qty = 1
-
-    # Check if buying intent is present or just general consultation
-    has_buy_intent = bool(qty_match or re.search(r"\b(need|want|beli|order|ambil|nak|beli|quote|sebut\s*harga|price|harga)\b", text_lower))
+    # A product named with no number counts only when they want to buy, not when they ask how good it is
+    has_qty = bool(re.search(r"(?<![\w.])\d+(?![\d.])\s*(?:units?|sets?|biji|buah|pcs|bottles?|x)?\s+[a-z]", text_lower))
+    has_buy_intent = has_qty or bool(re.search(r"\b(need|want|beli|order|ambil|nak|quote|sebut\s*harga|price|harga)\b", text_lower))
     is_pure_question = bool(re.search(r"\b(how\s*good|is\s+it\s+good|ok\s*tak|bagus\s*tak|review|what\s*is|mana\s*elok)\b", text_lower))
-
-    matched_sku = None
-    if hp_matches:
-        hp_val = hp_matches[-1]
-        if daikin_present or (not panasonic_present and not midea_present):
-            if "1.5" in hp_val:
-                matched_sku = "ACN-DAI-15"
-            elif "2.0" in hp_val or "2" in hp_val:
-                matched_sku = "ACN-DAI-20"
-            elif "1.0" in hp_val or "1" in hp_val:
-                matched_sku = "ACN-DAI-10"
-        elif panasonic_present:
-            if "1.5" in hp_val:
-                matched_sku = "ACN-PAN-15"
-            elif "1.0" in hp_val or "1" in hp_val:
-                matched_sku = "ACN-PAN-10"
-        elif midea_present:
-            matched_sku = "ACN-MID-10"
-    elif (has_buy_intent and not is_pure_question):
-        if daikin_present:
-            matched_sku = "ACN-DAI-15"
-        elif panasonic_present:
-            matched_sku = "ACN-PAN-15"
-        elif midea_present:
-            matched_sku = "ACN-MID-10"
-
-    if matched_sku and matched_sku in sku_map:
-        prod = sku_map[matched_sku]
-        items.append({
-            "sku": matched_sku,
-            "name": _get_item_prop(prod, "name", matched_sku),
-            "qty": qty,
-            "price": int(_get_item_prop(prod, "sell_price", 0) or 0),
-        })
-
-    # Also check consumables / parts
-    if "r32" in text_lower or "gas" in text_lower:
-        if "GAS-R32" in sku_map and not any(it["sku"] == "GAS-R32" for it in items):
-            g_qty = 1
-            g_match = re.search(r"(\d+)\s*(?:bottles?|tanks?|tong|units?|sets?|x)?\s*(?:r32|gas)", text_lower)
-            if not g_match:
-                g_match = re.search(r"(?:r32|gas)[^\d]*(\d+)", text_lower)
-            if g_match:
-                try:
-                    g_qty = max(1, int(g_match.group(1)))
-                except ValueError:
-                    g_qty = 1
-            prod = sku_map["GAS-R32"]
-            items.append({
-                "sku": "GAS-R32",
-                "name": _get_item_prop(prod, "name", "R32 Refrigerant Gas"),
-                "qty": g_qty,
-                "price": int(_get_item_prop(prod, "sell_price", 180) or 180),
-            })
-
-    if "copper" in text_lower or "piping" in text_lower or "paip" in text_lower:
-        if "PIP-COP-3M" in sku_map and not any(it["sku"] == "PIP-COP-3M" for it in items):
-            prod = sku_map["PIP-COP-3M"]
-            items.append({
-                "sku": "PIP-COP-3M",
-                "name": _get_item_prop(prod, "name", "Copper Pipe 3m Set"),
-                "qty": 1,
-                "price": int(_get_item_prop(prod, "sell_price", 150) or 150),
-            })
-
-    return items
+    lines = match_price_list_lines(text_lower, products, allow_unquantified=has_buy_intent and not is_pure_question)
+    return [{
+        "sku": ln["item"]["sku"],
+        "name": ln["item"]["name"],
+        "qty": ln["qty"],
+        "price": int(ln["price"] or 0),
+    } for ln in lines]
 
 
 def build_deal_context(
@@ -258,12 +179,9 @@ def build_deal_context(
     if hp_match:
         needs["hp"] = float(hp_match.group(1))
 
-    if "daikin" in full_chat_text.lower():
-        needs["brand"] = "Daikin"
-    elif "panasonic" in full_chat_text.lower():
-        needs["brand"] = "Panasonic"
-    elif "midea" in full_chat_text.lower():
-        needs["brand"] = "Midea"
+    brands = brands_in_text(full_chat_text, products)
+    if brands:
+        needs["brand"] = brands[0]
 
     # Extract items
     items = _extract_product_slots(full_chat_text, products)
@@ -583,10 +501,19 @@ def generate_fallback_replies(
     deposit_str = f"RM {qp['depositRm']:,}" if qp and qp.get("depositRm") else ""
 
     if stage == "DISCOVERY":
+        # Answer the brand they asked about from the price list before asking the room size
+        brand = ctx.needs.get("brand")
+        opener = "Hello Boss! "
+        if brand:
+            prices = [_get_item_prop(p, "sell_price", 0) for p in products
+                      if str((_get_item_prop(p, "specs", {}) or {}).get("brand", "")).lower() == brand.lower()]
+            prices = [int(x) for x in prices if x]
+            if prices:
+                opener += f"Yes, we carry {brand}: {len(prices)} model{'s' if len(prices) != 1 else ''} from RM {min(prices):,}. "
         return [
             {
                 "label": "Recommended",
-                "text": "Hello Boss! May I know the estimated room size (sqft) or is it for a bedroom or living hall? That way I can recommend the exact right HP for you.",
+                "text": opener + "May I know the estimated room size (sqft) or is it for a bedroom or living hall? That way I can recommend the exact right HP for you.",
             },
             {
                 "label": "Casual Boss",

@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from backend.services.memory import clean_customer_name
+from backend.services.price_match import match_price_list_lines
 
 DISCLAIMER = "Subject to stock availability · prices valid 7 days"
 
@@ -489,28 +490,7 @@ def deterministic_fallback_analysis(
         }
 
     # 6. Buying Inquiry / Quotation Dynamic Parser
-    matched_lines = []
-    for p in products:
-        p_price = p.get("sellPrice", p.get("sell_price", 100))
-        terms = [re.escape(p["sku"].lower())]
-        for w in re.split(r"\W+", p["name"]):
-            wl = w.lower()
-            if len(wl) >= 3 and wl not in ["unit", "set", "box", "pack", "carton", "with", "and", "the", "for", "item"]:
-                terms.append(re.escape(wl))
-        if not terms:
-            continue
-        term_pattern = r"(?:" + "|".join(terms) + r")"
-        qty_pattern = rf"(\d+)\s*(?:units?|x|sets?|pcs|bottles?|tanks?|cartons?|seats?|boxes?|packs?|kg|litres?)?\s*{term_pattern}"
-        m = re.search(qty_pattern, msg_lower)
-        if m:
-            qty = int(m.group(1))
-        elif re.search(rf"\b{term_pattern}\b", msg_lower):
-            m_num = re.search(rf"(\d+)\s+{term_pattern}", msg_lower) or re.search(rf"{term_pattern}\s+(\d+)", msg_lower)
-            qty = int(m_num.group(1)) if m_num else 1
-        else:
-            qty = 0
-        if qty > 0:
-            matched_lines.append({"item": p, "qty": qty, "price": p_price})
+    matched_lines = match_price_list_lines(msg_lower, products)
 
     if not matched_lines:
         matched_lines.append({"item": primary_item, "qty": 1, "price": primary_item.get("sellPrice", primary_item.get("sell_price", 100))})
