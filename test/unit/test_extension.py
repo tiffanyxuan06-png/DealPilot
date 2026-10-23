@@ -624,6 +624,18 @@ def test_create_quote_items_fall_back_to_the_preview_then_the_analysis_sku_and_q
     assert sent[0]["body"]["actionType"] == "CREATE_QUOTE"
 
 
+def test_mark_won_waits_for_the_payment_check():
+    analysis = quote_analysis(extActionType="MARK_WON", depositRef="DN-20261023-55190", depositAmount=920)
+    out = run_scenario("sales_execute", state=STATE_STUB, unticked=1, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
+    result = out["result"]
+    assert out["errors"] == []
+    assert result["paymentShown"] is True
+    assert posts(result["sent"], EXECUTE) == [] and result["boxText"] == ""  # nothing recorded or inserted
+    assert "Tick the payment check first" in result["button"]
+    ticked = run_scenario("sales_execute", state=STATE_STUB, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
+    assert len(posts(ticked["result"]["sent"], EXECUTE)) == 1
+
+
 def test_mark_won_without_a_slip_reference_posts_nothing_and_says_so():
     out = run_scenario("sales_execute", state=STATE_STUB, responses={
         ANALYZE: quote_analysis(extActionType="MARK_WON"), EXECUTE: {"ok": True, "data": {"status": "ok"}}})

@@ -25,19 +25,27 @@ module.exports = function addSalesScenarios(scenarios, { netSummary, Event }) {
     return { deal: text(env, "cc-deal-ctx"), button: text(env, "cc-big-action-btn"), sidebar: rootText(env), draft: env.document.getElementById("cc-draft-output").value };
   };
 
-  /** Rescan, then click the main button (a compose box is present): the execute POST, the button text, the compose box. */
-  scenarios.sales_execute = async (env) => {
+  /** Rescan, then click the main button (a compose box is present): the execute POST, the button text, the compose box.
+   *  A won order shows the payment check first; it is ticked unless opts.unticked. */
+  scenarios.sales_execute = async (env, opts = {}) => {
     await env.bootSidebar();
     const box = env.h("div", { contenteditable: "true", "data-tab": "10", role: "textbox" });
     env.document.getElementById("main").appendChild(env.h("footer", {}, box));
     await env.switchChat("Tan Bros Trading", ASK);
     await env.click("cc-read-dom-btn");
+    const pay = env.document.getElementById("cc-payment");
+    const paymentShown = !pay.hidden;
+    if (paymentShown && !opts.unticked) {
+      const seen = env.document.getElementById("cc-payment-seen");
+      seen.checked = true;
+      seen.dispatchEvent(new Event("change", { target: seen }));
+    }
     const boot = env.network.length;
     env.document.getElementById("cc-big-action-btn").click();
     for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));   // let the answer land; settle() would also run the reset-text timer
     const button = text(env, "cc-big-action-btn");
     await env.settle();
-    return { sent: netSummary(env).slice(boot), button, boxText: box.innerText };
+    return { sent: netSummary(env).slice(boot), button, boxText: box.innerText, paymentShown };
   };
 
   /** The offline guess used by the pre-cache and as the fallback: every reply and line it builds. */
