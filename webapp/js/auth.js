@@ -5,8 +5,9 @@
 // Without them it falls back to the demo accounts below.
 // =========================================================================
 const DEMO_ACCOUNTS = {
-  'hafiz@sejukjaya.my': { role: 'OWNER', name: 'Encik Hafiz' },
-  'aina@sejukjaya.my': { role: 'STAFF', name: 'Aina' },
+  // Names shown in the app come from the backend (Staff = the rep linked to the Staff login), not from here.
+  'hafiz@sejukjaya.my': { role: 'OWNER', name: 'Owner' },
+  'aina@sejukjaya.my': { role: 'STAFF', name: 'Staff' },
   // Predefined admin (Owner rights). Demo only: never used when Supabase login is on.
   'admin@cashchase.my': { role: 'OWNER', name: 'Admin', password: 'admin1234' }
 };

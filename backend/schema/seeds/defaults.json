@@ -6,5 +6,27 @@
   },
   "new_business_reps": [
     { "name": "Owner", "commission_pct": 0 }
-  ]
+  ],
+  "pricing_rule_presets": {
+    "contractor": {
+      "label": "Contractor",
+      "hint": "Per-unit labour + piping",
+      "text": "1. Standard installation labour: RM 250 per unit.\n2. Extra copper piping: RM 150 per 3m set.\n3. Quote from the price list. Prices are subject to stock availability and valid 7 days."
+    },
+    "software": {
+      "label": "Software / agency",
+      "hint": "Man-day rate + changes",
+      "text": "1. Modules use the price-list annual licence price.\n2. Custom features and change requests: RM 600 per developer day.\n3. Quotes are valid 7 days."
+    },
+    "wholesale": {
+      "label": "Wholesale / F&B",
+      "hint": "Delivery + urgent lorry",
+      "text": "1. Wholesale items use the price-list carton or bag price.\n2. Cold-chain delivery: RM 50 per trip, free above RM 1,500.\n3. Urgent same-day lorry: add RM 120. Prices are subject to stock availability."
+    },
+    "custom_retail": {
+      "label": "Custom shop",
+      "hint": "Flat fee + upgrades",
+      "text": "1. Assembly or setup: RM 80 flat per order.\n2. Upgrades and extra parts at price-list prices.\n3. Quotes are valid 7 days. Prices are subject to stock availability."
+    }
+  }
 }

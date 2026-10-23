@@ -5,9 +5,9 @@ from fastapi import APIRouter, Header, HTTPException
 
 from backend.config import get_settings
 from backend.db import init_database, session_scope
-from backend.db.seed import CUSTOM_PRESET, available_presets
+from backend.db.seed import CUSTOM_PRESET, available_presets, load_defaults
 from backend.models.requests import ProfileSwitchRequest, RoleRequest, SettingsUpdateRequest
-from backend.models.responses import AiServerStatus, HealthResponse
+from backend.models.responses import AiServerStatus, HealthResponse, PresetsResponse
 from backend.models.state import ActionResponse, StatePayload
 from backend.services.business import load_business, save_setting
 from backend.services.lmstudio import check_lmstudio_health
@@ -48,6 +48,15 @@ def api_reset_db(req: Optional[RoleRequest] = None, x_cashchase_role: Optional[s
         with session_scope() as s:
             apply_onboarding(s, json.loads(biz.onboarding_json))
     return ActionResponse(status="reset_complete", state=build_state(role))
+
+
+@router.get("/api/presets", response_model=PresetsResponse)
+def api_presets() -> PresetsResponse:
+    """What the business switcher and the pricing-rule tiles offer (from the seed files, no customer data)."""
+    return PresetsResponse(
+        businesses=available_presets(),
+        pricing_rules={k: v.model_dump() for k, v in load_defaults().pricing_rule_presets.items()},
+    )
 
 
 @router.post("/api/profile", response_model=ActionResponse)

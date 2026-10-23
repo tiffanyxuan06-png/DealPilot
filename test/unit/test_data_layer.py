@@ -180,3 +180,14 @@ def test_client_memory_route_matches_its_model(client):
     assert known["isNew"] is False and known["trustBadge"]
     new = client.get("/api/client/memory", params={"customer": "Nobody Yet"}).json()
     assert new["isNew"] is True and new["tier"] == "NEW_CLIENT"
+
+
+def test_presets_come_from_the_seed_files(client):
+    """docs/19: the webapp's business switcher and pricing-rule tiles are filled from GET /api/presets."""
+    data = client.get("/api/presets").json()
+    assert data["businesses"] == available_presets()
+    assert "software" not in data["businesses"]  # removed in Phase 1
+    rules = data["pricingRules"]
+    assert set(rules) == set(load_defaults().pricing_rule_presets) and rules["contractor"]["label"] == "Contractor"
+    for rule in rules.values():  # the AI reads these rules: no stock holds, no internal costs
+        assert "hold" not in rule["text"].lower() and "cost" not in rule["text"].lower()

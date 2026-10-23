@@ -3,7 +3,7 @@
     // =========================================================================
     let onboardingItems = [];
     let onboardingWarnings = [];
-    const obForm = { company: '', followUpHours: 2, marginFloorPct: 20 };
+    const obForm = { company: '', followUpHours: '', marginFloorPct: '' };  // empty = the backend's defaults (defaults.json)
 
     function renderOnboarding() {
       const box = document.getElementById('onboarding-body');
@@ -21,18 +21,11 @@
         <div class="cc-box space-y-3">
           <div class="cc-step"><span class="step-num">1</span>Start from a template, or upload your price list</div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <button onclick="changeSMEProfile('aircond')" class="cc-tile !p-3 text-left">
-              <div class="font-semibold text-[13px] text-[#0152FC]">Air-cond contractor</div>
-              <div class="text-xs text-[#5B6B85]">Units, piping, labour</div>
-            </button>
-            <button onclick="changeSMEProfile('software')" class="cc-tile !p-3 text-left">
-              <div class="font-semibold text-[13px] text-[#0152FC]">Software studio</div>
-              <div class="text-xs text-[#5B6B85]">Man-days, licences</div>
-            </button>
-            <button onclick="changeSMEProfile('fnb')" class="cc-tile !p-3 text-left">
-              <div class="font-semibold text-[13px] text-[#0152FC]">Wholesale F&amp;B</div>
-              <div class="text-xs text-[#5B6B85]">Cartons, delivery</div>
-            </button>
+            ${Object.entries(backendPresets).map(([key, name]) => `
+              <button onclick="changeSMEProfile('${escapeHtmlText(key)}')" class="cc-tile !p-3 text-left">
+                <div class="font-semibold text-[13px] text-[#0152FC]">${escapeHtmlText(name)}</div>
+                <div class="text-xs text-[#5B6B85]">Load its demo data</div>
+              </button>`).join('')}
           </div>
           <label class="cc-drop flex flex-col sm:flex-row items-center justify-center gap-2 !py-4 cursor-pointer i-hop">
             <svg class="w-5 h-5 text-[#0152FC]" aria-hidden="true"><use href="#i-upload"/></svg>
@@ -71,8 +64,8 @@
             <div class="cc-step"><span class="step-num">2</span>Your business and your rules</div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><label for="ob-company" class="cc-label">Business name</label><input id="ob-company" type="text" value="${escapeHtmlText(obForm.company)}" oninput="obForm.company = this.value" placeholder="e.g. Kedai Jaya" class="cc-input" /></div>
-              <div><label for="ob-followup" class="cc-label">Follow up after (hours)</label><input id="ob-followup" type="number" min="1" max="720" value="${obForm.followUpHours}" oninput="obForm.followUpHours = this.value" class="cc-input" /></div>
-              <div><label for="ob-margin" class="cc-label">Lowest margin allowed (%)</label><input id="ob-margin" type="number" min="0" max="100" value="${obForm.marginFloorPct}" oninput="obForm.marginFloorPct = this.value" class="cc-input" /></div>
+              <div><label for="ob-followup" class="cc-label">Follow up after (hours)</label><input id="ob-followup" type="number" min="1" max="720" value="${obForm.followUpHours}" oninput="obForm.followUpHours = this.value" placeholder="Default" class="cc-input" /></div>
+              <div><label for="ob-margin" class="cc-label">Lowest margin allowed (%)</label><input id="ob-margin" type="number" min="0" max="100" value="${obForm.marginFloorPct}" oninput="obForm.marginFloorPct = this.value" placeholder="Default" class="cc-input" /></div>
             </div>
             <p class="text-xs text-[#5B6B85]">A discount that takes the margin below this goes to the Owner for approval.</p>
             <div class="flex flex-wrap justify-end gap-2 pt-1">
@@ -110,6 +103,12 @@
       reader.readAsDataURL(file);
     }
 
+    // Blank = null, so the backend uses its own default (backend/schema/seeds/defaults.json)
+    function numberOrNull(v) {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
     function applyOnboarding() {
       const company = (document.getElementById('ob-company')?.value || '').trim();
       if (!company) {
@@ -119,8 +118,8 @@
       const setup = {
         role: currentRole,
         companyName: company,
-        followUpHours: Math.max(1, parseInt(document.getElementById('ob-followup')?.value || '2', 10)),
-        marginFloorPct: Math.max(0, parseFloat(document.getElementById('ob-margin')?.value || '20.0')),
+        followUpHours: numberOrNull(document.getElementById('ob-followup')?.value),
+        marginFloorPct: numberOrNull(document.getElementById('ob-margin')?.value),
         items: onboardingItems.map(i => ({
           sku: i.sku,
           name: i.name,
@@ -130,7 +129,7 @@
       };
       askUserConfirm(
         'Start CashChase for Your Business',
-        `${company}: ${setup.items.length} products, follow up after ${setup.followUpHours}h, lowest margin ${setup.marginFloorPct}%.
+        `${company}: ${setup.items.length} products, follow up after ${setup.followUpHours ?? 'the default'}${setup.followUpHours ? 'h' : ''}, lowest margin ${setup.marginFloorPct ?? 'the default'}${setup.marginFloorPct != null ? '%' : ''}.
 
 This configures the price list and CRM pipeline.`,
         async () => {

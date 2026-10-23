@@ -713,7 +713,11 @@ async function submitLogInquiry() {
     return;
   }
   const phone = (phoneInput?.value || '').trim();
-  const sku = skuSelect?.value || 'ACN-DAI-15';
+  const sku = skuSelect?.value;
+  if (!sku) {
+    showToast('⚠️ Pick a product from the price list.');
+    return;
+  }
   const qty = Math.max(1, parseInt(qtyInput?.value || '1', 10));
   const quoteNow = quoteNowCheck?.checked ?? true;
 
@@ -894,7 +898,7 @@ function addCustomerPrompt() {
     title: 'Add a customer',
     okText: 'Add customer',
     fields: [
-      { name: 'name', label: 'Customer or company name', required: true, requiredMsg: 'Enter a name.', placeholder: 'e.g. Tan Bros Trading' },
+      { name: 'name', label: 'Customer or company name', required: true, requiredMsg: 'Enter a name.', placeholder: 'Customer or company name' },
       { name: 'phone', label: 'WhatsApp phone', value: '+60 12-345 6789' }
     ]
   }, v => backendAction('/api/customers', {
@@ -972,7 +976,7 @@ function promptAddNewRep() {
     title: 'Add a sales rep',
     okText: 'Add rep',
     fields: [
-      { name: 'name', label: 'Rep name', required: true, requiredMsg: 'Enter a name.', placeholder: 'e.g. Siti' },
+      { name: 'name', label: 'Rep name', required: true, requiredMsg: 'Enter a name.', placeholder: 'First name, e.g. as on WhatsApp' },
       { name: 'rate', label: 'Commission (%)', type: 'number', value: 3, min: 0, max: 100, step: 0.5, required: true, requiredMsg: 'Enter a percentage.', hint: 'Paid on won orders only.' }
     ]
   }, v => backendAction('/api/reps', {

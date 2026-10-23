@@ -144,3 +144,16 @@ class OcrExtractResponse(ApiModel):
 
 class ReceiptSaveResponse(ApiModel):
     status: str = "ok"
+
+
+class PricingRulePresetOut(ApiModel):
+    label: str
+    hint: str
+    text: str
+
+
+class PresetsResponse(ApiModel):
+    """GET /api/presets: the demo businesses (backend/schema/seeds/*.json) and the pricing-rule starting points."""
+
+    businesses: Dict[str, str]  # file name -> company name
+    pricing_rules: Dict[str, PricingRulePresetOut]

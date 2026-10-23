@@ -111,9 +111,18 @@ class SeedFile(BaseModel):
         return self
 
 
+class PricingRulePreset(BaseModel):
+    """A starting point for "Rules the AI follows" in Settings → Pricing & AI rules."""
+
+    label: str
+    hint: str
+    text: str
+
+
 class DefaultsFile(BaseModel):
     settings: Dict[str, SettingValue]
     new_business_reps: List[SeedRep]
+    pricing_rule_presets: Dict[str, PricingRulePreset] = {}
 
 
 def _read(name: str, model: type) -> Any:

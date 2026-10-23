@@ -42,7 +42,7 @@
             <div class="text-sm font-semibold text-[#042970]">${escapeHtmlText(a.summary)}</div>
             <div class="ap-meta">
               <span class="font-mono">#AP-${a.id}</span>
-              <span>${a.requestedBy === 'STAFF' ? 'Aina (Staff)' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)}</span>
+              <span>${a.requestedBy === 'STAFF' ? 'Staff' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)}</span>
               <span>Why: ${escapeHtmlText(a.reason)}</span>
               ${a.decisionNote ? `<span>Note: ${escapeHtmlText(a.decisionNote)}</span>` : ''}
             </div>
