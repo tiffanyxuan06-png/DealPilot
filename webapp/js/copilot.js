@@ -1010,11 +1010,43 @@
     // =========================================================================
 
     function createNewBlankChat() {
+      askForm({
+        title: 'Start a new chat',
+        message: 'Type a customer message afterwards to test live AI pricing.',
+        okText: 'Start chat',
+        fields: [
+          { name: 'name', label: 'Customer name', value: 'New Customer', required: true, requiredMsg: 'Enter a name.' },
+          { name: 'phone', label: 'WhatsApp phone', value: '+60 12-345 6789' }
+        ]
+      }, v => startBlankChat(v.name, v.phone || '+60 12-345 6789'));
+    }
+
+    // The note on the customer card ("Why this score" > "Add note"), kept in the chat's memory
+    function promptAddMemoryNote() {
+      const chat = getState().chats[currentChatIndex];
+      if (!chat) return;
+      askForm({
+        title: `Add a note about ${chat.customer}`,
+        message: 'The AI uses notes like this when it writes replies and scores the customer.',
+        okText: 'Save note',
+        fields: [
+          { name: 'note', label: 'Note', type: 'textarea', required: true, requiredMsg: 'Write a short note.',
+            placeholder: 'e.g. Prefers WhatsApp quotes over phone, only accepts morning delivery' }
+        ]
+      }, v => {
+        if (!chat.memory) chat.memory = { tier: 'NEW_CLIENT', score: 50, totalOrders: 0, totalPaidRM: 0, notes: [], timeline: [] };
+        chat.memory.notes = chat.memory.notes || [];
+        chat.memory.timeline = chat.memory.timeline || [];
+        chat.memory.notes.push(v.note);
+        chat.memory.timeline.unshift({ time: 'Just Now', note: `Owner recorded: "${v.note}"` });
+        showToast(`Saved note into ${chat.customer}'s memory.`);
+        renderWhatsAppView();
+      });
+    }
+
+    function startBlankChat(name, phone) {
       const st = getState();
-      const name = prompt('Enter customer name for the new chat:', 'New Customer');
-      if (!name || !name.trim()) return;
       const clean = name.trim();
-      const phone = prompt('Enter WhatsApp phone number (e.g. +60 12-345 6789):', '+60 12-345 6789') || '+60 12-345 6789';
       const newChat = {
         id: 'chat-' + Date.now(),
         customer: clean,

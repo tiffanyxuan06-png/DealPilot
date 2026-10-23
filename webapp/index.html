@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_4" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_6" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -1149,19 +1149,40 @@
     </div>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- FORM DIALOG: replaces the browser's prompt() (see askForm in state.js)  -->
+  <!-- ===================================================================== -->
+  <div id="form-modal" class="hidden fixed inset-0 z-[70] cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="form-title">
+    <form id="form-modal-form" class="cc-modal max-w-md w-full max-h-[90vh] overflow-y-auto p-6 space-y-4" novalidate onsubmit="submitForm(event)">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-12 h-auto shrink-0" aria-hidden="true" />
+          <h3 class="text-base font-bold text-[#042970]" id="form-title">Details</h3>
+        </div>
+        <button type="button" onclick="closeForm()" class="cc-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <p id="form-message" class="hidden text-sm text-[#324564] leading-relaxed whitespace-pre-line"></p>
+      <div id="form-fields" class="space-y-4"></div>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="closeForm()" class="cc-btn cc-btn-ghost">Cancel</button>
+        <button type="submit" id="form-ok-btn" class="cc-btn cc-btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_4"></script>
-  <script src="js/inspector.js?v=20261023_4"></script>
-  <script src="js/dashboard.js?v=20261023_4"></script>
-  <script src="js/copilot.js?v=20261023_4"></script>
-  <script src="js/company_ai.js?v=20261023_4"></script>
-  <script src="js/pdf_export.js?v=20261023_4"></script>
-  <script src="js/team.js?v=20261023_4"></script>
-  <script src="js/onboarding.js?v=20261023_4"></script>
-  <script src="js/main.js?v=20261023_4"></script>
-  <script src="js/ui.js?v=20261023_4"></script>
-  <script src="js/auth.js?v=20261023_4"></script>
+  <script src="js/state.js?v=20261023_6"></script>
+  <script src="js/inspector.js?v=20261023_6"></script>
+  <script src="js/dashboard.js?v=20261023_6"></script>
+  <script src="js/copilot.js?v=20261023_6"></script>
+  <script src="js/company_ai.js?v=20261023_6"></script>
+  <script src="js/pdf_export.js?v=20261023_6"></script>
+  <script src="js/team.js?v=20261023_6"></script>
+  <script src="js/onboarding.js?v=20261023_6"></script>
+  <script src="js/main.js?v=20261023_6"></script>
+  <script src="js/ui.js?v=20261023_6"></script>
+  <script src="js/auth.js?v=20261023_6"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->
