@@ -36,7 +36,7 @@ def test_seed_files_are_valid():
     }
     for name in presets:
         load_seed(name)  # raises if a teammate's edit breaks the file
-    assert load_defaults().settings["follow_up_hours"] == 48
+    assert load_defaults().settings["follow_up_hours"] == 2
 
 
 def test_bad_seed_fails_clearly():

@@ -1,6 +1,6 @@
 {
   "settings": {
-    "follow_up_hours": 48,
+    "follow_up_hours": 2,
     "margin_floor_pct": 15,
     "framework": "Quote from the price list. Prices are subject to stock availability."
   },
