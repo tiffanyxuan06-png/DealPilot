@@ -1,5 +1,5 @@
 /**
- * CashChase Orbyte SME Copilot — Chrome/Edge Content Script for WhatsApp Web
+ * Closiq (CashChase Orbyte SME Copilot) — Chrome/Edge Content Script for WhatsApp Web
  * Combines the best of WA_extension (auto-detects active chat + pre-caches unread sidebar chats
  * via MutationObserver + 1s heartbeat, synthetic InputEvent insertion) with CashChase's
  * ultra-clean 1-Page Copilot (Zero tab/menu bloat, Cross-Chat Client Memory, Auto PDF/Receipt OCR).
@@ -59,6 +59,7 @@ let lastAnalyzedHash = "";
 let knownCustomers = null; // customers from GET /api/state; null = not loaded (backend offline)
 let knownDeals = []; // deals and reps from GET /api/state (for the follow-ups card and the deal line)
 let knownReps = [];
+let knownReengage = []; // quiet buyers from GET /api/state (reengage), counted on the closed circle
 let knownProducts = []; // the price list (sku, name, sellPrice) from GET /api/state; the offline guess prices only from this
 let gateState = ""; // "not_customer" | "offline" while the panel shows a blocked contact
 let isAddingCustomer = false;
@@ -142,6 +143,8 @@ function showCcAuth(status) {
   const userPill = document.getElementById("cc-user-pill");
   if (!loginBox) return;
   loginBox.style.display = signedIn ? "none" : "block";
+  const root = document.getElementById("cashchase-wa-ext-root");
+  if (root) root.setAttribute("data-auth", signedIn ? "in" : "out");   // signed out: only the sign-in form shows
   const sub = document.getElementById("cc-login-sub");
   if (sub) sub.textContent = ccLoginEnabled ? "Same email and password as the WebApp." : "Demo: pick an account below, or admin@cashchase.my / admin1234.";
   const demo = document.getElementById("cc-login-demo");
@@ -252,14 +255,14 @@ function updateAddCustomerBtn(title) {
     btn.style.color = "#15803D";
     btn.style.border = "1px solid #86EFAC";
     btn.style.cursor = "default";
-    btn.title = "This contact is a registered CashChase customer";
+    btn.title = "This contact is a registered Closiq customer";
   } else {
     btn.textContent = "➕ Add Customer";
     btn.style.background = "#10B981";
     btn.style.color = "#ffffff";
     btn.style.border = "none";
     btn.style.cursor = "pointer";
-    btn.title = "Add this contact as a CashChase customer so messages can be read";
+    btn.title = "Add this contact as a Closiq customer so messages can be read";
   }
 }
 
@@ -283,7 +286,7 @@ function renderNotCustomer(title) {
   set("cc-intent-badge", offline ? "Offline" : "Not a customer");
   set("cc-ext-check", offline
     ? "Nothing is sent until the customer list loads. Start the backend, then tap 🔄 Rescan."
-    : "CashChase only reads chats from your customers, so nothing was sent. Add this contact to start quoting.");
+    : "Closiq only reads chats from your customers, so nothing was sent. Add this contact to start quoting.");
   set("cc-msg-snippet", "Messages are not read for this contact.");
   set("cc-deal-ctx", "");
   set("cc-big-action-btn", offline ? "⚠️ Backend offline" : "➕ Add as customer");
@@ -301,6 +304,13 @@ function renderNotCustomer(title) {
   if (banner) { banner.style.display = "none"; banner.innerHTML = ""; }
   refreshClientMemoryPill(title);
   updateAddCustomerBtn(title);
+  setMascot(offline ? "COMPLAINT" : "CASUAL_CHAT");
+  const say = document.getElementById("cc-mascot-say");
+  if (say) say.textContent = offline ? "Can't reach Closiq" : "Not a customer yet";
+  const check = document.getElementById("cc-ext-check");
+  if (check && offline) check.textContent += " Run python run_server.py on this computer.";
+  renderPaymentCheck(null);
+  setPanelMode("blocked");
 }
 
 // Re-read the open chat from the page, locally (no network): used once the customer list changes.
@@ -870,6 +880,7 @@ function refreshClientMemoryPill(customer, lookup = false) {
   if (!memPill) return;
 
   if (!lookup) {
+    renderRating(safeName, null);
     memPill.textContent = "Client Ready";
     memPill.style.background = "#E6EEFF";
     memPill.style.color = "#0152FC";
@@ -888,22 +899,7 @@ function refreshClientMemoryPill(customer, lookup = false) {
   const phone = titlePhone(safeName);
   ccApiRequest(`/api/client/memory?customer=${encodeURIComponent(safeName)}${phone ? `&phone=${phone}` : ""}`, "GET")
     .then((mem) => {
-      if (mem && memPill) {
-        if (mem.tier === "NEW_CLIENT") {
-          memPill.textContent = "🆕 New Client";
-          memPill.style.background = "#F1F5F9";
-          memPill.style.color = "#475569";
-          memPill.style.border = "1px solid #CBD5E1";
-          memPill.title = "New customer with no past purchase records. Ask for a deposit to confirm the order.";
-        } else {
-          const isRisk = (mem.score || 75) < 60;
-          memPill.textContent = `${isRisk ? "⚠️" : "⭐"} ${mem.tier.replace(/_/g, " ")} (${mem.score}/100)`;
-          memPill.style.background = isRisk ? "#FEF3C7" : "#E6EEFF";
-          memPill.style.color = isRisk ? "#B45309" : "#0152FC";
-          memPill.style.border = isRisk ? "1px solid #FCD34D" : "1px solid #B8CEFF";
-          memPill.title = `${mem.paymentBehavior || ""}\n${mem.styleSummary || ""}`;
-        }
-      }
+      if (mem) renderRating(safeName, mem);
     })
     .catch(() => {});
 }
@@ -1016,6 +1012,7 @@ async function scanActiveWhatsAppChat(forceRun = false) {
     }
     refreshClientMemoryPill(activeTitle, forceRun);
     updateAddCustomerBtn(activeTitle);
+    if (!isAnalyzing) setPanelMode("reply");   // a customer's chat is open: show the reply view
 
     if (absoluteLastSender === "ME") {
       // You sent the last message!
@@ -1098,6 +1095,21 @@ async function scanActiveWhatsAppChat(forceRun = false) {
   }
 }
 
+// One reply card: label, then the text (full when picked, one line otherwise)
+function replyCardHtml(label, text, idx, active, extraAttr = "") {
+  return `
+    <button type="button" class="cc-tab-pill cc-reply${active ? " cc-tab-active" : ""}" role="radio" aria-checked="${active}" data-idx="${idx}" ${extraAttr} title="${escapeHtml(label)}">
+      <span class="cc-radio" aria-hidden="true"></span>
+      <span class="cc-reply-text"><span class="cc-reply-label">${escapeHtml(plainText(label) || "Reply")}</span><span class="cc-reply-preview">${escapeHtml(text || "")}</span></span>
+    </button>`;
+}
+
+function markActiveReply(container, btn) {
+  container.querySelectorAll(".cc-tab-pill").forEach((b) => { b.classList.remove("cc-tab-active"); b.setAttribute("aria-checked", "false"); });
+  btn.classList.add("cc-tab-active");
+  btn.setAttribute("aria-checked", "true");
+}
+
 function renderIdleStateForContact(customer) {
   const safeName = customer || "Customer";
   const titleEl = document.getElementById("cc-ext-title");
@@ -1121,19 +1133,19 @@ function renderIdleStateForContact(customer) {
   if (btnEl) btnEl.textContent = `💬 Insert Greeting to ${safeName}`;
 
   refreshClientMemoryPill(safeName);
+  setMascot("CASUAL_CHAT");
+  setPanelMode(customer && customer !== "Client" ? "reply" : "empty");
+  renderPaymentCheck(null);
 
   if (tabsContainer) {
-    tabsContainer.innerHTML = `
-      <button class="cc-tab-pill cc-tab-active" data-text="${greeting1.replace(/"/g, '&quot;')}">👋 Greeting</button>
-      <button class="cc-tab-pill" data-text="${greeting2.replace(/"/g, '&quot;')}">🇲🇾 BM</button>
-      <button class="cc-tab-pill" data-text="${greeting3.replace(/"/g, '&quot;')}">🛠️ Service</button>
-    `;
+    const greetings = [["Greeting", greeting1], ["Bahasa Melayu", greeting2], ["Service", greeting3]];
+    tabsContainer.innerHTML = greetings.map(([label, text], i) =>
+      replyCardHtml(label, text, i, i === 0, `data-text="${escapeHtml(text)}"`)).join("");
     tabsContainer.querySelectorAll(".cc-tab-pill").forEach((btn) => {
       btn.addEventListener("click", () => {
         const text = btn.getAttribute("data-text");
         if (draftEl) draftEl.value = text;
-        tabsContainer.querySelectorAll(".cc-tab-pill").forEach(b => b.classList.remove("cc-tab-active"));
-        btn.classList.add("cc-tab-active");
+        markActiveReply(tabsContainer, btn);
       });
     });
   }
@@ -1187,7 +1199,7 @@ async function quoteFromPhoto(customer, attachment) {
     renderAnalysisResult(data, false);
     say("");
   } catch (e) {
-    say("Couldn't reach CashChase. Please type the items.");
+    say("Couldn't reach Closiq. Please type the items.");
   } finally {
     btn.disabled = false;
   }
@@ -1196,7 +1208,7 @@ async function quoteFromPhoto(customer, attachment) {
 // ============================================================================
 // 6. CLEAN, UNCLUTTERED, SPACIOUS COPILOT UI (ZERO CRAMP)
 // ============================================================================
-const CC_SIDEBAR_WIDTH = 330;
+const CC_SIDEBAR_WIDTH = 360;
 
 function applyWhatsAppLayoutResize(isCollapsed) {
   try {
@@ -1251,6 +1263,234 @@ function applyWhatsAppLayoutResize(isCollapsed) {
   }
 }
 
+// ============================================================================
+// CLOSIQ PANEL HELPERS (layout states, rating card, closed circle)
+// ============================================================================
+// Brand images ship inside the extension (web_accessible_resources)
+function ccAsset(name) {
+  try {
+    return chrome.runtime.getURL(`img/${name}`);
+  } catch (e) {
+    return `img/${name}`;
+  }
+}
+
+// Instructions the AI gets when a chip is tapped (the same as typing them in Adjust reply)
+const ADJUST_CHIPS = [
+  ["Shorter", "Make the reply shorter"],
+  ["More polite", "Make the reply more polite and formal"],
+  ["In BM", "Write the reply in Bahasa Melayu"],
+  ["Ask for deposit", "Ask for the deposit to confirm the order"]
+];
+
+// One panel view at a time: "empty" (no chat), "reading", "reply" (a chat to answer) or "blocked" (not a customer / offline)
+function setPanelMode(mode) {
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; };
+  const chat = mode !== "empty";
+  show("cc-empty", mode === "empty");
+  show("cc-reading", mode === "reading");
+  show("cc-rating", chat && mode !== "reading");
+  show("cc-result-card", chat && mode !== "reading");
+  show("cc-replies", mode === "reply");
+  show("cc-adjust", mode === "reply");
+  show("cc-pl-card", mode === "reply");
+  const root = document.getElementById("cashchase-wa-ext-root");
+  if (root) root.setAttribute("data-mode", mode);
+}
+
+// Panel copy from the backend may carry emoji; the panel uses its own icons and the mascot instead
+const plainText = (s) => String(s || "")
+  .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, "")
+  .replace(/^\s*Option \d+:\s*/i, "")
+  .replace(/[ \t]+/g, " ")
+  .trim();
+
+// The mascot and its one-line speech follow what the customer wants
+function setMascot(intent) {
+  const pick = {
+    BUYING_INQUIRY: ["mascot-laptop.png", "I priced it for you"],
+    DISCOUNT_REQUEST: ["mascot-question.png", "They want a better price"],
+    CUSTOMER_CONFIRMED: ["mascot-cheer.png", "Money came in!"],
+    CUSTOMER_DECLINED: ["mascot-question.png", "They said no"],
+    COMPLAINT: ["mascot-question.png", "Something went wrong"],
+    FOLLOW_UP_DUE: ["mascot-idea.png", "Time to follow up"],
+    PRODUCT_CONSULTATION: ["mascot-idea.png", "They have a question"],
+    CASUAL_CHAT: ["mascot-wave.png", "Just a chat"]
+  }[intent] || ["mascot-idea.png", "I spotted this"];
+  const img = document.getElementById("cc-mascot");
+  if (img) img.setAttribute("src", ccAsset(pick[0]));
+  const say = document.getElementById("cc-mascot-say");
+  if (say) say.textContent = pick[1];
+}
+
+// Customer rating card from GET /api/client/memory (or the analysis' clientMemory)
+function renderRating(customer, mem) {
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set("cc-rating-name", cleanCustomerName(customer));
+  const scoreEl = document.getElementById("cc-score");
+  const aiEl = document.getElementById("cc-rating-ai");
+  if (!mem) {
+    set("cc-score-num", "–");
+    if (scoreEl) { scoreEl.style.setProperty("--score", "0deg"); scoreEl.setAttribute("aria-label", "Customer score not checked yet"); }
+    set("cc-rating-sub", "Tap Rescan to check this customer's history.");
+    if (aiEl) aiEl.hidden = true;
+    return;
+  }
+  const isNew = mem.tier === "NEW_CLIENT";
+  const score = Math.max(0, Math.min(100, Number(mem.score) || 0));
+  const tone = isNew ? "#98A2B3" : score >= 80 ? "#059669" : score >= 60 ? "#0152FC" : "#D97706";
+  set("cc-score-num", isNew ? "New" : String(score));
+  if (scoreEl) {
+    scoreEl.style.setProperty("--score", `${isNew ? 0 : score * 3.6}deg`);
+    scoreEl.style.setProperty("--score-color", tone);
+    scoreEl.setAttribute("aria-label", isNew ? "New customer" : `Customer score ${score} out of 100`);
+  }
+  const tier = String(mem.tier || "").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  const orders = mem.totalOrders ? `${mem.totalOrders} order${mem.totalOrders === 1 ? "" : "s"}` : "";
+  const paid = mem.totalPaidRm || mem.totalPaidRM ? `${fmtRm(mem.totalPaidRm || mem.totalPaidRM)} paid` : "";
+  set("cc-rating-sub", isNew ? "No past orders yet. Ask for a deposit to confirm." : [tier, orders, paid].filter(Boolean).join(" · "));
+  const pill = document.getElementById("cc-mem-pill");
+  if (pill) {
+    const [label, bg, fg] = isNew ? ["New client", "#F1F5F9", "#475569"]
+      : score >= 80 ? ["Trusted", "#ECFDF5", "#065F46"] : score >= 60 ? ["Good", "#E6EEFF", "#042970"] : ["Watch closely", "#FFFBEB", "#92400E"];
+    pill.textContent = label;
+    pill.style.background = bg;
+    pill.style.color = fg;
+    pill.style.border = "";
+    pill.title = [mem.paymentBehavior, mem.styleSummary].filter(Boolean).join("\n");
+  }
+  const note = plainText(mem.styleSummary || mem.paymentBehavior || "");
+  if (aiEl) {
+    aiEl.hidden = !note;
+    aiEl.innerHTML = note ? `<b>AI says:</b> ${escapeHtml(note)}` : "";
+  }
+}
+
+// What's happening: the analysis' check lines as a list, the total line last
+function renderCheckLines(text) {
+  const el = document.getElementById("cc-ext-check");
+  if (!el) return;
+  const lines = String(text || "").split("\n").map(plainText).filter((l) => l && !/^[-–]+$/.test(l));
+  el.innerHTML = lines.map((l) => {
+    const t = escapeHtml(l.replace(/^-\s*/, ""));
+    if (/^\[Chat stage:/i.test(l)) return `<div class="cc-line-stage">${t}</div>`;
+    if (/^Coach:/i.test(l)) return `<div class="cc-tip"><b>Tip</b> ${escapeHtml(l.replace(/^Coach:\s*/i, ""))}</div>`;
+    if (/:$/.test(l) && l.length < 40) return `<div class="cc-line-head">${t.replace(/:$/, "")}</div>`;
+    const total = /^(total|received)|total:/i.test(l);
+    return `<div class="cc-line${total ? " cc-line-total" : ""}">${t}</div>`;
+  }).join("");
+}
+
+// Payment check: a won order needs the money seen in the bank first
+function renderPaymentCheck(a) {
+  const box = document.getElementById("cc-payment");
+  if (!box) return;
+  const needed = !!(a && a.extActionType === "MARK_WON");
+  box.hidden = !needed;
+  const seen = document.getElementById("cc-payment-seen");
+  if (seen) seen.checked = false;
+  if (needed) {
+    const amt = a.depositAmount ? fmtRm(a.depositAmount) : "this amount";
+    const claim = document.getElementById("cc-payment-claim");
+    if (claim) claim.textContent = [a.depositAmount ? `Customer says ${amt} paid` : "", a.depositRef ? `Ref ${a.depositRef}` : ""].filter(Boolean).join(" · ");
+    const label = document.getElementById("cc-payment-label");
+    if (label) label.textContent = `I can see ${amt} in our bank account`;
+  }
+  updatePaymentGate();
+}
+
+function paymentBlocked() {
+  const box = document.getElementById("cc-payment");
+  const seen = document.getElementById("cc-payment-seen");
+  return !!(box && !box.hidden && seen && !seen.checked);
+}
+
+function updatePaymentGate() {
+  const box = document.getElementById("cc-payment");
+  if (box) box.classList.toggle("is-ok", !paymentBlocked() && !box.hidden);
+  const sub = document.getElementById("cc-big-sub");
+  if (sub) sub.textContent = paymentBlocked() ? "Tick the payment check first" : "Nothing sends until you press Enter in WhatsApp";
+}
+
+// Reading state: what Closiq is doing while the AI answers
+function renderReading(customer, count) {
+  const title = document.getElementById("cc-reading-title");
+  if (title) title.textContent = `Reading ${cleanCustomerName(customer)}`;
+  const steps = document.getElementById("cc-reading-steps");
+  if (steps) {
+    steps.innerHTML = [
+      [true, count ? `Read the last ${count} message${count === 1 ? "" : "s"}` : "Read the open chat"],
+      [true, "Checked your price list"],
+      [false, "Writing replies…"]
+    ].map(([done, t]) => `<li class="${done ? "is-done" : "is-busy"}">${t}</li>`).join("");
+  }
+  setPanelMode("reading");
+}
+
+// The closed circle: how many customers need you (overdue follow-ups + quiet buyers), from GET /api/state
+function updateBubble() {
+  const due = knownDeals.filter((d) => d.stage === "FOLLOW_UP" && !d.paused).length;
+  const quiet = knownReengage.filter((r) => !knownDeals.some((d) => d.id === r.dealId && d.stage === "FOLLOW_UP")).length;
+  const n = due + quiet;
+  const count = document.getElementById("cc-bubble-count");
+  const pill = document.getElementById("cc-bubble-pill");
+  const btn = document.getElementById("cc-bubble");
+  if (count) { count.hidden = !n; count.textContent = String(n); }
+  if (pill) { pill.hidden = !n; pill.textContent = `${n} need${n === 1 ? "s" : ""} you`; }
+  if (btn) btn.setAttribute("aria-label", n ? `Open Closiq, ${n} customer${n === 1 ? "" : "s"} need you` : "Open Closiq");
+}
+
+// Drag the closed circle anywhere; it sticks to the nearest side and remembers where it was left
+const bubbleDrag = { moved: false };
+function initBubbleDrag(wrap) {
+  const SIZE = 56, EDGE = 16;
+  const place = (pos) => {
+    wrap.style.top = `${pos.top}px`;
+    wrap.classList.toggle("on-left", pos.side === "left");
+  };
+  let pos = { side: "right", top: Math.round((window.innerHeight || 800) / 2) - SIZE / 2 };
+  try {
+    const saved = JSON.parse(localStorage.getItem("cc_bubble_pos") || "null");
+    if (saved && (saved.side === "left" || saved.side === "right") && typeof saved.top === "number") pos = saved;
+  } catch (e) {}
+  place(pos);
+  let start = null;
+  wrap.addEventListener("pointerdown", (e) => {
+    start = { x: e.clientX, y: e.clientY, top: pos.top };
+    bubbleDrag.moved = false;
+    try { wrap.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (!bubbleDrag.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+    bubbleDrag.moved = true;
+    wrap.classList.add("is-dragging");
+    const maxTop = (window.innerHeight || 800) - SIZE - EDGE;
+    wrap.style.top = `${Math.max(EDGE, Math.min(maxTop, start.top + dy))}px`;
+    wrap.style.left = `${Math.max(0, e.clientX - SIZE / 2)}px`;
+    wrap.style.right = "auto";
+  });
+  const end = (e) => {
+    if (!start) return;
+    if (bubbleDrag.moved) {
+      const maxTop = (window.innerHeight || 800) - SIZE - EDGE;
+      pos = {
+        side: e.clientX < (window.innerWidth || 1280) / 2 ? "left" : "right",
+        top: Math.max(EDGE, Math.min(maxTop, start.top + (e.clientY - start.y)))
+      };
+      wrap.classList.remove("is-dragging");
+      wrap.style.removeProperty("left");
+      wrap.style.removeProperty("right");
+      place(pos);
+      try { localStorage.setItem("cc_bubble_pos", JSON.stringify(pos)); } catch (err) {}
+    }
+    start = null;
+  };
+  wrap.addEventListener("pointerup", end);
+  wrap.addEventListener("pointercancel", end);
+}
+
 function createSidebar() {
   if (document.getElementById("cashchase-wa-ext-root")) return;
 
@@ -1258,145 +1498,175 @@ function createSidebar() {
   root.id = "cashchase-wa-ext-root";
   root.innerHTML = `
     <div class="cc-header">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <button id="cc-collapse-btn" title="Hide sidebar to view 100% WhatsApp (Alt+C)" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer; font-weight:700; line-height:1.2; display:flex; align-items:center; gap:4px;">
-          <span>▶</span> <span>Hide</span>
-        </button>
-        <div>
-          <div class="cc-title">⚡ CashChase Copilot</div>
-          <div class="cc-sub" id="cc-lm-status">Connected to Local AI</div>
-        </div>
+      <img class="cc-logo" src="${ccAsset("logo.png")}" alt="" width="28" height="28" />
+      <div class="cc-head-text">
+        <div class="cc-title">Closiq</div>
+        <div class="cc-sub"><span id="cc-lm-status">Sales helper for WhatsApp</span></div>
       </div>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
-        <div id="cc-user-pill" style="display:none; align-items:center; gap:4px; font-size:10px; color:#fff;">
-          <span id="cc-user-text" style="font-weight:700; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
-          <button id="cc-logout-btn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); color:#fff; border-radius:6px; padding:1px 5px; font-size:10px; cursor:pointer;">Log out</button>
-        </div>
-        <span class="cc-badge" id="cc-intent-badge">Ready</span>
-        <span style="font-size:10px; color:#8AB4F8;" id="cc-cache-pill">⚡ 0 Pre-Cached</span>
-      </div>
+      <span class="cc-badge" id="cc-intent-badge" hidden>Ready</span>
+      <button id="cc-collapse-btn" class="cc-icon-btn" aria-label="Hide Closiq (Alt+C)" title="Hide (Alt+C)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+    <div id="cc-user-pill" class="cc-user-row" style="display:none;">
+      <span id="cc-user-text"></span>
+      <button id="cc-logout-btn" class="cc-link-btn">Log out</button>
     </div>
 
-    <!-- Login (shown when nobody is signed in: Supabase accounts with login on, demo accounts with login off) -->
-    <div id="cc-login" style="display:none; padding:12px; background:#F2F6FF; border-bottom:1px solid #D5DFEE;">
-      <div style="font-weight:700; font-size:12px; color:#042970; margin-bottom:2px;">🔒 Log in to CashChase</div>
-      <div id="cc-login-sub" style="font-size:11px; color:#64748B; margin-bottom:8px;">Same email and password as the WebApp.</div>
-      <div id="cc-login-demo" style="display:none; gap:6px; margin-bottom:8px;">
-        <button type="button" id="cc-demo-owner" style="flex:1; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:6px; font-size:11px; font-weight:700; border-radius:8px; cursor:pointer;">👑 Owner (Hafiz)</button>
-        <button type="button" id="cc-demo-staff" style="flex:1; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:6px; font-size:11px; font-weight:700; border-radius:8px; cursor:pointer;">👤 Staff (Aina)</button>
+    <!-- Sign in (Supabase accounts with login on, demo accounts with login off) -->
+    <div id="cc-login" class="cc-state" style="display:none;">
+      <div class="cc-state-title">Sign in</div>
+      <div id="cc-login-sub" class="cc-state-text">Same login as the web app.</div>
+      <div id="cc-login-demo" class="cc-demo-row" style="display:none;">
+        <button type="button" id="cc-demo-owner" class="cc-ghost-btn">Owner (Hafiz)</button>
+        <button type="button" id="cc-demo-staff" class="cc-ghost-btn">Staff (Aina)</button>
       </div>
-      <form id="cc-login-form" style="display:flex; flex-direction:column; gap:6px;">
-        <input id="cc-login-email" class="cc-input" type="email" required placeholder="Email" autocomplete="email" />
-        <input id="cc-login-password" class="cc-input" type="password" required placeholder="Password" autocomplete="current-password" />
-        <div id="cc-login-error" role="alert" style="display:none; font-size:11px; color:#DC2626;"></div>
-        <button id="cc-login-submit" type="submit" style="background:#042970; color:#fff; border:none; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">Log in</button>
+      <form id="cc-login-form" class="cc-form">
+        <label for="cc-login-email" class="cc-field-label">Email</label>
+        <input id="cc-login-email" class="cc-input" type="email" required autocomplete="email" />
+        <label for="cc-login-password" class="cc-field-label">Password</label>
+        <input id="cc-login-password" class="cc-input" type="password" required autocomplete="current-password" />
+        <div id="cc-login-error" role="alert" class="cc-error" style="display:none;"></div>
+        <button id="cc-login-submit" type="submit" class="cc-big-btn">Sign in</button>
       </form>
     </div>
 
     <div class="cc-body">
-      <!-- 1. Sleek Active Contact Card -->
-      <div class="cc-card" style="padding:10px 12px; margin-bottom:2px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:6px; min-width:0;">
-            <span style="font-size:14px;">👤</span>
-            <span id="cc-customer-display" style="font-weight:700; font-size:13px; color:#042970; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">No Chat Open</span>
-            <span id="cc-mem-pill" style="font-size:10px; padding:2px 7px; border-radius:999px; background:#E6EEFF; color:#0152FC; font-weight:700; white-space:nowrap;">Client Ready</span>
-          </div>
-          <div style="display:flex; gap:4px; align-items:center;">
-            <button class="cc-sec-btn" id="cc-add-cust-btn" style="padding:3px 8px; font-size:10px; background:#10B981; color:#fff; border:none; border-radius:6px; font-weight:700; cursor:pointer; display:none;" title="Add this contact as customer">➕ Add Customer</button>
-            <button class="cc-sec-btn" id="cc-read-dom-btn" style="padding:3px 8px; font-size:10px;" title="Rescan WhatsApp DOM">🔄 Rescan</button>
-          </div>
+      <!-- The open chat -->
+      <div class="cc-contact" id="cc-contact">
+        <span id="cc-customer-display" class="cc-contact-name">No chat open</span>
+        <button id="cc-add-cust-btn" class="cc-chip-btn" style="display:none;" title="Add this contact as a customer">Add customer</button>
+        <button id="cc-read-dom-btn" class="cc-ghost-btn" title="Read this chat and suggest replies">Rescan</button>
+      </div>
+      <div id="cc-msg-snippet" class="cc-snippet cc-chat-only">Open a customer's chat, then tap Rescan.</div>
+      <input type="hidden" id="cc-customer-input" value="" />
+      <input type="hidden" id="cc-message-input" value="" />
+      <!-- Customer photo / PDF banner (hidden unless one arrives) -->
+      <div id="cc-auto-ocr-banner" class="cc-banner" style="display:none;"></div>
+
+      <!-- Customer rating -->
+      <div id="cc-rating" class="cc-card cc-rating">
+        <div class="cc-rating-row">
+          <span id="cc-score" class="cc-score" role="img" aria-label="Customer score not checked yet"><span id="cc-score-num">–</span></span>
+          <span class="cc-rating-main">
+            <span class="cc-rating-name-row"><span id="cc-rating-name" class="cc-sr">Customer</span><span id="cc-mem-pill" class="cc-pill">Client Ready</span></span>
+            <span id="cc-rating-sub" class="cc-rating-sub">Tap Rescan to check this customer's history.</span>
+          </span>
         </div>
-
-        <div id="cc-msg-snippet" style="font-size:11px; color:#64748B; margin-top:6px; padding:6px 8px; background:#F8FAFC; border-radius:8px; border:1px solid #D5DFEE; font-style:italic; line-height:1.3; max-height:42px; overflow:hidden; text-overflow:ellipsis;">
-          Click any chat in WhatsApp Web to analyze.
-        </div>
-
-        <input type="hidden" id="cc-customer-input" value="" />
-        <input type="hidden" id="cc-message-input" value="" />
-
-        <!-- Customer photo / PDF banner (hidden unless one arrives) -->
-        <div id="cc-auto-ocr-banner" style="display:none; background:#ECFDF5; border:1px solid #10B981; border-radius:8px; padding:6px 8px; margin-top:6px;"></div>
+        <p id="cc-rating-ai" class="cc-rating-ai" hidden></p>
       </div>
 
-      <!-- 2. AI Action Card (deal line + 1-Click Prompt Chips + reply tabs + Big Action) -->
-      <div class="cc-card" id="cc-result-card" style="padding:10px 12px;">
-        <div style="font-weight:700; font-size:12px; color:#042970;" id="cc-ext-title">
-          Ready for WhatsApp Message
+      <!-- Reading the chat -->
+      <div id="cc-reading" class="cc-reading" role="status" aria-live="polite" hidden>
+        <div class="cc-mascot-row">
+          <img class="cc-mascot" src="${ccAsset("mascot-laptop.png")}" alt="" width="64" height="64" />
+          <div><span class="cc-say">Give me a few seconds</span><div id="cc-reading-title" class="cc-happening-title">Reading the chat</div></div>
         </div>
-        <div class="cc-check-box" id="cc-ext-check" style="font-size:11px; padding:6px 8px; margin:6px 0; border-radius:8px; line-height:1.35;">
-          Tap 🔄 Rescan to analyse this chat.
-        </div>
-        <div id="cc-deal-ctx" style="font-size:11px; color:#324564; line-height:1.4; margin-bottom:6px; white-space:pre-line;"></div>
-        <div style="display:none;" id="cc-ext-desc"></div>
-
-        <!-- Compact 1-Row Prompt Bar (Clean SME AI Copilot) -->
-        <div style="background:#F2F6FF; border:1px solid #B8CEFF; border-radius:8px; padding:6px 8px; margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <span style="font-size:10px; font-weight:700; color:#0152FC;">✨ PROMPT AI (CUSTOMIZE FOR YOUR SME)</span>
-          </div>
-          <div style="display:flex; gap:4px;">
-            <input id="cc-user-instruction" class="cc-input" placeholder="e.g. give 10% discount, quote 3 units, polite BM..." style="padding:6px 8px; font-size:11px; flex:1; background:#ffffff;" />
-            <button id="cc-custom-prompt-btn" class="cc-sec-btn" style="background:#0152FC; color:#fff; border:none; padding:6px 11px; font-size:11px; font-weight:700; border-radius:8px; white-space:nowrap; cursor:pointer;">
-              Ask AI ✨
-            </button>
-          </div>
-        </div>
-
-        <!-- 4 Sleek Horizontal Choice Tabs (NO VERTICAL TEXT STACK!) -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <span class="cc-label" style="margin:0; font-size:10px;">💬 CHOOSE REPLY:</span>
-          <span style="font-size:10px; color:#0152FC; font-weight:600;">Click tab to switch</span>
-        </div>
-        <div id="cc-reply-tabs" style="display:flex; gap:3px; margin-bottom:6px;"></div>
-
-        <!-- Inline Editor for Rebate or Tech Drop-By -->
-        <div id="cc-custom-param-box" style="display:none; background:#F2F6FF; border:1px solid #0152FC; border-radius:8px; padding:6px 8px; margin-bottom:6px;"></div>
-
-        <!-- Single Focused Draft Textarea (Always Fits on Screen!) -->
-        <textarea id="cc-draft-output" class="cc-textarea" rows="3" style="font-size:11.5px; line-height:1.35; margin-bottom:8px;" placeholder="Selected reply appears here..."></textarea>
-
-        <!-- 1 Big Primary Action Button (Always in View Without Scrolling!) -->
-        <button class="cc-big-btn" id="cc-big-action-btn" style="padding:11px 12px; font-size:12px;">
-          ✅ Insert Selected Reply
-        </button>
+        <ul id="cc-reading-steps" class="cc-steps"></ul>
+        <div class="cc-skeleton" aria-hidden="true"><i></i><i></i><i></i></div>
       </div>
+
+      <!-- What's happening -->
+      <div class="cc-section" id="cc-result-card">
+        <div class="cc-mascot-row">
+          <img id="cc-mascot" class="cc-mascot" src="${ccAsset("mascot-idea.png")}" alt="" width="64" height="64" />
+          <div class="cc-min0">
+            <span id="cc-mascot-say" class="cc-say">I'm ready</span>
+            <div class="cc-kicker">What's happening</div>
+            <div id="cc-ext-title" class="cc-happening-title">Ready for WhatsApp Message</div>
+          </div>
+        </div>
+        <div id="cc-ext-check" class="cc-check">Tap Rescan to analyse this chat.</div>
+        <div id="cc-deal-ctx" class="cc-deal"></div>
+        <div id="cc-ext-desc" hidden></div>
+
+        <!-- Check payment before an order is marked won -->
+        <div id="cc-payment" class="cc-payment" hidden>
+          <div class="cc-payment-title">Check payment</div>
+          <div id="cc-payment-claim" class="cc-payment-claim"></div>
+          <label class="cc-check-row"><input id="cc-payment-seen" type="checkbox" /> <span id="cc-payment-label">I can see this amount in our bank account</span></label>
+        </div>
+      </div>
+
+      <!-- Pick a reply: cards; the draft below is what goes into WhatsApp -->
+      <div class="cc-section" id="cc-replies">
+        <div class="cc-section-head"><span>Pick a reply</span><span>Goes into your reply box</span></div>
+        <div id="cc-reply-tabs" class="cc-reply-list" role="radiogroup" aria-label="Suggested replies"></div>
+        <div id="cc-custom-param-box" class="cc-param" style="display:none;"></div>
+        <label for="cc-draft-output" class="cc-field-label">Your reply (you can edit it)</label>
+        <textarea id="cc-draft-output" class="cc-textarea" rows="4" placeholder="The reply you pick shows here"></textarea>
+      </div>
+
+      <!-- Adjust reply: tell the AI what to change -->
+      <details id="cc-adjust" class="cc-section cc-adjust">
+        <summary><span class="cc-sparkle" aria-hidden="true">✦</span> Adjust reply <span class="cc-muted">tone, terms, language</span></summary>
+        <div class="cc-adjust-body">
+          <div class="cc-prompt-row">
+            <label for="cc-user-instruction" class="cc-sr">Tell the AI how to change the reply</label>
+            <input id="cc-user-instruction" class="cc-input" placeholder="e.g. 50% deposit, polite BM" />
+            <button id="cc-custom-prompt-btn" class="cc-ghost-btn">Rewrite</button>
+          </div>
+          <div id="cc-adjust-chips" class="cc-chips"></div>
+        </div>
+      </details>
 
       <!-- Quote from the price list: the rep picks items; the backend prices the quote and saves the deal -->
-      <div class="cc-card" id="cc-pl-card" style="padding:8px 10px; font-size:11px;">
-        <button id="cc-pl-toggle" style="width:100%; background:#F2F6FF; border:1px solid #D5DFEE; color:#042970; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">📋 Quote from price list</button>
-        <div id="cc-pl-body" style="display:none; margin-top:8px;">
-          <input id="cc-pl-search" class="cc-input" placeholder="Search item or SKU" style="width:100%; margin-bottom:6px;" />
-          <div id="cc-pl-list" style="max-height:190px; overflow-y:auto;"></div>
-          <div id="cc-pl-total" style="font-weight:700; color:#042970; margin:6px 0;"></div>
-          <button id="cc-pl-create" style="width:100%; background:#042970; color:#fff; border:none; padding:8px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">Create quote &amp; insert into chat</button>
-          <div id="cc-pl-msg" style="color:#324564; margin-top:6px;"></div>
-          <button id="cc-pl-pdf" style="display:none; width:100%; margin-top:6px; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">📄 Download PDF</button>
+      <div class="cc-section" id="cc-pl-card">
+        <button id="cc-pl-toggle" class="cc-ghost-btn cc-wide">Quote from price list</button>
+        <div id="cc-pl-body" style="display:none; margin-top:10px;">
+          <input id="cc-pl-search" class="cc-input" placeholder="Search item or SKU" />
+          <div id="cc-pl-list" class="cc-pl-list"></div>
+          <div id="cc-pl-total" class="cc-pl-total"></div>
+          <button id="cc-pl-create" class="cc-big-btn">Create quote &amp; insert into chat</button>
+          <div id="cc-pl-msg" class="cc-muted-line"></div>
+          <button id="cc-pl-pdf" class="cc-ghost-btn cc-wide" style="display:none;">Download PDF</button>
         </div>
       </div>
 
-      <!-- 3. Compact sales footer: follow-ups due now + reps' commission this month (GET /api/state) -->
-      <div class="cc-card" id="cc-sales-card" style="padding:8px 10px; font-size:11px; margin-top:auto;">
-        <div style="font-weight:700; color:#042970;">⏰ Follow-ups due</div>
-        <div id="cc-followups-text" style="color:#324564; margin-bottom:6px;">Loading...</div>
-        <div style="font-weight:700; color:#042970;">💰 Commission this month</div>
-        <div id="cc-commission-text" style="color:#324564;">Loading...</div>
+      <!-- No chat open: who needs you today (GET /api/state) -->
+      <div id="cc-empty" class="cc-empty">
+        <img class="cc-mascot-big" src="${ccAsset("mascot-wave.png")}" alt="" width="112" height="112" />
+        <div class="cc-state-title">Open a customer's chat</div>
+        <div class="cc-state-text">I'll read it and suggest a reply. Nothing sends until you press Enter.</div>
+        <div class="cc-card cc-day" id="cc-sales-card">
+          <div class="cc-day-label">Follow-ups due</div>
+          <div id="cc-followups-text">Loading...</div>
+          <div class="cc-day-label">Commission this month</div>
+          <div id="cc-commission-text">Loading...</div>
+        </div>
       </div>
-      <div style="font-size:10px; color:#92400E; text-align:center; padding:2px 0 4px;">Prototype — synthetic data, not connected to Orbyte</div>
+      <div class="cc-proto">Prototype · synthetic data, not connected to Orbyte<span id="cc-cache-pill" class="cc-sr">⚡ 0 Pre-Cached</span></div>
+    </div>
+
+    <!-- One main action -->
+    <div class="cc-footer">
+      <button class="cc-big-btn" id="cc-big-action-btn">Insert reply</button>
+      <div id="cc-big-sub" class="cc-big-sub">Nothing sends until you press Enter in WhatsApp</div>
     </div>
   `;
 
   document.body.appendChild(root);
+  setPanelMode("empty");
 
-  // Floating Reopen Button (visible when sidebar is minimized)
+  // Closed: a small circle that can be dragged anywhere and sticks to the nearest side
   let reopenBtn = document.getElementById("cc-floating-reopen-btn");
   if (!reopenBtn) {
     reopenBtn = document.createElement("div");
     reopenBtn.id = "cc-floating-reopen-btn";
-    reopenBtn.title = "Open CashChase Copilot";
-    reopenBtn.innerHTML = "⚡ CashChase";
+    reopenBtn.innerHTML = `
+      <span id="cc-bubble-pill" class="cc-bubble-pill" hidden></span>
+      <button id="cc-bubble" class="cc-bubble" aria-label="Open Closiq" title="Tap to open, drag to move">
+        <img src="${ccAsset("logo.png")}" alt="" width="32" height="32" draggable="false" />
+        <span id="cc-bubble-count" class="cc-bubble-count" hidden></span>
+      </button>`;
     reopenBtn.style.display = "none";
     document.body.appendChild(reopenBtn);
+    initBubbleDrag(reopenBtn);
+  }
+
+  const chipsEl = document.getElementById("cc-adjust-chips");
+  if (chipsEl) {
+    chipsEl.innerHTML = ADJUST_CHIPS.map(([label], i) => `<button type="button" class="cc-chip" data-chip="${i}">${label}</button>`).join("");
   }
 
   document.getElementById("cc-pl-toggle").addEventListener("click", () => {
@@ -1424,6 +1694,7 @@ function createSidebar() {
 
   if (reopenBtn) {
     reopenBtn.addEventListener("click", () => {
+      if (bubbleDrag.moved) { bubbleDrag.moved = false; return; }   // that was a drag, not a tap
       root.classList.remove("cc-collapsed");
       reopenBtn.style.display = "none";
       applyWhatsAppLayoutResize(false);
@@ -1478,6 +1749,16 @@ function createSidebar() {
       if (e.key === "Enter") askAi(instrInput.value.trim());
     });
   }
+  // Adjust chips are instructions for the AI, the same as typing them
+  document.querySelectorAll("#cc-adjust-chips .cc-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const prompt = ADJUST_CHIPS[parseInt(chip.getAttribute("data-chip"), 10)][1];
+      if (instrInput) instrInput.value = prompt;
+      askAi(prompt);
+    });
+  });
+  const paySeen = document.getElementById("cc-payment-seen");
+  if (paySeen) paySeen.addEventListener("change", () => updatePaymentGate());
 
   // Render clean idle state on sidebar load
   renderIdleStateForContact(currentActiveChat || "Client");
@@ -1536,6 +1817,7 @@ function renderSalesCard() {
   set("cc-commission-text", top.length
     ? top.map((r) => `#${r.rank} ${r.name} ${fmtRm(r.commissionRm)}`).join(" · ")
     : "No reps yet");
+  updateBubble();
 }
 
 function getLocalSavedCustomers() {
@@ -1577,6 +1859,7 @@ async function refreshStateFromBackend() {
     knownDeals = Array.isArray(state && state.deals) ? state.deals : [];
     knownReps = Array.isArray(state && state.reps) ? state.reps : [];
     knownProducts = Array.isArray(state && state.products) ? state.products : [];
+    knownReengage = Array.isArray(state && state.reengage) ? state.reengage : [];
     ok = true;
     renderSalesCard();
     renderPriceList();
@@ -1624,6 +1907,8 @@ function renderAnalysisResult(data, fromCache = false) {
   }
   gateState = "";
   lastAnalysis = data.analysis;
+  setPanelMode("reply");
+  setMascot(lastAnalysis.intent);
 
   const statusEl = document.getElementById("cc-lm-status");
   if (statusEl) {
@@ -1637,16 +1922,17 @@ function renderAnalysisResult(data, fromCache = false) {
   const intentBadge = document.getElementById("cc-intent-badge");
   if (intentBadge) intentBadge.textContent = lastAnalysis.badge || lastAnalysis.intent || "Ready";
   const titleEl = document.getElementById("cc-ext-title");
-  if (titleEl) titleEl.textContent = lastAnalysis.extTitle || "Recommended Action";
+  if (titleEl) titleEl.textContent = plainText(lastAnalysis.extTitle) || "Recommended Action";
   const checkEl = document.getElementById("cc-ext-check");
   if (checkEl) {
     let checkText = lastAnalysis.extCheck || "";
     if (lastAnalysis.stage) {
       checkText = `[Chat stage: ${lastAnalysis.stage}]\n` + (lastAnalysis.coachTip ? `💡 Coach: ${lastAnalysis.coachTip}\n\n` : "") + checkText;
     }
-    checkEl.textContent = checkText;
+    renderCheckLines(checkText);
   }
   renderDealContext(lastAnalysis);
+  renderPaymentCheck(lastAnalysis);
   const draftEl = document.getElementById("cc-draft-output");
   if (draftEl) {
     draftEl.disabled = false;
@@ -1657,28 +1943,12 @@ function renderAnalysisResult(data, fromCache = false) {
   if (btnEl) {
     btnEl.disabled = false;
     btnEl.style.opacity = "1";
-    btnEl.textContent = lastAnalysis.extBtnLabel || "✅ Insert Selected Reply";
+    btnEl.textContent = plainText(lastAnalysis.extBtnLabel) || "Insert reply";
   }
 
   // Render client memory pill with dedicated NEW_CLIENT neutral styling
   const mem = lastAnalysis.clientMemory;
-  const memPill = document.getElementById("cc-mem-pill");
-  if (mem && memPill) {
-    if (mem.tier === "NEW_CLIENT") {
-      memPill.textContent = "🆕 New Client";
-      memPill.style.background = "#F1F5F9";
-      memPill.style.color = "#475569";
-      memPill.style.border = "1px solid #CBD5E1";
-      memPill.title = "New contact with no past purchase records. Ask for a deposit to confirm the order.";
-    } else {
-      const isRisk = (mem.score || 75) < 60;
-      memPill.textContent = `${isRisk ? "⚠️" : "⭐"} ${mem.tier.replace(/_/g, " ")} (${mem.score}/100)`;
-      memPill.style.background = isRisk ? "#FEF3C7" : "#E6EEFF";
-      memPill.style.color = isRisk ? "#B45309" : "#0152FC";
-      memPill.style.border = isRisk ? "1px solid #FCD34D" : "1px solid #B8CEFF";
-      memPill.title = `${mem.paymentBehavior || ""}\n${mem.styleSummary || ""}`;
-    }
-  }
+  if (mem) renderRating(customer, mem);
 
   // Render 4 sleek horizontal tabs (NO VERTICAL TEXT STACK!)
   const opts = Array.isArray(lastAnalysis.replyOptions) && lastAnalysis.replyOptions.length > 0
@@ -1692,20 +1962,7 @@ function renderAnalysisResult(data, fromCache = false) {
 
   const tabsContainer = document.getElementById("cc-reply-tabs");
   if (tabsContainer) {
-    tabsContainer.innerHTML = opts.map((opt, idx) => {
-      let shortLabel = "💼 Formal";
-      const lLow = (opt.label || "").toLowerCase();
-      if (lLow.includes("boss") || lLow.includes("friendly")) shortLabel = "🤝 Boss Style";
-      else if (lLow.includes("fast") || lLow.includes("priority") || lLow.includes("close")) shortLabel = "⚡ Fast Close";
-      else if (lLow.includes("melayu") || lLow.includes("bm") || lLow.includes("salam")) shortLabel = "🇲🇾 BM";
-      else if (lLow.includes("custom") || lLow.includes("option 1")) shortLabel = "⭐ Quote";
-
-      return `
-        <button class="cc-tab-pill ${idx === 0 ? 'cc-tab-active' : ''}" data-idx="${idx}" title="${escapeHtml(opt.label)}">
-          ${shortLabel}
-        </button>
-      `;
-    }).join("");
+    tabsContainer.innerHTML = opts.map((opt, idx) => replyCardHtml(opt.label, opt.text, idx, idx === 0)).join("");
 
     tabsContainer.querySelectorAll(".cc-tab-pill").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1745,8 +2002,7 @@ function renderAnalysisResult(data, fromCache = false) {
           paramBox.style.display = "none";
         }
 
-        tabsContainer.querySelectorAll(".cc-tab-pill").forEach(b => b.classList.remove("cc-tab-active"));
-        btn.classList.add("cc-tab-active");
+        markActiveReply(tabsContainer, btn);
       });
     });
   }
@@ -1770,6 +2026,7 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
 
   isAnalyzing = true;
   lastAnalyzedHash = cacheKey;
+  renderReading(customer, recentMessages.length);
 
   document.getElementById("cc-ext-title").textContent = userInstruction
     ? `⏳ AI Building Custom Quote: "${userInstruction}"...`
@@ -1778,12 +2035,12 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
   // HIDE OLD REPLIES WHILE AI IS GENERATING NEW REPLY
   const tabsContainer = document.getElementById("cc-reply-tabs");
   if (tabsContainer) {
-    tabsContainer.innerHTML = '<div style="padding:10px;text-align:center;color:#0152FC;font-size:12px;font-weight:600;background:#E6EEFF;border-radius:8px;">🤖 AI Copilot is generating new reply...</div>';
+    tabsContainer.innerHTML = "";
   }
   const draftEl = document.getElementById("cc-draft-output");
   if (draftEl) {
     draftEl.value = "";
-    draftEl.placeholder = "🤖 Generating new reply with AI Copilot...";
+    draftEl.placeholder = "Writing a reply…";
     draftEl.disabled = true;
   }
   const btnEl = document.getElementById("cc-big-action-btn");
@@ -1968,7 +2225,8 @@ async function executePrimaryAction() {
   const a = lastAnalysis;
   const items = a ? analysisItems(a) : null;
   const missing = a && a.extActionType === "CREATE_QUOTE" && !items ? "⚠️ Type the items to quote first"
-    : a && a.extActionType === "MARK_WON" && !a.depositRef ? "⚠️ Add the slip reference first" : "";
+    : a && a.extActionType === "MARK_WON" && !a.depositRef ? "⚠️ Add the slip reference first"
+      : a && a.extActionType === "MARK_WON" && paymentBlocked() ? "⚠️ Tick the payment check first" : "";
   if (missing) {
     if (btnEl) {
       btnEl.textContent = missing;
