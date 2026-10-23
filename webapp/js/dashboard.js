@@ -822,7 +822,6 @@ async function saveProductFromModal() {
 // =========================================================================
 function renderCustomersView() {
   const st = getState();
-  const isOwner = currentRole === 'OWNER';
   const customers = st.customers || [];
   const tbody = document.getElementById('customers-tbody');
   if (!tbody) return;
@@ -849,7 +848,6 @@ function renderCustomersView() {
         <td class="px-4 text-right whitespace-nowrap">
           <div class="inline-flex flex-col items-end gap-0.5">
             <button onclick="promptCustomerTin('${escapeHtmlText(c.name)}')" class="deal-act">${isReady ? 'Update TIN' : 'Add TIN'}</button>
-            ${isOwner ? `<button onclick="promptReassignCustomer('${escapeHtmlText(c.name)}')" class="deal-act">Reassign</button>` : ''}
           </div>
         </td>
       </tr>
@@ -874,31 +872,6 @@ function promptCustomerTin(customerName) {
     } else {
       showToast(`Saved TIN ${v.tin} for ${customerName}!`);
     }
-  });
-}
-
-function promptReassignCustomer(customerName) {
-  const st = getState();
-  const reps = st.reps || [];
-  if (!reps.length) { showToast('There are no sales reps yet. Add one on the Commission page.'); return; }
-  // Find the rep the customer's deals currently belong to
-  const d = (st.deals || []).find(x => x.customer === customerName);
-  const fromRepId = d ? d.repId : 1;
-  const firstOther = reps.find(r => r.id !== fromRepId) || reps[0];
-  askForm({
-    title: `Reassign ${customerName}`,
-    message: 'Their open deals move to the rep you pick.',
-    okText: 'Reassign',
-    fields: [
-      { name: 'repId', label: 'New rep', type: 'select', value: firstOther.id, required: true,
-        options: reps.map(r => ({ value: r.id, label: r.id === fromRepId ? `${r.name} (current)` : r.name })) }
-    ]
-  }, v => {
-    const targetRep = reps.find(r => String(r.id) === String(v.repId));
-    if (!targetRep) { showToast('Pick a rep from the list.'); return; }
-    backendAction(`/api/reps/${fromRepId}/reassign`, {
-      toRepId: targetRep.id
-    }, `Reassigned open deals for ${customerName} to ${targetRep.name}!`);
   });
 }
 
