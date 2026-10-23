@@ -6,11 +6,9 @@
     let permissionThresholdDraft = null;
     let holdHoursDraft = null;
 
-    const modePillClass = {
-      ALLOW: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      APPROVAL: 'bg-amber-100 text-amber-900 border-amber-300',
-      DENY: 'bg-slate-200 text-slate-700 border-slate-300'
-    };
+    // Short labels for the segmented switch; the backend's longer labels are the fallback.
+    const modeShortLabel = { ALLOW: 'Allowed', APPROVAL: 'Needs approval', DENY: 'Off' };
+    const modeDotColor = { ALLOW: '#12B76A', APPROVAL: '#F79009', DENY: '#98A2B3' };
 
     function renderApprovalsCard() {
       const card = document.getElementById('ov-approvals-card');
@@ -23,32 +21,36 @@
       card.classList.remove('hidden');
       const pending = list.filter(a => a.status === 'PENDING');
       const isOwner = currentRole === 'OWNER';
-      document.getElementById('ov-approvals-count').textContent = `${pending.length} waiting`;
+      const countPill = document.getElementById('ov-approvals-count');
+      countPill.textContent = pending.length ? `${pending.length} waiting` : 'All decided';
+      countPill.className = `cc-pill ${pending.length ? 'cc-pill-warn' : 'cc-pill-ok'}`;
       document.getElementById('ov-approvals-sub').textContent = isOwner
-        ? 'Staff requests that need your decision. Approving runs the action exactly as requested.'
-        : 'Your requests waiting for the Owner. You will see the decision here.';
+        ? 'Staff requests that need your decision. Approve runs the action exactly as asked.'
+        : 'Your requests waiting for the Owner. The decision shows up here.';
 
       const statusPill = {
-        PENDING: '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">⏳ Waiting for Owner</span>',
-        APPROVED: '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">✅ Approved</span>',
-        REJECTED: '<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-xs font-bold">❌ Rejected</span>',
-        FAILED: '<span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">⚠️ Could not run</span>'
+        PENDING: '<span class="cc-pill cc-pill-warn"><svg aria-hidden="true"><use href="#i-clock"/></svg>Waiting for Owner</span>',
+        APPROVED: '<span class="cc-pill cc-pill-ok"><svg aria-hidden="true"><use href="#i-check"/></svg>Approved</span>',
+        REJECTED: '<span class="cc-pill cc-pill-bad"><svg aria-hidden="true"><use href="#i-x"/></svg>Rejected</span>',
+        FAILED: '<span class="cc-pill cc-pill-muted"><svg aria-hidden="true"><use href="#i-alert"/></svg>Could not run</span>'
       };
 
       const rows = [...pending, ...list.filter(a => a.status !== 'PENDING').slice(0, 4)];
       document.getElementById('ov-approvals-list').innerHTML = rows.map(a => `
-        <div class="p-3 rounded-xl border ${a.status === 'PENDING' ? 'border-amber-300 bg-amber-50' : 'border-[#D5DFEE] bg-[#F8FAFC]'} flex flex-wrap items-center justify-between gap-3">
+        <div class="ap-row ${a.status === 'PENDING' ? 'is-pending' : ''}">
           <div class="min-w-0">
-            <div class="text-xs font-bold text-[#042970]">#AP-${a.id} · ${escapeHtmlText(a.summary)}</div>
-            <div class="text-xs text-[#64748B]">
-              Requested by ${a.requestedBy === 'STAFF' ? 'Aina (Staff)' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)} · Why: ${escapeHtmlText(a.reason)}
-              ${a.decisionNote ? ` · Note: ${escapeHtmlText(a.decisionNote)}` : ''}
+            <div class="text-sm font-semibold text-[#042970]">${escapeHtmlText(a.summary)}</div>
+            <div class="ap-meta">
+              <span class="font-mono">#AP-${a.id}</span>
+              <span>${a.requestedBy === 'STAFF' ? 'Aina (Staff)' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)}</span>
+              <span>Why: ${escapeHtmlText(a.reason)}</span>
+              ${a.decisionNote ? `<span>Note: ${escapeHtmlText(a.decisionNote)}</span>` : ''}
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             ${a.status === 'PENDING' && isOwner ? `
-              <button onclick="decideApproval(${a.id}, 'APPROVE')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">✅ Approve</button>
-              <button onclick="decideApproval(${a.id}, 'REJECT')" class="px-3.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 border border-rose-300 text-rose-700 text-xs font-bold">❌ Reject</button>
+              <button onclick="decideApproval(${a.id}, 'REJECT')" class="cc-btn cc-btn-danger">Reject</button>
+              <button onclick="decideApproval(${a.id}, 'APPROVE')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-check"/></svg>Approve</button>
             ` : statusPill[a.status] || ''}
           </div>
         </div>
@@ -68,7 +70,7 @@
         `Approve Staff Request #AP-${id}`,
         `${req.summary}\n\nReason it needed you: ${req.reason}\n\nApproving runs this action now as the Owner.`,
         () => backendAction(`/api/approvals/${id}/decide`, { decision }, `Approved #AP-${id} and ran it.`),
-        '✅ Approve & Run'
+        'Approve and run'
       );
     }
 
@@ -76,7 +78,7 @@
       const box = document.getElementById('team-perms-body');
       if (!box) return;
       if (!usesBackend() || !backendPermissions) {
-        box.innerHTML = `<div class="text-xs text-[#64748B]">Team & Permissions are stored in the backend. Start it with python run_server.py to view or change them.</div>`;
+        box.innerHTML = `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-alert"/></svg><span>Team &amp; permissions are stored in the backend. Start it with <span class="font-mono">python run_server.py</span> to view or change them.</span></div>`;
         return;
       }
       const p = backendPermissions;
@@ -87,72 +89,81 @@
       const changedCount = Object.keys(permissionDraft).length + (permissionThresholdDraft !== null ? 1 : 0) + (holdHoursDraft !== null ? 1 : 0);
 
       box.innerHTML = `
-        ${isOwner ? '' : `<div class="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold">🔒 Only the Owner can change permissions. You are viewing what Staff are allowed to do.</div>`}
+        ${isOwner ? '' : `<div class="cc-note cc-note-warn"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Only the Owner can change permissions. This is what Staff are allowed to do.</span></div>`}
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="space-y-3">
           ${groups.map(g => `
-            <div class="bg-white rounded-xl border border-[#D5DFEE] p-3">
-              <div class="text-xs font-bold uppercase tracking-wide text-[#0152FC] mb-2">${escapeHtmlText(g)}</div>
-              <div class="space-y-2">
-                ${p.actions.filter(a => a.group === g).map(a => {
-                  const mode = permissionDraft[a.key] || a.mode;
-                  const changed = permissionDraft[a.key] && permissionDraft[a.key] !== a.mode;
-                  return `
-                    <div class="flex items-center justify-between gap-2 ${changed ? 'bg-blue-50 -mx-1.5 px-1.5 py-1 rounded-lg' : ''}">
-                      <div class="min-w-0">
-                        <div class="text-xs font-semibold text-[#042970]">${escapeHtmlText(a.label)}</div>
-                        ${a.note ? `<div class="text-[11px] text-[#64748B]">🔒 ${escapeHtmlText(a.note)}</div>` : ''}
-                      </div>
-                      <select onchange="setPermissionDraft('${a.key}', this.value)" ${isOwner ? '' : 'disabled'}
-                        class="shrink-0 border rounded-lg px-2 py-1 text-xs font-bold ${modePillClass[mode]} ${isOwner ? 'cursor-pointer' : 'opacity-80 cursor-not-allowed'}">
-                        ${a.modes.map(m => `<option value="${m}" ${m === mode ? 'selected' : ''}>${escapeHtmlText(p.modeLabels[m])}</option>`).join('')}
-                      </select>
-                    </div>`;
-                }).join('')}
-              </div>
+            <div class="cc-box">
+              <div class="cc-eyebrow mb-2">${escapeHtmlText(g)}</div>
+              ${p.actions.filter(a => a.group === g).map(a => {
+                const mode = permissionDraft[a.key] || a.mode;
+                const changed = permissionDraft[a.key] && permissionDraft[a.key] !== a.mode;
+                return `
+                  <div class="perm-row ${changed ? 'is-changed' : ''}">
+                    <div class="perm-label" id="perm-label-${a.key}">
+                      <div class="text-[13px] font-semibold text-[#042970]">${escapeHtmlText(a.label)}</div>
+                      ${a.note ? `<div class="perm-note"><svg aria-hidden="true"><use href="#i-lock"/></svg>${escapeHtmlText(a.note)}</div>` : ''}
+                    </div>
+                    <div class="seg" role="radiogroup" aria-labelledby="perm-label-${a.key}">
+                      ${a.modes.map(m => `
+                        <button type="button" role="radio" aria-checked="${m === mode}" data-mode="${m}"
+                          class="seg-btn ${m === mode ? 'is-on' : ''}" ${isOwner ? '' : 'disabled'}
+                          title="${escapeHtmlText(p.modeLabels[m] || m)}"
+                          onclick="setPermissionDraft('${a.key}', '${m}')"><span class="cc-dot" style="background:${modeDotColor[m] || '#98A2B3'}"></span>${escapeHtmlText(modeShortLabel[m] || p.modeLabels[m] || m)}</button>`).join('')}
+                    </div>
+                  </div>`;
+              }).join('')}
             </div>
           `).join('')}
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 bg-white rounded-xl border border-[#D5DFEE] p-3">
-          <label class="text-xs font-semibold text-[#042970] flex items-center gap-2">
-            💰 Staff money-out approval threshold: RM
-            <input type="number" min="0" step="100" value="${threshold}" ${isOwner ? '' : 'disabled'}
+        <div class="cc-box grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="perm-threshold" class="cc-label">Staff money-out needs approval above (RM)</label>
+            <input id="perm-threshold" type="number" min="0" step="100" value="${threshold}" ${isOwner ? '' : 'disabled'}
               onchange="permissionThresholdDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
-              class="w-24 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" />
-          </label>
-          <label class="text-xs font-semibold text-[#042970] flex items-center gap-2">
-            ⏳ Quote holds stock for
-            <input type="number" min="1" max="720" step="1" value="${holdHours}" ${isOwner ? '' : 'disabled'}
+              class="cc-input cc-input-sm" />
+          </div>
+          <div>
+            <label for="perm-hold" class="cc-label">A quote holds stock for (hours)</label>
+            <input id="perm-hold" type="number" min="1" max="720" step="1" value="${holdHours}" ${isOwner ? '' : 'disabled'}
               onchange="holdHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
-              class="w-16 bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2 py-1 text-xs font-bold text-[#042970]" /> hours
-          </label>
-          ${isOwner ? `
-            <div class="flex gap-2">
-              <button onclick="resetPermissionDraftToDefaults()" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#042970] text-xs font-bold">↺ Defaults</button>
-              <button onclick="savePermissions()" ${changedCount ? '' : 'disabled'}
-                class="px-4 py-1.5 rounded-lg text-xs font-bold ${changedCount ? 'bg-[#0152FC] hover:bg-[#0141C9] text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}">
-                💾 Save ${changedCount ? `(${changedCount} change${changedCount > 1 ? 's' : ''})` : 'Permissions'}
-              </button>
-            </div>` : ''}
+              class="cc-input cc-input-sm" />
+          </div>
         </div>
 
-        ${isOwner ? `
-          <div class="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-dashed border-[#0152FC]/40 p-3">
-            <div class="text-xs text-[#042970]"><b>🕒 Demo clock:</b> pretend time has passed so you can show a quote hold expiring and its stock coming back.</div>
-            <div class="flex gap-2">
-              <button onclick="fastForwardHolds(24)" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#0152FC]/40 text-[#0152FC] text-xs font-bold">⏩ +24h</button>
-              <button onclick="fastForwardHolds(48)" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#0152FC]/40 text-[#0152FC] text-xs font-bold">⏩ +48h</button>
-            </div>
-          </div>` : ''}
-
-        <details class="bg-white rounded-xl border border-[#D5DFEE] p-3">
-          <summary class="text-xs font-bold text-[#042970] cursor-pointer">🛡️ Mandatory safety rules (always on, cannot be changed)</summary>
-          <ul class="mt-2 space-y-1 text-xs text-[#324564] list-disc pl-5">
+        <details class="cc-box group">
+          <summary class="flex items-center justify-between gap-2 cursor-pointer list-none text-[13px] font-semibold text-[#042970]">
+            <span class="flex items-center gap-2"><svg class="w-4 h-4 text-[#0152FC]" aria-hidden="true"><use href="#i-shield"/></svg>Safety rules that are always on</span>
+            <svg class="w-4 h-4 text-[#5B6B85] transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <ul class="mt-3 space-y-1.5 text-[13px] text-[#324564] list-disc pl-5">
             ${p.mandatoryRules.map(r => `<li>${escapeHtmlText(r)}</li>`).join('')}
           </ul>
-          <div class="mt-2 text-xs text-[#64748B]"><b>Owner only:</b> ${p.ownerOnly.map(escapeHtmlText).join(' · ')}</div>
+          <div class="mt-3 text-[13px] text-[#5B6B85]"><b class="text-[#042970]">Owner only:</b> ${p.ownerOnly.map(escapeHtmlText).join(' · ')}</div>
         </details>
+
+        ${isOwner ? `
+          <div class="cc-box flex flex-wrap items-center justify-between gap-3 !border-dashed !border-[#0152FC]/40">
+            <div class="flex items-start gap-2 text-[13px] text-[#042970] min-w-0 flex-[1_1_16rem]">
+              <svg class="w-4 h-4 mt-0.5 shrink-0 text-[#0152FC]" aria-hidden="true"><use href="#i-clock"/></svg>
+              <span><b>Demo clock.</b> Skip ahead to show a quote hold running out and its stock coming back.</span>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="fastForwardHolds(24)" class="cc-btn cc-btn-ghost"><svg aria-hidden="true"><use href="#i-forward"/></svg>+24h</button>
+              <button onclick="fastForwardHolds(48)" class="cc-btn cc-btn-ghost"><svg aria-hidden="true"><use href="#i-forward"/></svg>+48h</button>
+            </div>
+          </div>
+
+          <div class="perm-savebar">
+            <span class="text-[13px] ${changedCount ? 'font-semibold text-[#042970]' : 'text-[#5B6B85]'}" aria-live="polite">
+              ${changedCount ? `${changedCount} unsaved change${changedCount > 1 ? 's' : ''}` : 'No changes'}
+            </span>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="resetPermissionDraftToDefaults()" class="cc-btn cc-btn-ghost"><svg aria-hidden="true"><use href="#i-undo"/></svg>Use defaults</button>
+              <button onclick="savePermissions()" ${changedCount ? '' : 'disabled'} class="cc-btn cc-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"><svg aria-hidden="true"><use href="#i-check"/></svg>Save permissions</button>
+            </div>
+          </div>` : ''}
       `;
     }
 
@@ -191,9 +202,9 @@
 
     function fastForwardHolds(hours) {
       askUserConfirm(
-        `Demo: Fast-Forward ${hours}h`,
+        `Demo: skip ${hours} hours`,
         `Pretend ${hours} hours have passed for every quote hold?\n\nQuotes past their hold time expire and their stock goes back to Available to Sell. This is logged.`,
-        () => backendAction('/api/demo/fast-forward', { hours }, `⏩ Fast-forwarded ${hours}h. Expired holds released their stock.`),
-        `⏩ Fast-Forward ${hours}h`
+        () => backendAction('/api/demo/fast-forward', { hours }, `Skipped ${hours}h. Expired holds released their stock.`),
+        `Skip ${hours}h`
       );
     }
