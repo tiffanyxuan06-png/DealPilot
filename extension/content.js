@@ -50,6 +50,7 @@ function getCacheKey(customer, message, instruction = "") {
 // with automatic fallback to direct fetch.
 async function ccApiRequest(path, method = "GET", bodyObj = null) {
   const fullUrl = `${BACKEND_URL}${path}`;
+  const reqHeaders = { "Content-Type": "application/json", "X-CashChase-Role": getCcRole() };
   if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
     try {
       const bgRes = await new Promise((resolve, reject) => {
@@ -58,7 +59,7 @@ async function ccApiRequest(path, method = "GET", bodyObj = null) {
             type: "CC_API_FETCH",
             url: fullUrl,
             method,
-            headers: { "Content-Type": "application/json" },
+            headers: reqHeaders,
             body: bodyObj ? JSON.stringify(bodyObj) : null
           },
           (resp) => {
@@ -86,7 +87,7 @@ async function ccApiRequest(path, method = "GET", bodyObj = null) {
 
   const opts = {
     method,
-    headers: { "Content-Type": "application/json" }
+    headers: reqHeaders
   };
   if (bodyObj) opts.body = JSON.stringify(bodyObj);
   const directRes = await fetch(fullUrl, opts);
@@ -178,10 +179,37 @@ function isKnownCustomer(title) {
   });
 }
 
+function updateAddCustomerBtn(title) {
+  const btn = document.getElementById("cc-add-cust-btn");
+  if (!btn) return;
+  if (!title || title === "No Chat Open" || title === "Client") {
+    btn.style.display = "none";
+    return;
+  }
+  btn.style.display = "inline-flex";
+  const isCust = isKnownCustomer(title);
+  if (isCust) {
+    btn.textContent = "✓ Customer";
+    btn.style.background = "#DCFCE7";
+    btn.style.color = "#15803D";
+    btn.style.border = "1px solid #86EFAC";
+    btn.style.cursor = "default";
+    btn.title = "This contact is a registered CashChase customer";
+  } else {
+    btn.textContent = "➕ Add Customer";
+    btn.style.background = "#10B981";
+    btn.style.color = "#ffffff";
+    btn.style.border = "none";
+    btn.style.cursor = "pointer";
+    btn.title = "Add this contact as a CashChase customer so messages can be read";
+  }
+}
+
 // Customers only: true (and the "Not a customer" / offline state is drawn) when this contact must not be analysed.
 function blockIfNotCustomer(title) {
   if (knownCustomers && !backendDenied.has(title) && isKnownCustomer(title)) {
     gateState = "";
+    updateAddCustomerBtn(title);
     return false;
   }
   renderNotCustomer(title);
@@ -214,6 +242,7 @@ function renderNotCustomer(title) {
   const banner = document.getElementById("cc-auto-ocr-banner");   // no "Quote from photo" for a blocked contact
   if (banner) { banner.style.display = "none"; banner.innerHTML = ""; }
   refreshClientMemoryPill(title);
+  updateAddCustomerBtn(title);
 }
 
 // Re-read the open chat from the page, locally (no network): used once the customer list changes.
@@ -224,27 +253,73 @@ function reevaluateChat() {
 }
 
 async function addCurrentAsCustomer() {
-  const title = currentActiveChat;
-  if (!title || isAddingCustomer) return;
+  const title = currentActiveChat || getActiveChatTitle() || document.getElementById("cc-customer-input")?.value?.trim();
+  if (!title || title === "No Chat Open" || isAddingCustomer) return;
   isAddingCustomer = true;
+  currentActiveChat = title;
+  const addBtn = document.getElementById("cc-add-cust-btn");
+  const origBtnText = addBtn ? addBtn.textContent : "";
+  if (addBtn) {
+    addBtn.textContent = "⏳ Adding...";
+    addBtn.disabled = true;
+  }
   try {
+    const cleanName = cleanCustomerName(title);
+    const digits = titlePhone(title);
+    const role = getCcRole();
+
+
+
     await ccApiRequest("/api/customers", "POST", {
-      name: cleanCustomerName(title),
-      phone: titlePhone(title),
-      role: getCcRole()
+      name: cleanName,
+      phone: digits,
+      role: role
     });
     backendDenied.delete(title);
+
+    // Keep newly added customer in local allowlist and localStorage immediately
+    saveLocalCustomer({ name: cleanName, phone: digits });
+    if (!knownCustomers) knownCustomers = [];
+    if (!isKnownCustomer(title)) {
+      knownCustomers.push({ name: cleanName, phone: digits });
+    }
+
+    gateState = "";
+    updateAddCustomerBtn(title);
+
     // Success re-reads the open chat as a customer (normal idle state, nothing analysed). If the refresh failed, Rescan retries it.
     if (!(await refreshStateFromBackend())) {
       const checkEl = document.getElementById("cc-ext-check");
       if (checkEl) checkEl.textContent = "Added. Tap 🔄 Rescan to reload the customer list.";
+    } else {
+      reevaluateChat();
     }
   } catch (err) {
+
     const checkEl = document.getElementById("cc-ext-check");
     const denied = String(err && err.message).includes("403");
-    if (checkEl) checkEl.textContent = denied ? "🔒 Staff can't add customers (ask the Owner)." : `Couldn't add this customer (${err && err.message}). Try again.`;
+    const isOffline = String(err && err.message).includes("Failed to fetch") || String(err && err.message).includes("NetworkError");
+    if (checkEl) {
+      if (denied) {
+        checkEl.textContent = "🔒 Staff can't add customers (ask the Owner).";
+      } else if (isOffline) {
+        checkEl.textContent = "⚠️ Couldn't add customer — backend server is offline. Run: python run_server.py";
+      } else {
+        checkEl.textContent = `Couldn't add this customer (${err && err.message}). Try again.`;
+      }
+    }
+    if (addBtn) {
+      addBtn.textContent = isOffline ? "⚠️ Server Offline" : "⚠️ Failed";
+      setTimeout(() => {
+        if (addBtn) {
+          addBtn.textContent = origBtnText || "➕ Add Customer";
+          addBtn.disabled = false;
+        }
+      }, 3000);
+    }
   } finally {
     isAddingCustomer = false;
+    if (addBtn) addBtn.disabled = false;
   }
 }
 
@@ -461,77 +536,87 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-function classifyWhatsAppBubble(element) {
+function classifyWhatsAppBubble(element, activeChatTitle = null) {
   if (!element) return null;
 
   // 1. Skip system notifications / date dividers / encryption text
   if (
-    element.querySelector?.('[data-testid="system-message-text"], [data-testid="chat-history-divider"]') ||
-    element.classList?.contains("system-message") ||
-    element.querySelector?.('span[data-icon="lock-small"]')
+    element.matches?.('[data-testid="system-message-text"], [data-testid="chat-history-divider"], .system-message') ||
+    element.querySelector?.('[data-testid="system-message-text"], [data-testid="chat-history-divider"], span[data-icon="lock-small"]') ||
+    element.classList?.contains("system-message")
   ) {
     return null;
   }
 
-  // 2. Check delivery ticks (ONLY outgoing messages sent by ME have status ticks)
+  // 2. data-pre-plain-text attribute (Most reliable in modern WhatsApp Web)
+  const prePlain =
+    element.getAttribute?.("data-pre-plain-text") ||
+    element.querySelector?.("[data-pre-plain-text]")?.getAttribute("data-pre-plain-text") ||
+    element.closest?.("[data-pre-plain-text]")?.getAttribute("data-pre-plain-text") ||
+    "";
+  if (prePlain) {
+    const senderMatch = prePlain.match(/\]\s*([^:]+)\s*:\s*$/);
+    const senderName = senderMatch ? senderMatch[1].trim() : "";
+    const title = (activeChatTitle || getActiveChatTitle() || "").trim();
+    if (title && senderName && senderName.toLowerCase() === title.toLowerCase()) {
+      return "CLIENT";
+    }
+    if (/(?:^|[\s\]])(You|Anda|你|您|Tú|Você|Voce|Vous|Du)$/i.test(senderName)) {
+      return "ME";
+    }
+    if (senderName) {
+      return "CLIENT";
+    }
+  }
+
+  // 3. Check delivery ticks (ONLY outgoing messages sent by ME have status ticks)
+  const rowOrSelf = element.closest?.('[role="row"], [data-id]') || element;
   if (
     element.querySelector?.(
+      '[data-icon*="check"], [data-testid*="check"], [data-icon*="dblcheck"], [data-testid*="dblcheck"], [data-icon="msg-time"], [data-testid="msg-time"], span[data-icon*="status-"]'
+    ) ||
+    rowOrSelf.querySelector?.(
       '[data-icon*="check"], [data-testid*="check"], [data-icon*="dblcheck"], [data-testid*="dblcheck"], [data-icon="msg-time"], [data-testid="msg-time"], span[data-icon*="status-"]'
     )
   ) {
     return "ME";
   }
 
-  // 3. Inspect CSS class names (on self, descendants, or ancestors)
-  const selfCls = element.className || "";
-  const closestCls = element.closest?.('[class*="message-"]')?.className || "";
-  const fullCls = `${selfCls} ${closestCls}`;
-  if (fullCls.includes("message-out") || element.querySelector?.('.message-out, [class*="message-out"]')) {
-    return "ME";
-  }
-  if (fullCls.includes("message-in") || element.querySelector?.('.message-in, [class*="message-in"]')) {
-    return "CLIENT";
-  }
-
-  // 4. data-id attribute: "true_" = fromMe, "false_" = fromClient
-  const dataId =
+  // 4. data-id and CSS classes (from WA_extension)
+  const id =
     element.getAttribute?.("data-id") ||
     element.closest?.("[data-id]")?.getAttribute("data-id") ||
     element.querySelector?.("[data-id]")?.getAttribute("data-id") ||
     "";
-  if (dataId.startsWith("true_") || dataId.includes("_true_")) {
+  const cls = `${element.className || ""} ${element.closest?.('[class*="message-"]')?.className || ""}`;
+
+  if (id.includes("true_") || cls.includes("message-out")) {
     return "ME";
   }
-  if (dataId.startsWith("false_") || dataId.includes("_false_")) {
+  if (id.includes("false_") || cls.includes("message-in")) {
     return "CLIENT";
   }
 
-  // 5. Horizontal alignment fallback inside WhatsApp #main
-  try {
-    const rect = element.getBoundingClientRect();
-    const parentRect = element.closest("#main")?.getBoundingClientRect() || document.body.getBoundingClientRect();
-    const midX = parentRect.left + parentRect.width / 2;
-    if (rect.left + rect.width / 2 > midX + 40) {
-      return "ME";
-    } else if (rect.left + rect.width / 2 < midX - 40) {
-      return "CLIENT";
-    }
-  } catch (e) {}
-
-  return null;
+  // 5. Fallback from WA_extension: any chat row not outgoing is from client
+  return "CLIENT";
 }
 
 function extractCleanText(element) {
   if (!element) return "";
+
+  // WhatsApp Web specific text containers (from WA_extension)
   const textNode =
-    element.querySelector(".selectable-text") ||
-    element.querySelector(".copyable-text") ||
-    element.querySelector('span[dir="ltr"]') ||
-    element.querySelector('span[dir="auto"]');
-  let raw = textNode ? textNode.innerText : element.innerText;
+    element.querySelector?.(".selectable-text") ||
+    element.querySelector?.(".copyable-text") ||
+    element.querySelector?.('span[dir="ltr"]') ||
+    element.querySelector?.('span[dir="auto"]');
+
+  let raw = textNode ? (textNode.innerText || textNode.textContent || "") : (element.innerText || element.textContent || "");
   if (!raw) return "";
-  raw = raw.replace(/\n?\d{1,2}:\d{2}(\s*(AM|PM|am|pm))?$/g, "").trim();
-  raw = raw.replace(/\n?(Edited|Editado)$/gi, "").trim();
+
+  // Clean trailing timestamps, e.g. "10:24 AM", "15:30", "Edited"
+  raw = raw.replace(/\n?\d{1,2}:\d{2}(\s*(AM|PM|am|pm))?$/gi, "").trim();
+  raw = raw.replace(/\n?(Edited|Editado|Telah diedit|已编辑)$/gi, "").trim();
   return raw;
 }
 
@@ -549,18 +634,27 @@ function findMessagesContainer() {
 function detectIncomingReceiptOrPdf(mainContainer, chatTitle) {
   if (!mainContainer) return null;
 
-  // Check rows strictly sent by the CLIENT
-  const allRows = mainContainer.querySelectorAll('[data-id], div[role="row"], .message-in, .message-out');
-  const incomingRows = [];
-  allRows.forEach((r) => {
-    if (classifyWhatsAppBubble(r) === "CLIENT") {
-      incomingRows.push(r);
-    }
-  });
-  if (incomingRows.length === 0) return null;
+  // Check incoming bubbles using WA_extension method
+  let incomingBubbles = mainContainer.querySelectorAll('[data-id*="false_"], [class*="message-in"]');
+  if (!incomingBubbles || incomingBubbles.length === 0) {
+    const allRows = mainContainer.querySelectorAll('[data-id], div[role="row"]');
+    const filtered = [];
+    allRows.forEach((r) => {
+      const id = r.getAttribute("data-id") || "";
+      const cls = r.className || "";
+      const hasTick = r.querySelector?.(
+        '[data-icon*="check"], [data-testid*="check"], [data-icon*="dblcheck"], [data-testid*="dblcheck"], [data-icon="msg-time"], [data-testid="msg-time"], span[data-icon*="status-"]'
+      );
+      if (!id.includes("true_") && !cls.includes("message-out") && !hasTick) {
+        filtered.push(r);
+      }
+    });
+    incomingBubbles = filtered;
+  }
+  if (!incomingBubbles || incomingBubbles.length === 0) return null;
 
-  const lastRow = incomingRows[incomingRows.length - 1];
-  const rowText = (lastRow.innerText || "").trim();
+  const lastRow = incomingBubbles[incomingBubbles.length - 1];
+  const rowText = (lastRow.innerText || lastRow.textContent || "").trim();
 
   // Check if it's a PDF document attachment
   const isPdfBubble =
@@ -577,11 +671,10 @@ function detectIncomingReceiptOrPdf(mainContainer, chatTitle) {
     };
   }
 
-  // 2. Check if the latest incoming bubble has an image receipt (blob: or data:image)
+  // Check image receipt (blob: or data:image)
   const imgs = lastRow.querySelectorAll("img");
   for (const img of imgs) {
     const src = img.getAttribute("src") || "";
-    // Ignore tiny avatar/emoji icons
     if ((src.startsWith("blob:") || src.startsWith("data:image")) && img.width > 80) {
       return {
         type: "IMAGE_RECEIPT",
@@ -763,8 +856,26 @@ async function scanActiveWhatsAppChat(forceRun = false) {
   const main = findMessagesContainer();
   if (!activeTitle || !main) return;
 
-  const allRows = main.querySelectorAll('[data-id], div[role="row"], .message-in, .message-out');
+  // 1. Find incoming bubbles (from WA_extension)
+  let incomingBubbles = main.querySelectorAll('[data-id*="false_"], [class*="message-in"]');
+  if (!incomingBubbles || incomingBubbles.length === 0) {
+    const allRows = main.querySelectorAll('[data-id], div[role="row"]');
+    const filtered = [];
+    allRows.forEach((r) => {
+      const id = r.getAttribute("data-id") || "";
+      const cls = r.className || "";
+      const hasTick = r.querySelector?.(
+        '[data-icon*="check"], [data-testid*="check"], [data-icon*="dblcheck"], [data-testid*="dblcheck"], [data-icon="msg-time"], [data-testid="msg-time"], span[data-icon*="status-"]'
+      );
+      if (!id.includes("true_") && !cls.includes("message-out") && !hasTick) {
+        filtered.push(r);
+      }
+    });
+    incomingBubbles = filtered;
+  }
 
+  // 2. Extract recent conversation context (from WA_extension)
+  const allBubbles = main.querySelectorAll('[data-id], [class*="message-in"], [class*="message-out"], div[role="row"]');
   let lastClientText = "";
   let lastMyText = "";
   let absoluteLastSender = null;
@@ -772,11 +883,11 @@ async function scanActiveWhatsAppChat(forceRun = false) {
 
   const recentMessages = [];
 
-  allRows.forEach((r) => {
-    const sender = classifyWhatsAppBubble(r);
+  allBubbles.forEach((b) => {
+    const sender = classifyWhatsAppBubble(b, activeTitle);
     if (!sender) return;
 
-    const t = extractCleanText(r);
+    const t = extractCleanText(b);
     if (!t || t.length > 800) return;
 
     const isMe = sender === "ME";
@@ -796,6 +907,19 @@ async function scanActiveWhatsAppChat(forceRun = false) {
       absoluteLastText = t;
     }
   });
+
+  // Fallback to incomingBubbles if recentMessages didn't capture client text
+  if (!lastClientText && incomingBubbles && incomingBubbles.length > 0) {
+    const lastIncoming = incomingBubbles[incomingBubbles.length - 1];
+    const text = extractCleanText(lastIncoming);
+    if (text) {
+      lastClientText = text;
+      if (!absoluteLastSender) {
+        absoluteLastSender = "CLIENT";
+        absoluteLastText = text;
+      }
+    }
+  }
 
   const trimmedRecent = recentMessages.slice(-8);
 
@@ -824,13 +948,14 @@ async function scanActiveWhatsAppChat(forceRun = false) {
     if (custInput) custInput.value = activeTitle;
     if (custDisp) custDisp.textContent = activeTitle || "Active Contact";
     if (blockIfNotCustomer(activeTitle)) {
-      if (forceRun) {   // Rescan re-reads the customer list (GET /api/state, no chat content); it does not analyse
+      if (forceRun) {
         backendDenied.delete(activeTitle);
         refreshStateFromBackend();
       }
       return;
     }
     refreshClientMemoryPill(activeTitle, forceRun);
+    updateAddCustomerBtn(activeTitle);
 
     if (absoluteLastSender === "ME") {
       // You sent the last message!
@@ -879,7 +1004,6 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         return;
       }
       if (!forceRun) {
-        // Chat switch / new message: stay local. The customer's text is sent only when Analyse/Rescan is clicked.
         lastAnalysis = null;
         const draftEl = document.getElementById("cc-draft-output");
         const tabsEl = document.getElementById("cc-reply-tabs");
@@ -888,7 +1012,7 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         const lmStatus = document.getElementById("cc-lm-status");
         if (titleEl) titleEl.textContent = `💬 New message from ${activeTitle}`;
         if (badgeEl) badgeEl.textContent = "Needs Reply";
-        if (draftEl && chatSwitched) draftEl.value = "";   // keep a draft the user is typing in this same chat
+        if (draftEl && chatSwitched) draftEl.value = "";
         if (tabsEl) tabsEl.innerHTML = "";
         if (bigBtn) bigBtn.textContent = "✅ Insert Selected Reply";
         if (paramBox) paramBox.style.display = "none";
@@ -1118,7 +1242,10 @@ function createSidebar() {
             <span id="cc-customer-display" style="font-weight:700; font-size:13px; color:#042970; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">No Chat Open</span>
             <span id="cc-mem-pill" style="font-size:10px; padding:2px 7px; border-radius:999px; background:#E6EEFF; color:#0152FC; font-weight:700; white-space:nowrap;">Client Ready</span>
           </div>
-          <button class="cc-sec-btn" id="cc-read-dom-btn" style="padding:3px 8px; font-size:10px;" title="Rescan WhatsApp DOM">🔄 Rescan</button>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <button class="cc-sec-btn" id="cc-add-cust-btn" style="padding:3px 8px; font-size:10px; background:#10B981; color:#fff; border:none; border-radius:6px; font-weight:700; cursor:pointer; display:none;" title="Add this contact as customer">➕ Add Customer</button>
+            <button class="cc-sec-btn" id="cc-read-dom-btn" style="padding:3px 8px; font-size:10px;" title="Rescan WhatsApp DOM">🔄 Rescan</button>
+          </div>
         </div>
 
         <div id="cc-msg-snippet" style="font-size:11px; color:#64748B; margin-top:6px; padding:6px 8px; background:#F8FAFC; border-radius:8px; border:1px solid #D5DFEE; font-style:italic; line-height:1.3; max-height:42px; overflow:hidden; text-overflow:ellipsis;">
@@ -1245,6 +1372,14 @@ function createSidebar() {
   // Automatically dock sidebar and resize WhatsApp viewport on initial load
   applyWhatsAppLayoutResize(false);
 
+  const addCustBtn = document.getElementById("cc-add-cust-btn");
+  if (addCustBtn) {
+    addCustBtn.addEventListener("click", () => {
+      const title = currentActiveChat || getActiveChatTitle() || document.getElementById("cc-customer-input")?.value?.trim();
+      if (title && isKnownCustomer(title)) return;
+      addCurrentAsCustomer();
+    });
+  }
   document.getElementById("cc-read-dom-btn").addEventListener("click", () => scanActiveWhatsAppChat(true));
   document.getElementById("cc-big-action-btn").addEventListener("click", executePrimaryAction);
 
@@ -1296,6 +1431,18 @@ function createSidebar() {
       }
     }
   }, 3000);
+
+  // Heartbeat interval to guarantee chat detection across virtual lists (from WA_extension)
+  setInterval(() => {
+    if (!isAnalyzing) {
+      scanActiveWhatsAppChat(false);
+    }
+  }, 1000);
+
+  // Initial trigger after sidebar creation (from WA_extension)
+  setTimeout(() => {
+    scanActiveWhatsAppChat(false);
+  }, 800);
 }
 
 const fmtRm = (n) => `RM ${Number(n || 0).toLocaleString()}`;
@@ -1313,11 +1460,42 @@ function renderSalesCard() {
     : "No reps yet");
 }
 
+function getLocalSavedCustomers() {
+  try {
+    const raw = localStorage.getItem("cc_local_customers");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalCustomer(customerObj) {
+  try {
+    const list = getLocalSavedCustomers();
+    const key = cleanCustomerName(customerObj.name).toLowerCase();
+    if (!list.some(c => cleanCustomerName(c.name).toLowerCase() === key)) {
+      list.push(customerObj);
+      localStorage.setItem("cc_local_customers", JSON.stringify(list));
+    }
+  } catch (e) {}
+}
+
 async function refreshStateFromBackend() {
   let ok = false;
   try {
     const state = await ccApiRequest("/api/state", "GET");
-    knownCustomers = Array.isArray(state && state.customers) ? state.customers : null;
+    const backendCustomers = Array.isArray(state && state.customers) ? state.customers : [];
+    // Merge with any locally added customers and localStorage so newly added customers are never dropped
+    const localSaved = getLocalSavedCustomers();
+    const existingKeys = new Set(backendCustomers.map(c => cleanCustomerName(c.name).toLowerCase()));
+    const kept = [...(knownCustomers || []), ...localSaved].filter(c => !existingKeys.has(cleanCustomerName(c.name).toLowerCase()));
+    const seen = new Set();
+    const dedupeKept = [];
+    for (const c of kept) {
+      const k = cleanCustomerName(c.name).toLowerCase();
+      if (!seen.has(k)) { seen.add(k); dedupeKept.push(c); }
+    }
+    knownCustomers = [...backendCustomers, ...dedupeKept];
     knownDeals = Array.isArray(state && state.deals) ? state.deals : [];
     knownReps = Array.isArray(state && state.reps) ? state.reps : [];
     knownProducts = Array.isArray(state && state.products) ? state.products : [];
@@ -1576,8 +1754,12 @@ function analysisItems(a) {
 }
 
 async function executePrimaryAction() {
-  if (gateState) {   // blocked contact: the big button adds the customer (or does nothing offline), never inserts a reply
-    if (gateState === "not_customer") addCurrentAsCustomer();
+  if (gateState) {   // blocked contact: the big button adds the customer (or retries refresh when offline), never inserts a reply
+    if (gateState === "not_customer") {
+      addCurrentAsCustomer();
+    } else if (gateState === "offline") {
+      refreshStateFromBackend();
+    }
     return;
   }
   const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
