@@ -61,9 +61,14 @@
       const req = backendApprovals.find(a => a.id === id);
       if (!req) return;
       if (decision === 'REJECT') {
-        const note = prompt(`Reject #AP-${id}: "${req.summary}"?\n\nOptional note for Staff:`, '');
-        if (note === null) return;
-        backendAction(`/api/approvals/${id}/decide`, { decision, note }, `Rejected #AP-${id}. Nothing was changed.`);
+        askUserConfirm(
+          `Reject Staff Request #AP-${id}`,
+          `${req.summary}\n\nReason it needed you: ${req.reason}\n\nRejecting changes nothing. Staff will see your note.`,
+          note => backendAction(`/api/approvals/${id}/decide`, { decision, note }, `Rejected #AP-${id}. Nothing was changed.`),
+          'Reject request',
+          true,
+          true
+        );
         return;
       }
       askUserConfirm(

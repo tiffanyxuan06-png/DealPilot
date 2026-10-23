@@ -363,9 +363,24 @@ function renderDealsView() {
       ? (d.marginOk ? `<span class="text-xs text-emerald-700">${d.marginPct || 25}% margin</span>` : `<span class="text-xs font-semibold text-rose-700">${d.marginPct || 10}% margin · below floor</span>`)
       : (d.marginOk ? `<span class="text-xs text-emerald-700">Margin OK</span>` : `<span class="text-xs font-semibold text-amber-700">Needs Owner OK</span>`);
 
+    // Owner approval state for this deal (the backend names the deal as "#ID (Customer)" in the summary)
+    const forDeal = (typeof backendApprovals !== 'undefined' ? backendApprovals : []).filter(a => a.summary.includes(`#${d.id} (`));
+    const waiting = forDeal.find(a => a.status === 'PENDING');
+    const turnedDown = !waiting && forDeal[0]?.status === 'REJECTED' ? forDeal[0] : null;
+    if (waiting) primaryBtn = `<span class="cc-pill cc-pill-warn !py-1.5 !px-3"><svg aria-hidden="true"><use href="#i-clock"/></svg>Waiting for Owner</span>`;
+    const approvalNote = waiting ? `
+          <div class="deal-approval is-waiting" role="status">
+            <svg aria-hidden="true"><use href="#i-shield"/></svg>
+            <div><b>Sent to the Owner.</b> ${escapeHtmlText(waiting.summary)}<br><span>#AP-${waiting.id} · ${escapeHtmlText(waiting.reason)}. We'll update this when they decide.</span></div>
+          </div>` : turnedDown ? `
+          <div class="deal-approval is-rejected" role="status">
+            <svg aria-hidden="true"><use href="#i-x"/></svg>
+            <div><b>Owner said no.</b> ${escapeHtmlText(turnedDown.summary)}${turnedDown.decisionNote ? `<br><span>Note: ${escapeHtmlText(turnedDown.decisionNote)}</span>` : ''}</div>
+          </div>` : '';
+
     const followText = noEmoji(d.followUpText);
     return `
-      <div class="deal-row ${isFollowUp ? 'is-attention' : ''}">
+      <div class="deal-row ${isFollowUp || waiting ? 'is-attention' : ''}">
         <div class="min-w-0 flex-1 space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
             <span class="deal-id">${d.id}</span>
@@ -378,9 +393,10 @@ function renderDealsView() {
             ${d.paused ? `<span class="deal-meta !text-[#93370D]"><svg aria-hidden="true"><use href="#i-alert"/></svg>Follow-ups paused (complaint)</span>` : (followText ? `<span class="deal-meta ${isFollowUp ? '!text-[#93370D]' : ''}"><svg aria-hidden="true"><use href="#i-clock"/></svg>${escapeHtmlText(followText)}</span>` : '')}
           </div>
           <div class="text-[13px] text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
+          ${approvalNote}
           <div class="deal-actions">
             <button onclick="openPdfForDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-file"/></svg>PDF</button>
-            ${!isWon && !isLost ? `
+            ${!isWon && !isLost && !waiting ? `
               <button onclick="markWonDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-check"/></svg>Mark won</button>
               <button onclick="discountDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-sparkle"/></svg>Discount</button>
               <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="deal-act">${d.paused ? 'Resume follow-ups' : 'Pause (complaint)'}</button>

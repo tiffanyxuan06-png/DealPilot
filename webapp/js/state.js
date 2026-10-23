@@ -12,8 +12,10 @@ let currentRole = 'OWNER';
     let currentVerifyInvId = null;
     let pendingUniversalConfirmFn = null;
 
-    function askUserConfirm(title, message, onConfirmCallback, okBtnText = '✅ Yes, Confirm & Proceed', isDanger = false) {
+    function askUserConfirm(title, message, onConfirmCallback, okBtnText = '✅ Yes, Confirm & Proceed', isDanger = false, withNote = false) {
       document.getElementById('uconf-title').textContent = title;
+      document.getElementById('uconf-note-wrap').classList.toggle('hidden', !withNote);
+      document.getElementById('uconf-note').value = '';
       document.getElementById('uconf-message').textContent = message;
       const okBtn = document.getElementById('uconf-ok-btn');
       if (okBtn) {
@@ -33,9 +35,10 @@ let currentRole = 'OWNER';
 
     function proceedUniversalConfirm() {
       const fn = pendingUniversalConfirmFn;
+      const note = document.getElementById('uconf-note').value.trim();
       closeUniversalConfirm();
       if (typeof fn === 'function') {
-        fn();
+        fn(note);
       }
     }
 
