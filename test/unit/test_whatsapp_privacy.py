@@ -288,3 +288,21 @@ def test_memory_lookup_only_rates_registered_customers(client, ai):
     assert stranger["intent"] == "NOT_A_CUSTOMER" and stranger["clientMemory"]["tier"] == "NEW_CLIENT"
     real = client.get("/api/client/memory", params={"customer": TAN_PHONE, "phone": "60123456789"}).json()
     assert real["tier"] == memory_row(TAN)[0] and real["customer"] == TAN
+
+
+# --- Demo switch: CUSTOMERS_ONLY=false turns the guard off (backend/config.py) ---
+
+
+def test_guard_is_on_by_default(client, ai):
+    assert client.get("/api/state").json()["company"]["customersOnly"] is True
+    assert analyze(client, STRANGER, BUYING)["intent"] == "NOT_A_CUSTOMER"
+
+
+def test_demo_mode_reads_every_chat_and_adds_the_contact(client, ai, monkeypatch):
+    monkeypatch.setenv("CUSTOMERS_ONLY", "false")
+    assert client.get("/api/state").json()["company"]["customersOnly"] is False
+    a = analyze(client, STRANGER, BUYING, phone="+60199990000")
+    assert a["intent"] == "BUYING_INQUIRY" and a.get("isCustomer") is not False
+    names = [c["name"] for c in client.get("/api/state", headers={"X-CashChase-Role": "OWNER"}).json()["customers"]]
+    assert STRANGER in names
+    assert "demo mode: CUSTOMERS_ONLY=false" in audit_text()

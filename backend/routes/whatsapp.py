@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.config import get_settings
 from backend.db import orm, session_scope
 from backend.models.enums import OPEN_STAGES, DealAction
 from backend.models.requests import (
@@ -27,6 +28,7 @@ from backend.services.business import load_business
 from backend.services.clock import now_stamp, now_time_str
 from backend.services.customers import (
     apply_tin,
+    customer_key,
     find_customer,
     get_customer,
     parse_ssm,
@@ -72,7 +74,12 @@ def _resolve_customer(customer: str, phone: str) -> Tuple[str, str, bool]:
     with session_scope() as s:
         row = find_customer(s, customer, phone)
         if row is None:
-            return customer, phone, False
+            if get_settings().customers_only or not customer_key(customer):
+                return customer, phone, False
+            # Demo mode (CUSTOMERS_ONLY=false): every chat counts as a customer.
+            upsert_customer(s, customer, now_time_str(), phone=phone)
+            log(s, f"[SYSTEM] Added {clean_customer_name(customer)} as a customer (demo mode: CUSTOMERS_ONLY=false).")
+            return customer_key(customer), phone, True
         if not row.phone:  # a number that belongs to another customer is not this one's
             other = find_customer(s, "", phone)
             phone = "" if other and other.name != row.name else phone

@@ -265,6 +265,7 @@ def build_state(role: Optional[str] = None) -> StatePayload:
                 lmstudio_url=ai["base_url"],
                 lmstudio_api_key=ai["api_key"] if ai["provider"] == "lmstudio" else "",
                 lmstudio_model=ai["model"],
+                customers_only=get_settings().customers_only,
             ),
             products=products,
             reps=reps,

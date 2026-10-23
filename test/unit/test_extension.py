@@ -614,3 +614,13 @@ def test_demo_client_memory_has_no_made_up_rm_or_percent_figures(customer):
     memory = json.loads(result["memory"])
     words = f"{memory['styleSummary']} {memory['paymentBehavior']}"
     assert "RM" not in words and "%" not in words and not re.search(r"\d", words), words
+
+
+def test_demo_mode_reads_a_friend_chat_like_a_customer():
+    """Backend CUSTOMERS_ONLY=false (company.customersOnly false): no "Not a customer" gate; Rescan analyses."""
+    out = run_scenario("cust_customer_chat", title="Mum", state={"company": {"customersOnly": False}})
+    result = out["result"]
+    assert out["errors"] == []
+    assert result["shown"]["badge"] != "Not a customer" and result["shown"]["button"] != "➕ Add as customer"
+    assert result["afterOpen"] == []  # opening the chat still sends nothing until Rescan
+    assert ("POST", ANALYZE) in paths(result["sent"])

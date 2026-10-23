@@ -19,6 +19,7 @@ class Company(ApiModel):
     lmstudio_url: str
     lmstudio_api_key: str  # empty when RunPod is used: its key stays on the server
     lmstudio_model: str
+    customers_only: bool = True  # False = demo mode: the extension reads every chat
 
 
 class StageTotals(ApiModel):
