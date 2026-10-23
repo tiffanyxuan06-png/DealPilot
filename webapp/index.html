@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_8" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_9" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -241,7 +241,7 @@
             <span id="badge-pipeline" class="nav-badge">0</span>
           </button>
           <button id="nav-deals" onclick="switchPage('deals')" class="nav-item i-flip">
-            <svg><use href="#i-file"/></svg><span class="nav-text">Deals & Quotes</span>
+            <svg><use href="#i-file"/></svg><span id="nav-text-deals" class="nav-text">Deals & Quotes</span>
             <span id="badge-deals" class="nav-badge">0</span>
           </button>
           <button id="nav-catalog" onclick="switchPage('catalog')" class="nav-item i-hop">
@@ -331,7 +331,7 @@
             <span id="pipeline-hero-pill" class="cc-pill cc-pill-cyan">Pipeline</span>
             <h1 id="pipeline-hero-title" class="cc-h1 mt-2">Every deal, from chat to order.</h1>
             <p id="pipeline-hero-sub" class="cc-sub mt-1">See what is quoted, what needs a follow-up and what you won this month.</p>
-            <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
+            <button id="pipeline-log-btn" onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
           </div>
           <img src="img/mascot-wave.png" alt="" width="295" height="320" class="cc-hero-art m-wave" aria-hidden="true" />
         </section>
@@ -487,11 +487,11 @@
       <div id="page-deals" class="hidden space-y-6">
         <section class="cc-card cc-hero reveal">
           <div class="min-w-0">
-            <span class="cc-pill">Deals</span>
-            <h1 class="cc-h1 mt-2">One next step per deal.</h1>
-            <p class="cc-sub mt-1">Send the quote, follow up, or close it. Discounts below your margin go to the Owner.</p>
+            <span id="deals-hero-pill" class="cc-pill">Deals</span>
+            <h1 id="deals-hero-title" class="cc-h1 mt-2">One next step per deal.</h1>
+            <p id="deals-hero-sub" class="cc-sub mt-1">Send the quote, follow up, or close it. Discounts below your margin go to the Owner.</p>
             <div class="flex flex-wrap gap-2 mt-4">
-              <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
+              <button id="deals-log-btn" onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
               <button onclick="downloadWonOrdersCsv()" class="cc-btn cc-btn-ghost i-hop"><svg><use href="#i-download"/></svg>Won orders CSV</button>
             </div>
           </div>
@@ -1199,17 +1199,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_8"></script>
-  <script src="js/inspector.js?v=20261023_8"></script>
-  <script src="js/dashboard.js?v=20261023_8"></script>
-  <script src="js/copilot.js?v=20261023_8"></script>
-  <script src="js/company_ai.js?v=20261023_8"></script>
-  <script src="js/pdf_export.js?v=20261023_8"></script>
-  <script src="js/team.js?v=20261023_8"></script>
-  <script src="js/onboarding.js?v=20261023_8"></script>
-  <script src="js/main.js?v=20261023_8"></script>
-  <script src="js/ui.js?v=20261023_8"></script>
-  <script src="js/auth.js?v=20261023_8"></script>
+  <script src="js/state.js?v=20261023_9"></script>
+  <script src="js/inspector.js?v=20261023_9"></script>
+  <script src="js/dashboard.js?v=20261023_9"></script>
+  <script src="js/copilot.js?v=20261023_9"></script>
+  <script src="js/company_ai.js?v=20261023_9"></script>
+  <script src="js/pdf_export.js?v=20261023_9"></script>
+  <script src="js/team.js?v=20261023_9"></script>
+  <script src="js/onboarding.js?v=20261023_9"></script>
+  <script src="js/main.js?v=20261023_9"></script>
+  <script src="js/ui.js?v=20261023_9"></script>
+  <script src="js/auth.js?v=20261023_9"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

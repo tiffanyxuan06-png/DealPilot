@@ -100,6 +100,8 @@ function renderPipelineView() {
   const heroCopy = currentRole === 'OWNER'
     ? ['Pipeline', 'How the business is doing.', 'Paid orders, open deals and each rep\'s results this month.']
     : ['My day', 'Your follow-ups and wins today.', 'Send the reminders that are due, then close the deals that are ready.'];
+  const logBtn = document.getElementById('pipeline-log-btn');
+  if (logBtn) logBtn.style.display = currentRole === 'OWNER' ? 'none' : '';  // .cc-btn's display beats .hidden
   [['pipeline-hero-pill', 0], ['pipeline-hero-title', 1], ['pipeline-hero-sub', 2]].forEach(([id, n]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = heroCopy[n];
@@ -112,6 +114,8 @@ function renderPipelineView() {
   // Update header text
   const navText = document.getElementById('nav-text-pipeline');
   if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My Day';
+  const navDeals = document.getElementById('nav-text-deals');
+  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals & Quotes';
 
   const badgePipeline = document.getElementById('badge-pipeline');
   if (badgePipeline) {
@@ -424,6 +428,14 @@ function renderDealsView() {
   const deals = st.deals || [];
   const reps = st.reps || [];
 
+  // The Owner reads every deal; the reps do the quoting and chasing on their own deals
+  const dealsCopy = isOwner
+    ? ['All deals', 'Every deal, every rep.', 'Read-only. Reps send the quotes and follow-ups; discounts and lost deals that need you come as approvals on the Pipeline page.']
+    : ['Deals', 'One next step per deal.', 'Send the quote, follow up, or close it. Discounts below your margin go to the Owner.'];
+  [['deals-hero-pill', 0], ['deals-hero-title', 1], ['deals-hero-sub', 2]].forEach(([id, n]) => { const el = document.getElementById(id); if (el) el.textContent = dealsCopy[n]; });
+  const dealsLog = document.getElementById('deals-log-btn');
+  if (dealsLog) dealsLog.style.display = isOwner ? 'none' : '';
+
   // Staff only get their own deals, so the rep filter is the Owner's alone
   const repFilter = document.getElementById('deals-rep-filter');
   if (repFilter) repFilter.classList.toggle('hidden', !isOwner);
@@ -480,9 +492,11 @@ function renderDealsView() {
 
     const meta = STAGE_META[d.stage] || STAGE_META.INQUIRY;
 
-    // Primary action button based on stage
+    // Primary action button based on stage (the Owner sees where the deal is instead)
     let primaryBtn = '';
-    if (d.stage === 'INQUIRY') {
+    if (isOwner && !isWon && !isLost) {
+      primaryBtn = `<span class="cc-pill !py-1.5 !px-3" style="${meta.pill}">${d.stage === 'INQUIRY' ? 'Not quoted yet' : d.stage === 'QUOTED' ? 'Quote sent' : 'Follow-up due'}</span>`;
+    } else if (d.stage === 'INQUIRY') {
       primaryBtn = `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-send"/></svg>Send quote</button>`;
     } else if (d.stage === 'QUOTED') {
       primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary">Follow up</button>`;
@@ -516,7 +530,7 @@ function renderDealsView() {
 
     const followText = noEmoji(d.followUpText);
     return `
-      <div class="deal-row ${isFollowUp || waiting ? 'is-attention' : ''}">
+      <div class="deal-row ${(isFollowUp && !isOwner) || waiting ? 'is-attention' : ''}">
         <div class="min-w-0 flex-1 space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
             <span class="deal-id">${d.id}</span>
@@ -533,14 +547,14 @@ function renderDealsView() {
           ${approvalNote}
           <div class="deal-actions">
             <button onclick="openPdfForDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-file"/></svg>PDF</button>
-            ${!isWon && !isLost && !waiting ? `
+            ${!isOwner && !isWon && !isLost && !waiting ? `
               <button onclick="markWonDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-check"/></svg>Mark won</button>
               <button onclick="discountDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-sparkle"/></svg>Discount</button>
               <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="deal-act">${d.paused ? 'Resume follow-ups' : 'Pause (complaint)'}</button>
               <button onclick="markLostDeal('${d.id}')" class="deal-act is-danger">Mark lost</button>
             ` : ''}
             ${isWon && isOwner ? `<button onclick="cancelWonDeal('${d.id}')" class="deal-act is-danger">Cancel order</button>` : ''}
-            <button onclick="setTinDeal('${d.id}')" class="deal-act">Add TIN</button>
+            ${isOwner ? '' : `<button onclick="setTinDeal('${d.id}')" class="deal-act">Add TIN</button>`}
           </div>
         </div>
 
@@ -907,7 +921,7 @@ function renderCommissionView() {
   say('comm-pay-label', 'Commission to pay', 'Your commission');
   say('comm-pay-note', 'Owed across all reps', 'Estimated; the Owner confirms your pay');
   const addRep = document.getElementById('comm-add-rep');
-  if (addRep) addRep.classList.toggle('hidden', !isOwner);
+  if (addRep) addRep.style.display = isOwner ? '' : 'none';
 
   const totalWon = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
   const totalComm = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);
