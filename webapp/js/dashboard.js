@@ -392,6 +392,7 @@ function renderDealsView() {
             ${d.phone ? `<span class="deal-meta"><svg aria-hidden="true"><use href="#i-chat"/></svg>${escapeHtmlText(d.phone)}</span>` : ''}
             ${d.paused ? `<span class="deal-meta !text-[#93370D]"><svg aria-hidden="true"><use href="#i-alert"/></svg>Follow-ups paused (complaint)</span>` : (followText ? `<span class="deal-meta ${isFollowUp ? '!text-[#93370D]' : ''}"><svg aria-hidden="true"><use href="#i-clock"/></svg>${escapeHtmlText(followText)}</span>` : '')}
           </div>
+          ${!isWon && !isLost && d.followUpCount > 0 ? `<div class="deal-meta ${d.followUpCount >= 3 ? '!text-[#B42318]' : ''}"><svg aria-hidden="true"><use href="#i-chat"/></svg>${d.followUpCount >= 3 ? `${d.followUpCount} follow-ups sent, no reply. Consider marking it lost.` : `${d.followUpCount} of 3 follow-ups sent`}</div>` : ''}
           <div class="text-[13px] text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
           ${approvalNote}
           <div class="deal-actions">
