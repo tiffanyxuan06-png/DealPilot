@@ -96,7 +96,19 @@ def test_sidebar_builds_and_lists_its_boot_network_calls():
     assert boot_calls(result["bootNetwork"]) == [("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]
 
 
-BOOT_ONLY = [("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]
+def test_demo_login_when_login_is_off():
+    """Same demo accounts as the WebApp: the account's role is what the backend gets; admin needs its password."""
+    out = run_scenario("demo_login")
+    r = out["result"]
+    assert out["errors"] == []
+    assert r["before"] == {"login": "block", "demo": "flex"}
+    assert r["staff"] == {"login": "none", "pill": "👤 Staff · aina@sejukjaya.my", "roles": ["STAFF"]}
+    assert r["afterLogout"] == {"login": "block", "email": ""}
+    assert r["adminWrong"] == {"error": "Wrong email or password.", "role": "STAFF", "email": ""}
+    assert r["adminRight"] == {"error": "", "role": "OWNER", "email": "admin@cashchase.my"}
+
+
+BOOT_ONLY =[("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]
 
 
 def test_switching_chats_and_new_messages_send_nothing():

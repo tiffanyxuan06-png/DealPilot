@@ -465,6 +465,35 @@ scenarios.sidebar_boot = async (env) => {
   };
 };
 
+/** Login off: demo sign-in sets the role sent to the backend; sign-out shows the form again. */
+scenarios.demo_login = async (env) => {
+  await env.bootSidebar();
+  const d = env.document;
+  const shown = () => d.getElementById("cc-login").style.display;
+  const before = { login: shown(), demo: d.getElementById("cc-login-demo").style.display };
+  env.network.length = 0;
+  await env.click("cc-demo-staff");
+  const staff = {
+    login: shown(), pill: d.getElementById("cc-user-text").textContent,
+    roles: env.network.filter((n) => n.message && n.message.headers).map((n) => n.message.headers["X-CashChase-Role"])
+  };
+  await env.click("cc-logout-btn");
+  const afterLogout = { login: shown(), email: env.run("getDemoEmail()") };
+  const tryLogin = async (email, password) => {
+    d.getElementById("cc-login-email").value = email;
+    d.getElementById("cc-login-password").value = password;
+    env.run("submitCcLogin({ preventDefault() {} })");
+    await env.settle();
+    const err = d.getElementById("cc-login-error");
+    return { error: err.style.display === "block" ? err.textContent : "", role: env.run("getCcRole()"), email: env.run("getDemoEmail()") };
+  };
+  return {
+    before, staff, afterLogout,
+    adminWrong: await tryLogin("admin@cashchase.my", "wrongpass"),
+    adminRight: await tryLogin("admin@cashchase.my", "admin1234")
+  };
+};
+
 /** Network calls as plain facts: {type, method, path, body}. Boot calls are included. */
 function netSummary(env) {
   return env.network.map((n) => {

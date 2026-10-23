@@ -23,6 +23,31 @@ function setCcRole(role) {
     // storage blocked: the selection lasts for this page only
   }
 }
+
+// Demo accounts (same as the WebApp). Only used when the backend has login off; the role is sent as before.
+const DEMO_ACCOUNTS = {
+  "hafiz@sejukjaya.my": { role: "OWNER", name: "Encik Hafiz" },
+  "aina@sejukjaya.my": { role: "STAFF", name: "Aina" },
+  "admin@cashchase.my": { role: "OWNER", name: "Admin", password: "admin1234" }
+};
+let ccLoginEnabled = false; // true when the backend has Supabase login on
+
+function getDemoEmail() {
+  try {
+    return localStorage.getItem("cashchase_demo_email") || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function setDemoEmail(email) {
+  try {
+    if (email) localStorage.setItem("cashchase_demo_email", email);
+    else localStorage.removeItem("cashchase_demo_email");
+  } catch (e) {
+    // storage blocked: signed in for this page only
+  }
+}
 let lastAnalysis = null;
 let currentActiveChat = "";
 let lastProcessedActiveMsg = "";
@@ -108,16 +133,19 @@ function sendToBackground(message) {
   });
 }
 
-// status: { enabled, email, role } — login form when login is on and nobody is signed in.
+// status: { enabled, email, role } — login form when nobody is signed in. With login off it takes the demo accounts.
 function showCcAuth(status) {
-  const enabled = !!(status && status.enabled);
+  ccLoginEnabled = !!(status && status.enabled);
+  if (!ccLoginEnabled && getDemoEmail()) status = { email: getDemoEmail(), role: getCcRole() };
   const signedIn = !!(status && status.email);
   const loginBox = document.getElementById("cc-login");
-  const roleSelect = document.getElementById("cc-role-select");
   const userPill = document.getElementById("cc-user-pill");
   if (!loginBox) return;
-  loginBox.style.display = enabled && !signedIn ? "block" : "none";
-  if (roleSelect) roleSelect.style.display = enabled ? "none" : "";  // with login on, the role is the account's
+  loginBox.style.display = signedIn ? "none" : "block";
+  const sub = document.getElementById("cc-login-sub");
+  if (sub) sub.textContent = ccLoginEnabled ? "Same email and password as the WebApp." : "Demo: pick an account below, or admin@cashchase.my / admin1234.";
+  const demo = document.getElementById("cc-login-demo");
+  if (demo) demo.style.display = ccLoginEnabled ? "none" : "flex";
   userPill.style.display = signedIn ? "flex" : "none";
   if (signedIn) {
     document.getElementById("cc-user-text").textContent =
@@ -134,6 +162,25 @@ async function submitCcLogin(event) {
   const errorEl = document.getElementById("cc-login-error");
   const button = document.getElementById("cc-login-submit");
   errorEl.style.display = "none";
+  if (!ccLoginEnabled) {
+    const email = document.getElementById("cc-login-email").value.trim().toLowerCase();
+    const password = document.getElementById("cc-login-password").value;
+    const account = DEMO_ACCOUNTS[email];
+    const error = !account ? "No demo account with that email."
+      : password.length < 6 ? "That password is too short."
+        : account.password && password !== account.password ? "Wrong email or password." : "";
+    if (error) {
+      errorEl.textContent = error;
+      errorEl.style.display = "block";
+      return;
+    }
+    setCcRole(account.role);
+    setDemoEmail(email);
+    document.getElementById("cc-login-password").value = "";
+    showCcAuth({ enabled: false });
+    refreshStateFromBackend();
+    return;
+  }
   button.disabled = true;
   const resp = await sendToBackground({
     type: "CC_AUTH_LOGIN",
@@ -152,8 +199,19 @@ async function submitCcLogin(event) {
 }
 
 async function ccLogout() {
+  if (!ccLoginEnabled) {
+    setDemoEmail("");
+    showCcAuth({ enabled: false });
+    return;
+  }
   await sendToBackground({ type: "CC_AUTH_LOGOUT" });
   showCcAuth({ enabled: true });
+}
+
+function ccDemoLogin(email) {
+  document.getElementById("cc-login-email").value = email;
+  document.getElementById("cc-login-password").value = "demo1234";
+  submitCcLogin({ preventDefault() {} });
 }
 
 // Mirrors backend clean_customer_name: drop (tags) / [tags], then trim spaces and !?,.:;*#-_"' from both ends.
@@ -1208,10 +1266,6 @@ function createSidebar() {
         </div>
       </div>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
-        <select id="cc-role-select" title="Acting as (permissions are checked by the backend)" style="font-size:10px; font-weight:700; border-radius:6px; border:1px solid rgba(255,255,255,0.35); background:rgba(255,255,255,0.15); color:#fff; padding:1px 4px; cursor:pointer;">
-          <option value="OWNER" style="color:#042970;">👑 Owner</option>
-          <option value="STAFF" style="color:#042970;">👤 Staff</option>
-        </select>
         <div id="cc-user-pill" style="display:none; align-items:center; gap:4px; font-size:10px; color:#fff;">
           <span id="cc-user-text" style="font-weight:700; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>
           <button id="cc-logout-btn" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); color:#fff; border-radius:6px; padding:1px 5px; font-size:10px; cursor:pointer;">Log out</button>
@@ -1221,10 +1275,14 @@ function createSidebar() {
       </div>
     </div>
 
-    <!-- Login (shown when the backend has Supabase login on and nobody is signed in) -->
+    <!-- Login (shown when nobody is signed in: Supabase accounts with login on, demo accounts with login off) -->
     <div id="cc-login" style="display:none; padding:12px; background:#F2F6FF; border-bottom:1px solid #D5DFEE;">
       <div style="font-weight:700; font-size:12px; color:#042970; margin-bottom:2px;">🔒 Log in to CashChase</div>
-      <div style="font-size:11px; color:#64748B; margin-bottom:8px;">Same email and password as the WebApp.</div>
+      <div id="cc-login-sub" style="font-size:11px; color:#64748B; margin-bottom:8px;">Same email and password as the WebApp.</div>
+      <div id="cc-login-demo" style="display:none; gap:6px; margin-bottom:8px;">
+        <button type="button" id="cc-demo-owner" style="flex:1; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:6px; font-size:11px; font-weight:700; border-radius:8px; cursor:pointer;">👑 Owner (Hafiz)</button>
+        <button type="button" id="cc-demo-staff" style="flex:1; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:6px; font-size:11px; font-weight:700; border-radius:8px; cursor:pointer;">👤 Staff (Aina)</button>
+      </div>
       <form id="cc-login-form" style="display:flex; flex-direction:column; gap:6px;">
         <input id="cc-login-email" class="cc-input" type="email" required placeholder="Email" autocomplete="email" />
         <input id="cc-login-password" class="cc-input" type="password" required placeholder="Password" autocomplete="current-password" />
@@ -1326,11 +1384,8 @@ function createSidebar() {
     document.body.appendChild(reopenBtn);
   }
 
-  const roleSelect = document.getElementById("cc-role-select");
-  if (roleSelect) {
-    roleSelect.value = getCcRole();
-    roleSelect.addEventListener("change", () => setCcRole(roleSelect.value));
-  }
+  document.getElementById("cc-demo-owner").addEventListener("click", () => ccDemoLogin("hafiz@sejukjaya.my"));
+  document.getElementById("cc-demo-staff").addEventListener("click", () => ccDemoLogin("aina@sejukjaya.my"));
   document.getElementById("cc-login-form").addEventListener("submit", submitCcLogin);
   document.getElementById("cc-logout-btn").addEventListener("click", ccLogout);
   refreshCcAuth();
