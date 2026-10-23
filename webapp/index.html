@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_6" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_7" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -674,7 +674,7 @@
             <li class="flex items-center gap-2"><span class="step-num">2</span>Pick a reply in the extension</li>
             <li class="flex items-center gap-2"><span class="step-num">3</span>Press the blue button</li>
             <li class="flex items-center gap-2 ml-auto">
-              <button onclick="openSettingsModal(); setTimeout(() => { const el = document.getElementById('multi-agent-inspector-card'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 150);" class="text-sm font-semibold text-[#0152FC] hover:underline">See agent prompts</button>
+              <button onclick="openSettingsModal('advanced');" class="text-sm font-semibold text-[#0152FC] hover:underline">See agent prompts</button>
             </li>
           </ol>
         </section>
@@ -858,18 +858,25 @@
   </div>
 
   <div id="settings-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div class="cc-modal max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
-      <div class="flex items-start justify-between gap-4 border-b border-[#DCE4F2] pb-4">
-        <div class="flex items-center gap-3">
-          <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-16 h-auto m-laptop" aria-hidden="true" />
-          <div>
-            <h2 id="settings-title" class="text-lg font-bold text-[#042970]">Business profile &amp; AI rules</h2>
-            <p class="cc-sub">Pick your business type, choose a pricing preset, or inspect the AI prompts.</p>
-          </div>
+    <div class="cc-modal set-shell">
+      <header class="set-head">
+        <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-14 h-auto m-laptop" aria-hidden="true" />
+        <div class="min-w-0 flex-1">
+          <h2 id="settings-title" class="text-lg font-bold text-[#042970]">Settings</h2>
+          <p class="cc-sub">Set up your business, choose what your team can do, and tune the AI. Changes save as you go.</p>
         </div>
         <button onclick="closeSettingsModal()" class="cc-close" aria-label="Close settings"><svg><use href="#i-x"/></svg></button>
-      </div>
-
+      </header>
+      <div class="set-body">
+        <nav class="set-rail" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+          <button type="button" role="tab" id="stab-business" aria-controls="spanel-business" aria-selected="true" onclick="showSettingsTab('business')" class="set-tab is-active"><span class="set-tab-ico"><svg aria-hidden="true"><use href="#i-sparkle"/></svg></span><span class="set-tab-txt"><b>Business</b><small>Type, setup, follow-up time</small></span></button>
+          <button type="button" role="tab" id="stab-team" aria-controls="spanel-team" aria-selected="false" onclick="showSettingsTab('team')" class="set-tab"><span class="set-tab-ico"><svg aria-hidden="true"><use href="#i-users"/></svg></span><span class="set-tab-txt"><b>Team & permissions</b><small>What Staff can do</small></span></button>
+          <button type="button" role="tab" id="stab-pricing" aria-controls="spanel-pricing" aria-selected="false" onclick="showSettingsTab('pricing')" class="set-tab"><span class="set-tab-ico"><svg aria-hidden="true"><use href="#i-box"/></svg></span><span class="set-tab-txt"><b>Pricing & AI rules</b><small>Presets and what the AI follows</small></span></button>
+          <button type="button" role="tab" id="stab-activity" aria-controls="spanel-activity" aria-selected="false" onclick="showSettingsTab('activity')" class="set-tab"><span class="set-tab-ico"><svg aria-hidden="true"><use href="#i-clock"/></svg></span><span class="set-tab-txt"><b>Activity</b><small>Who did what</small></span></button>
+          <button type="button" role="tab" id="stab-advanced" aria-controls="spanel-advanced" aria-selected="false" onclick="showSettingsTab('advanced')" class="set-tab"><span class="set-tab-ico"><svg aria-hidden="true"><use href="#i-gear"/></svg></span><span class="set-tab-txt"><b>Advanced</b><small>AI prompts and connection</small></span></button>
+        </nav>
+        <div class="set-panels">
+          <section id="spanel-business" role="tabpanel" aria-labelledby="stab-business" class="set-panel space-y-4">
       <div class="p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] flex flex-wrap items-center justify-between gap-3">
         <div>
           <div class="font-semibold text-sm text-[#042970]">Active business</div>
@@ -883,7 +890,6 @@
         </select>
       </div>
 
-      <!-- 60-Second Setup: template or own stock list -> starting cash -> hold time & threshold -->
       <section class="cc-panel space-y-4" aria-labelledby="onboarding-title">
         <div class="flex items-start gap-3">
           <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
@@ -895,7 +901,8 @@
         <div id="onboarding-body" class="space-y-4"></div>
       </section>
 
-      <!-- Team & Permissions: Owner decides what Staff can do (enforced by the backend) -->
+          </section>
+          <section id="spanel-team" role="tabpanel" aria-labelledby="stab-team" class="set-panel space-y-4" hidden>
       <section class="cc-panel space-y-4" aria-labelledby="team-perms-title">
         <div class="flex items-start gap-3">
           <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-users"/></svg></span>
@@ -907,21 +914,13 @@
         <div id="team-perms-body" class="space-y-3"></div>
       </section>
 
-      <!-- Activity: every approval, deal change and permission edit -->
-      <section class="cc-panel space-y-3" aria-labelledby="audit-title">
-        <div class="flex items-start gap-3">
-          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-clock"/></svg></span>
-          <div>
-            <h3 id="audit-title" class="font-semibold text-sm text-[#042970]">Activity &amp; audit trail</h3>
-            <p class="text-xs text-[#5B6B85]">Every approval, deal change and permission edit, newest first.</p>
-          </div>
-        </div>
-        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-white p-3 rounded-xl border border-[#DCE4F2]"></div>
-      </section>
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-
-        <div class="lg:col-span-6 p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3 text-xs">
+          </section>
+          <section id="spanel-pricing" role="tabpanel" aria-labelledby="stab-pricing" class="set-panel space-y-4" hidden>
+            <div>
+              <h3 class="font-semibold text-[15px] text-[#042970]">Pricing &amp; AI rules</h3>
+              <p class="text-xs text-[#5B6B85]">Pick a starting point, then edit the rules in plain words. The AI quotes from these.</p>
+            </div>
+        <div class="space-y-4 text-xs">
           <div class="font-semibold text-sm text-[#042970]">Pricing presets</div>
           <div class="grid grid-cols-2 gap-2">
             <button onclick="applyPresetFramework('contractor')" class="cc-tile !p-3">
@@ -956,7 +955,23 @@
           </div>
         </div>
 
-        <div id="multi-agent-inspector-card" class="lg:col-span-6 p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3 text-xs">
+          </section>
+          <section id="spanel-activity" role="tabpanel" aria-labelledby="stab-activity" class="set-panel space-y-4" hidden>
+      <section class="cc-panel space-y-3" aria-labelledby="audit-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-clock"/></svg></span>
+          <div>
+            <h3 id="audit-title" class="font-semibold text-sm text-[#042970]">Activity &amp; audit trail</h3>
+            <p class="text-xs text-[#5B6B85]">Every approval, deal change and permission edit, newest first.</p>
+          </div>
+        </div>
+        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-white p-3 rounded-xl border border-[#DCE4F2]"></div>
+      </section>
+
+          </section>
+          <section id="spanel-advanced" role="tabpanel" aria-labelledby="stab-advanced" class="set-panel space-y-3" hidden>
+            <div class="cc-note"><svg aria-hidden="true"><use href="#i-alert"/></svg><div>For developers. You don't need this to run your business.</div></div>
+        <div id="multi-agent-inspector-card" class="space-y-3 text-xs">
           <div class="flex items-center justify-between gap-2">
             <div class="font-semibold text-sm text-[#042970]">Agent prompt inspector</div>
             <span id="lmstudio-conn-pill" class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">LM Studio Ready</span>
@@ -1007,6 +1022,8 @@
             <span id="inspector-output-tokens" class="text-[11px] text-[#5B6B85] font-mono">Live LLM response</span>
           </div>
           <pre id="llm-output-preview" class="p-3 rounded-xl bg-white border border-[#DCE4F2] text-[#042970] text-xs overflow-x-auto whitespace-pre-wrap font-mono max-h-40 overflow-y-auto"></pre>
+        </div>
+          </section>
         </div>
       </div>
     </div>
@@ -1172,17 +1189,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_6"></script>
-  <script src="js/inspector.js?v=20261023_6"></script>
-  <script src="js/dashboard.js?v=20261023_6"></script>
-  <script src="js/copilot.js?v=20261023_6"></script>
-  <script src="js/company_ai.js?v=20261023_6"></script>
-  <script src="js/pdf_export.js?v=20261023_6"></script>
-  <script src="js/team.js?v=20261023_6"></script>
-  <script src="js/onboarding.js?v=20261023_6"></script>
-  <script src="js/main.js?v=20261023_6"></script>
-  <script src="js/ui.js?v=20261023_6"></script>
-  <script src="js/auth.js?v=20261023_6"></script>
+  <script src="js/state.js?v=20261023_7"></script>
+  <script src="js/inspector.js?v=20261023_7"></script>
+  <script src="js/dashboard.js?v=20261023_7"></script>
+  <script src="js/copilot.js?v=20261023_7"></script>
+  <script src="js/company_ai.js?v=20261023_7"></script>
+  <script src="js/pdf_export.js?v=20261023_7"></script>
+  <script src="js/team.js?v=20261023_7"></script>
+  <script src="js/onboarding.js?v=20261023_7"></script>
+  <script src="js/main.js?v=20261023_7"></script>
+  <script src="js/ui.js?v=20261023_7"></script>
+  <script src="js/auth.js?v=20261023_7"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

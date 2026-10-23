@@ -47,9 +47,35 @@ function switchPage(page) {
   renderAll();
 }
 
-function openSettingsModal() {
+function showSettingsTab(key, focus) {
+  document.querySelectorAll('#settings-modal .set-tab').forEach(t => {
+    const on = t.id === `stab-${key}`;
+    t.classList.toggle('is-active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+    if (on && focus) t.focus();
+  });
+  document.querySelectorAll('#settings-modal .set-panel').forEach(p => { p.hidden = p.id !== `spanel-${key}`; });
+  const box = document.querySelector('#settings-modal .set-panels');
+  if (box) box.scrollTop = 0;
+}
+
+// Arrow keys move between the sections, like a native tab bar
+document.addEventListener('keydown', e => {
+  const tab = e.target.closest && e.target.closest('#settings-modal .set-tab');
+  if (!tab || !['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const tabs = [...document.querySelectorAll('#settings-modal .set-tab')];
+  let i = tabs.indexOf(tab);
+  if (e.key === 'Home') i = 0; else if (e.key === 'End') i = tabs.length - 1;
+  else i = (i + (/Down|Right/.test(e.key) ? 1 : -1) + tabs.length) % tabs.length;
+  e.preventDefault();
+  showSettingsTab(tabs[i].id.replace('stab-', ''), true);
+});
+
+function openSettingsModal(tab) {
   if (typeof renderTeamPermissions === 'function') renderTeamPermissions();
   if (typeof renderOnboarding === 'function') renderOnboarding();
+  showSettingsTab(typeof tab === 'string' ? tab : 'business');
   const m = document.getElementById('settings-modal');
   if (m) m.classList.remove('hidden');
 }
