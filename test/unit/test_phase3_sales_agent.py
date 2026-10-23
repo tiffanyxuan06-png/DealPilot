@@ -188,3 +188,16 @@ def test_photo_quote_extracts_editable_items(client):
     assert "sku" in first and "unitPrice" in first and "lineTotal" in first
     assert r["subtotal"] > 0
     assert "prices valid 7 days" in r["disclaimer"]
+
+
+def test_quote_picks_only_the_named_model(client):
+    # "Daikin 1.5HP" is that one unit, not every Daikin and every 1.5HP; each quantity stays with its item
+    r = client.post("/api/whatsapp/analyze", json={
+        **STAFF,
+        "customer": "Tan Bros Trading",
+        "message": "Boss, need 3 units Panasonic 1.0HP and 2 copper pipe",
+        "strictAi": False,
+    }).json()
+    a = r["analysis"]
+    assert a["amount"] == 3 * 980 + 2 * 150
+    assert a["qty"] == 3

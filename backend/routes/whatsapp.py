@@ -299,6 +299,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             draft_text += disclaimer_str
         fallback["extDraft"] = draft_text
         fallback["replyOptions"] = sales_replies
+        fallback["sku"] = deal_action["sku"]
+        fallback["qty"] = deal_action["qty"]
         if deal_action.get("quotePreview"):
             fallback["amount"] = deal_action["quotePreview"]["total"]
             fallback["items"] = deal_action["quotePreview"]["items"]
@@ -379,6 +381,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             merged["intent"] = "BUYING_INQUIRY"
             merged["extActionType"] = "OFFER_QUOTE"
             merged["extBtnLabel"] = fallback.get("extBtnLabel")
+            merged["sku"] = fallback.get("sku")
+            merged["qty"] = fallback.get("qty", 0)
             if fallback.get("quotePreview"):
                 merged["amount"] = fallback["quotePreview"]["total"]
                 merged["items"] = fallback["quotePreview"]["items"]

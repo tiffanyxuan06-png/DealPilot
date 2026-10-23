@@ -232,6 +232,59 @@ def is_business_message(msg_lower: str, products: List[Any], user_instruction: s
     )
 
 
+_NAME_STOPWORDS = {"unit", "units", "set", "sets", "box", "pack", "carton", "with", "and", "the", "for", "item", "series", "standard"}
+_QTY_WORDS = r"(?:units?|x|sets?|pcs|bottles?|tanks?|cartons?|seats?|boxes?|packs?|biji|buah|tong)"
+
+
+def _name_tokens(text: str) -> List[str]:
+    """Lowercase words, keeping model sizes whole ("1.5hp", "r32", "3kg") and writing HP the same way ("1.0 HP" -> "1hp")."""
+    text = re.sub(r"(\d+(?:\.\d+)?)\s*(?:hp|horse\s*power|kuda)\b", lambda m: f"{float(m.group(1)):g}hp", text.lower())
+    return re.findall(r"[a-z0-9]+(?:\.\d+)?[a-z]*", text)
+
+
+def _best_product(segment_tokens: List[str], products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The one product this part of the message names best. A different HP rules a product out, so
+    "Daikin 1.5HP" is the Daikin 1.5HP only, not every Daikin and every 1.5HP unit."""
+    seg = set(segment_tokens)
+    seg_hp = {t for t in seg if t.endswith("hp")}
+    best, best_score = None, 0
+    for p in products:
+        if p["sku"].lower() in seg:
+            return p
+        tokens = [t for t in _name_tokens(p["name"]) if len(t) >= 2 and t not in _NAME_STOPWORDS]
+        hp = {t for t in tokens if t.endswith("hp")}
+        if seg_hp and hp and not (seg_hp & hp):
+            continue
+        score = sum(1 for t in tokens if t in seg and not t.endswith("hp")) + (2 if hp & seg_hp else 0)
+        if score > best_score:
+            best, best_score = p, score
+    return best
+
+
+def _match_price_list_lines(msg_lower: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Price-list lines the customer asked for: each "<qty> <product words>" part of the message picks one product."""
+    lines: List[Dict[str, Any]] = []
+    # A quantity is a whole number that is not part of a size like "1.5hp" or "r32"
+    qty_re = re.compile(rf"(?<![\w.])(\d+)(?![\d.])\s*{_QTY_WORDS}?\s+(?=[a-z])")
+    starts = list(qty_re.finditer(msg_lower))
+    segments = [(int(m.group(1)), msg_lower[m.end():(starts[i + 1].start() if i + 1 < len(starts) else len(msg_lower))])
+                for i, m in enumerate(starts)]
+    for qty, text in segments:
+        p = _best_product(_name_tokens(text), products) if qty > 0 else None
+        if not p:
+            continue
+        existing = next((ln for ln in lines if ln["item"]["sku"] == p["sku"]), None)
+        if existing:
+            existing["qty"] += qty
+        else:
+            lines.append({"item": p, "qty": qty, "price": p.get("sellPrice", p.get("sell_price", 100))})
+    if not lines:
+        p = _best_product(_name_tokens(msg_lower), products)
+        if p:
+            lines.append({"item": p, "qty": 1, "price": p.get("sellPrice", p.get("sell_price", 100))})
+    return lines
+
+
 def deterministic_fallback_analysis(
     customer_name: str,
     phone: str,
@@ -489,28 +542,7 @@ def deterministic_fallback_analysis(
         }
 
     # 6. Buying Inquiry / Quotation Dynamic Parser
-    matched_lines = []
-    for p in products:
-        p_price = p.get("sellPrice", p.get("sell_price", 100))
-        terms = [re.escape(p["sku"].lower())]
-        for w in re.split(r"\W+", p["name"]):
-            wl = w.lower()
-            if len(wl) >= 3 and wl not in ["unit", "set", "box", "pack", "carton", "with", "and", "the", "for", "item"]:
-                terms.append(re.escape(wl))
-        if not terms:
-            continue
-        term_pattern = r"(?:" + "|".join(terms) + r")"
-        qty_pattern = rf"(\d+)\s*(?:units?|x|sets?|pcs|bottles?|tanks?|cartons?|seats?|boxes?|packs?|kg|litres?)?\s*{term_pattern}"
-        m = re.search(qty_pattern, msg_lower)
-        if m:
-            qty = int(m.group(1))
-        elif re.search(rf"\b{term_pattern}\b", msg_lower):
-            m_num = re.search(rf"(\d+)\s+{term_pattern}", msg_lower) or re.search(rf"{term_pattern}\s+(\d+)", msg_lower)
-            qty = int(m_num.group(1)) if m_num else 1
-        else:
-            qty = 0
-        if qty > 0:
-            matched_lines.append({"item": p, "qty": qty, "price": p_price})
+    matched_lines = _match_price_list_lines(msg_lower, products)
 
     if not matched_lines:
         matched_lines.append({"item": primary_item, "qty": 1, "price": primary_item.get("sellPrice", primary_item.get("sell_price", 100))})

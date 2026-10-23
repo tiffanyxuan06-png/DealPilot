@@ -180,11 +180,13 @@ def _extract_product_slots(all_text: str, products: List[Any]) -> List[Dict[str,
 
     if "copper" in text_lower or "piping" in text_lower or "paip" in text_lower:
         if "PIP-COP-3M" in sku_map and not any(it["sku"] == "PIP-COP-3M" for it in items):
+            p_match = re.search(r"(\d+)\s*(?:sets?|units?|pcs|x)?\s*(?:copper|piping|paip)", text_lower)
+            p_qty = max(1, int(p_match.group(1))) if p_match else 1
             prod = sku_map["PIP-COP-3M"]
             items.append({
                 "sku": "PIP-COP-3M",
                 "name": _get_item_prop(prod, "name", "Copper Pipe 3m Set"),
-                "qty": 1,
+                "qty": p_qty,
                 "price": int(_get_item_prop(prod, "sell_price", 150) or 150),
             })
 
@@ -583,10 +585,13 @@ def generate_fallback_replies(
     deposit_str = f"RM {qp['depositRm']:,}" if qp and qp.get("depositRm") else ""
 
     if stage == "DISCOVERY":
+        # Answer the brand they asked about before asking the room size
+        brand = ctx.needs.get("brand")
+        opener = f"Hello Boss! {brand} is a solid choice: inverter models save power and run quietly. " if brand else "Hello Boss! "
         return [
             {
                 "label": "Recommended",
-                "text": "Hello Boss! May I know the estimated room size (sqft) or is it for a bedroom or living hall? That way I can recommend the exact right HP for you.",
+                "text": opener + "May I know the estimated room size (sqft) or is it for a bedroom or living hall? That way I can recommend the exact right HP for you.",
             },
             {
                 "label": "Casual Boss",
