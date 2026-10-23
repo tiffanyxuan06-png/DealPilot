@@ -203,6 +203,13 @@ All tokens live on `:root` in `style.css`.
 | `.wa-window`, `.wa-titlebar`, `.wa-list`, `.wa-chat`, `.wa-avatar` | The neutral WhatsApp Web frame and its chat list. |
 | `.wa-messages`, `.wa-bubble-in`, `.wa-bubble-out`, `.wa-send` | Beige chat background, white and green bubbles, round green send button. |
 | `.cc-spotlight` | Short blue ring that points at a part of the extension. |
+| `.cc-panel`, `.cc-box` | Soft settings section and the white box inside it (60-second setup, Team & permissions). |
+| `.cc-pill-ok` / `-warn` / `-bad` / `-muted` | Status pills: approved, waiting, rejected, could not run. |
+| `.cc-note-warn` / `-info` | One-line notices with an icon (Owner-only, backend offline, file warnings). |
+| `.cc-step` | Numbered step heading in the 60-second setup. |
+| `.ap-row` (+ `.is-pending`) | Owner approvals row; waiting rows are amber with a left accent. Reject (danger) sits left of Approve (primary). |
+| `.seg`, `.seg-btn` | Segmented switch (Allowed · Needs approval · Off) for each Staff action, `role="radiogroup"`. It fills the width on phones. |
+| `.perm-row` (+ `.is-changed`), `.perm-savebar` | Permission row (blue while unsaved) and the sticky save bar with the unsaved-change count. |
 
 **Layout:**
 - Content sits in a centred column up to 1150px wide.
