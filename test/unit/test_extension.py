@@ -61,6 +61,13 @@ def test_insert_reply_fallback_fires_input_events_without_sending():
     assert not sent_something(out["events"])
 
 
+def test_insert_reply_once_when_the_editor_updates_later():
+    """WhatsApp shows inserted text a moment later; the reply must not be inserted a second time."""
+    out = run_scenario("insert_reply_whatsapp_editor")
+    assert out["result"] == {"returned": True, "boxText": "Hi Ahmad, RM 1,150."}
+    assert not sent_something(out["events"])
+
+
 def test_insert_reply_reports_failure_when_no_box_or_no_text():
     out = run_scenario("insert_reply_no_box")
     assert out["result"] == {"returned": False, "emptyReturned": False}
@@ -106,6 +113,42 @@ def test_demo_login_when_login_is_off():
     assert r["afterLogout"] == {"login": "block", "email": ""}
     assert r["adminWrong"] == {"error": "Wrong email or password.", "role": "STAFF", "email": ""}
     assert r["adminRight"] == {"error": "", "role": "OWNER", "email": "admin@cashchase.my"}
+
+
+PL_PRODUCTS = [{"sku": "ACN-DAI-15", "name": "Daikin 1.5HP Inverter", "sellPrice": 1150},
+            {"sku": "GAS-R32", "name": "R32 Refrigerant Gas (3kg)", "sellPrice": 180}]
+SAVED_QUOTE = {"id": "QT-2026-200", "customer": "Tan Bros Trading", "discount": 0, "amount": 1510, "items": [
+    {"sku": "GAS-R32", "name": "R32 Refrigerant Gas (3kg)", "qty": 2, "unitPrice": 180},
+    {"sku": "ACN-DAI-15", "name": "Daikin 1.5HP Inverter", "qty": 1, "unitPrice": 1150}]}
+
+
+def test_quote_from_price_list_inserts_backend_prices_and_downloads_the_pdf():
+    out = run_scenario("price_list_quote", state={"products": PL_PRODUCTS}, responses={
+        "/api/whatsapp/execute": {"ok": True, "data": {"status": "ok", "createdId": "QT-2026-200", "state": {"deals": [SAVED_QUOTE]}}},
+        "/api/deals/QT-2026-200/pdf": {"ok": True, "status": 200, "dataUrl": "data:application/pdf;base64,JVBERi0="},
+    })
+    r = out["result"]
+    assert out["errors"] == []
+    assert "Daikin 1.5HP Inverter" in r["listText"] and "GAS-R32 · RM 180" in r["listText"]
+    assert "R32" in r["searched"] and "Daikin" not in r["searched"]
+    assert r["total"] == "2 item(s) · Total RM 1,510"
+    # Only SKUs and quantities go to the backend; it prices the quote.
+    assert r["executeBody"] == {"customer": "Tan Bros Trading", "phone": "", "actionType": "CREATE_QUOTE", "role": "OWNER",
+                                "items": [{"sku": "GAS-R32", "qty": 2}, {"sku": "ACN-DAI-15", "qty": 1}]}
+    assert r["afterCreate"]["boxText"] == (
+        "Hi Tan Bros Trading, here is your quotation QT-2026-200:\n"
+        "• 2 × R32 Refrigerant Gas (3kg) @ RM 180 = RM 360\n"
+        "• 1 × Daikin 1.5HP Inverter @ RM 1,150 = RM 1,150\n"
+        "Total: RM 1,510\n"
+        "Subject to stock availability · prices valid 7 days.")
+    assert r["afterCreate"]["pdf"] == "📄 Download PDF (QT-2026-200)"
+    assert r["pdfUrl"] == "/api/deals/QT-2026-200/pdf" and r["downloadClicked"]
+    assert not any(e["type"] == "click" and e["tag"] == "button" and "Send" in str(e) for e in out["events"])
+
+
+def test_quote_from_price_list_refuses_a_chat_that_is_not_a_customer():
+    out = run_scenario("price_list_quote_stranger", state={"products": PL_PRODUCTS})
+    assert out["result"] == {"msg": "Open a customer's chat first.", "network": 0}
 
 
 BOOT_ONLY =[("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]

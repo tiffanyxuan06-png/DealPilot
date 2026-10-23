@@ -786,8 +786,10 @@ function insertReplyIntoWhatsAppBox(text) {
     selection.removeAllRanges();
     selection.addRange(range);
 
+    // WhatsApp's editor applies insertText a moment later, so the box can't be checked right away. Falling back
+    // whenever it still looked empty sent a second insert, and the reply appeared twice.
     const executed = document.execCommand("insertText", false, text);
-    if (!executed || chatInput.innerText.trim() !== text.trim()) {
+    if (!executed) {
       const inputEvent = new InputEvent("beforeinput", {
         bubbles: true,
         cancelable: true,
@@ -1360,6 +1362,19 @@ function createSidebar() {
         </button>
       </div>
 
+      <!-- Quote from the price list: the rep picks items; the backend prices the quote and saves the deal -->
+      <div class="cc-card" id="cc-pl-card" style="padding:8px 10px; font-size:11px;">
+        <button id="cc-pl-toggle" style="width:100%; background:#F2F6FF; border:1px solid #D5DFEE; color:#042970; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">📋 Quote from price list</button>
+        <div id="cc-pl-body" style="display:none; margin-top:8px;">
+          <input id="cc-pl-search" class="cc-input" placeholder="Search item or SKU" style="width:100%; margin-bottom:6px;" />
+          <div id="cc-pl-list" style="max-height:190px; overflow-y:auto;"></div>
+          <div id="cc-pl-total" style="font-weight:700; color:#042970; margin:6px 0;"></div>
+          <button id="cc-pl-create" style="width:100%; background:#042970; color:#fff; border:none; padding:8px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">Create quote &amp; insert into chat</button>
+          <div id="cc-pl-msg" style="color:#324564; margin-top:6px;"></div>
+          <button id="cc-pl-pdf" style="display:none; width:100%; margin-top:6px; background:#fff; border:1px solid #D5DFEE; color:#042970; padding:7px; font-size:12px; font-weight:700; border-radius:8px; cursor:pointer;">📄 Download PDF</button>
+        </div>
+      </div>
+
       <!-- 3. Compact sales footer: follow-ups due now + reps' commission this month (GET /api/state) -->
       <div class="cc-card" id="cc-sales-card" style="padding:8px 10px; font-size:11px; margin-top:auto;">
         <div style="font-weight:700; color:#042970;">⏰ Follow-ups due</div>
@@ -1384,6 +1399,14 @@ function createSidebar() {
     document.body.appendChild(reopenBtn);
   }
 
+  document.getElementById("cc-pl-toggle").addEventListener("click", () => {
+    const body = document.getElementById("cc-pl-body");
+    body.style.display = body.style.display === "none" ? "block" : "none";
+    renderPriceList();
+  });
+  document.getElementById("cc-pl-search").addEventListener("input", renderPriceList);
+  document.getElementById("cc-pl-create").addEventListener("click", createPriceListQuote);
+  document.getElementById("cc-pl-pdf").addEventListener("click", downloadQuotePdf);
   document.getElementById("cc-demo-owner").addEventListener("click", () => ccDemoLogin("hafiz@sejukjaya.my"));
   document.getElementById("cc-demo-staff").addEventListener("click", () => ccDemoLogin("aina@sejukjaya.my"));
   document.getElementById("cc-login-form").addEventListener("submit", submitCcLogin);
@@ -1556,6 +1579,7 @@ async function refreshStateFromBackend() {
     knownProducts = Array.isArray(state && state.products) ? state.products : [];
     ok = true;
     renderSalesCard();
+    renderPriceList();
     if (lastAnalysis && !gateState) renderDealContext(lastAnalysis);   // the deal may have just changed
   } catch (err) {
     const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
@@ -1796,6 +1820,115 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
   } finally {
     isAnalyzing = false;
   }
+}
+
+// --- QUOTE FROM THE PRICE LIST: the rep picks items; the backend prices the quote and saves the deal ---
+const plQty = {}; // sku -> quantity picked in the panel
+let plDealId = null; // the quote just created, for its PDF
+
+function plSay(text) {
+  const el = document.getElementById("cc-pl-msg");
+  if (el) el.textContent = text;
+}
+
+function renderPriceList() {
+  const list = document.getElementById("cc-pl-list");
+  if (!list) return;
+  const q = (document.getElementById("cc-pl-search")?.value || "").trim().toLowerCase();
+  const shown = knownProducts.filter((p) => !q || `${p.sku} ${p.name}`.toLowerCase().includes(q));
+  list.innerHTML = shown.length ? shown.map((p, i) => `
+    <div style="display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid #EEF2F8;">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; color:#042970; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}</div>
+        <div style="font-size:10px; color:#64748B;">${escapeHtml(p.sku)} · ${fmtRm(p.sellPrice)}</div>
+      </div>
+      <input id="cc-pl-qty-${i}" type="number" min="0" value="${plQty[p.sku] || 0}" aria-label="Quantity of ${escapeHtml(p.name)}" class="cc-input" style="width:54px; padding:3px 4px;" />
+    </div>`).join("")
+    : `<div style="color:#64748B;">${knownProducts.length ? "No item matches." : "Price list not loaded yet. Tap 🔄 Rescan."}</div>`;
+  shown.forEach((p, i) => {
+    const input = document.getElementById(`cc-pl-qty-${i}`);
+    const update = () => {
+      const n = Math.max(0, parseInt(input.value, 10) || 0);
+      if (n) plQty[p.sku] = n;
+      else delete plQty[p.sku];
+      renderPriceListTotal();
+    };
+    input.addEventListener("input", update);
+    input.addEventListener("change", update);
+  });
+  renderPriceListTotal();
+}
+
+function plItems() {
+  return Object.entries(plQty).map(([sku, qty]) => ({ sku, qty }));
+}
+
+function renderPriceListTotal() {
+  const el = document.getElementById("cc-pl-total");
+  if (!el) return;
+  const items = plItems();
+  // Shown while picking; the saved quote is priced by the backend.
+  const total = items.reduce((sum, i) => sum + i.qty * ((knownProducts.find((p) => p.sku === i.sku) || {}).sellPrice || 0), 0);
+  el.textContent = items.length ? `${items.length} item(s) · Total ${fmtRm(total)}` : "Set a quantity to add an item.";
+}
+
+// The WhatsApp message for a saved quote, from the backend's prices.
+function quoteMessage(deal) {
+  return [
+    `Hi ${cleanCustomerName(deal.customer)}, here is your quotation ${deal.id}:`,
+    ...deal.items.map((i) => `• ${i.qty} × ${i.name} @ ${fmtRm(i.unitPrice)} = ${fmtRm(i.qty * i.unitPrice)}`),
+    deal.discount ? `Discount: -${fmtRm(deal.discount)}` : "",
+    `Total: ${fmtRm(deal.amount)}`,
+    "Subject to stock availability · prices valid 7 days."
+  ].filter(Boolean).join("\n");
+}
+
+async function createPriceListQuote() {
+  const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat;
+  if (gateState === "offline") return plSay("Backend offline. Start it, then tap 🔄 Rescan.");
+  if (gateState || !customer) return plSay("Open a customer's chat first.");
+  const items = plItems();
+  if (!items.length) return plSay("Set a quantity for at least one item.");
+  plSay("Creating quote…");
+  try {
+    const res = await ccApiRequest("/api/whatsapp/execute", "POST",
+      { customer, phone: titlePhone(customer), actionType: "CREATE_QUOTE", items, role: getCcRole() });
+    if (res && res.status === "pending_approval") return plSay("📨 Sent to the Owner for approval. The quote is saved once they approve.");
+    const id = res && (res.createdId || res.createdDealId);
+    const deal = ((res && res.state && res.state.deals) || []).find((d) => d.id === id);
+    if (!deal) return plSay("Quote saved. Open the WebApp to see it.");
+    plDealId = deal.id;
+    insertReplyIntoWhatsAppBox(quoteMessage(deal));
+    Object.keys(plQty).forEach((k) => delete plQty[k]);
+    renderPriceList();
+    plSay(`✓ ${deal.id} saved (${fmtRm(deal.amount)}). Quote inserted: press Send in WhatsApp.`);
+    const pdfBtn = document.getElementById("cc-pl-pdf");
+    pdfBtn.textContent = `📄 Download PDF (${deal.id})`;
+    pdfBtn.style.display = "block";
+    refreshStateFromBackend();
+  } catch (err) {
+    plSay(String(err && err.message).includes("403") ? "🔒 Staff can't create quotes (ask the Owner)." : "Couldn't create the quote. Is the backend running?");
+  }
+}
+
+// Saves the quote PDF so the rep can attach it to the chat (WhatsApp Web can't be sent a file by an extension).
+async function downloadQuotePdf() {
+  if (!plDealId) return;
+  const resp = await sendToBackground({
+    type: "CC_API_FETCH",
+    url: `${BACKEND_URL}/api/deals/${encodeURIComponent(plDealId)}/pdf`,
+    method: "GET",
+    headers: { "X-CashChase-Role": getCcRole() },
+    binary: true
+  });
+  if (!resp || !resp.ok || !resp.dataUrl) return plSay("Couldn't get the PDF. Is the backend running?");
+  const a = document.createElement("a");
+  a.href = resp.dataUrl;
+  a.download = `${plDealId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  plSay(`📄 ${plDealId}.pdf downloaded. Attach it in WhatsApp with 📎.`);
 }
 
 // The quote's lines for the execute body: the analysis `items`, else the quote preview's, else its own sku/qty.

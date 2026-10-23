@@ -236,7 +236,14 @@ function makeDocument(env) {
   // Models a browser where insertText works; set opts.execCommandWorks=false to test the fallback path.
   doc.execCommand = (cmd, _ui, value) => {
     if (cmd !== "insertText" || env.opts.execCommandWorks === false || !doc.activeElement) return false;
-    doc.activeElement.innerText = value;
+    const el = doc.activeElement;
+    if (env.opts.editorAppliesLater) {
+      // Like WhatsApp's editor: it keeps its own text and draws it into the box a moment later.
+      el._model = value;
+      env.timers.push({ fn: () => { el.innerText = el._model; }, ms: 0 });
+      return true;
+    }
+    el.innerText = value;
     return true;
   };
   return doc;
@@ -410,6 +417,19 @@ scenarios.insert_reply_fallback = (env) => {
   return { returned, boxText: box.innerText };
 };
 
+// WhatsApp's editor: insertText works but shows up a moment later, and it also handles a beforeinput insert itself.
+scenarios.insert_reply_whatsapp_editor = async (env) => {
+  env.opts.editorAppliesLater = true;
+  const { box } = composeBox(env);
+  box.addEventListener("beforeinput", (ev) => {
+    box._model = (box._model || "") + ev.data;
+    env.timers.push({ fn: () => { box.innerText = box._model; }, ms: 0 });
+  });
+  const returned = env.ctx.insertReplyIntoWhatsAppBox("Hi Ahmad, RM 1,150.");
+  await env.settle();
+  return { returned, boxText: box.innerText };
+};
+
 scenarios.insert_reply_no_box = (env) => ({
   returned: env.ctx.insertReplyIntoWhatsAppBox("Nowhere to go"),
   emptyReturned: env.ctx.insertReplyIntoWhatsAppBox("")
@@ -463,6 +483,52 @@ scenarios.sidebar_boot = async (env) => {
     observers: env.observers.length,
     sidebarText: root.textContent
   };
+};
+
+/** Quote from the price list: pick quantities, create the quote (backend prices it), insert its message, download its PDF. */
+scenarios.price_list_quote = async (env) => {
+  await env.bootSidebar();
+  const d = env.document;
+  const box = env.h("div", { contenteditable: "true", "data-tab": "10", role: "textbox" });
+  d.querySelector("#main").appendChild(env.h("footer", {}, box));
+  await env.switchChat("Tan Bros Trading", [["in", "Boss, need price for aircond"]]);
+  await env.click("cc-pl-toggle");
+  const listText = d.getElementById("cc-pl-list").textContent;
+  const typeQty = (i, n) => { const el = d.getElementById(`cc-pl-qty-${i}`); el.value = String(n); el.dispatchEvent(new Event("input")); };
+  d.getElementById("cc-pl-search").value = "r32";
+  d.getElementById("cc-pl-search").dispatchEvent(new Event("input"));
+  const searched = d.getElementById("cc-pl-list").textContent;
+  typeQty(0, 2);   // R32 gas
+  d.getElementById("cc-pl-search").value = "";
+  d.getElementById("cc-pl-search").dispatchEvent(new Event("input"));
+  typeQty(0, 1);   // Daikin
+  const total = d.getElementById("cc-pl-total").textContent;
+  env.network.length = 0;
+  await env.click("cc-pl-create");
+  const execute = env.network.find((n) => n.message && n.message.url && n.message.url.endsWith("/api/whatsapp/execute"));
+  const afterCreate = { msg: d.getElementById("cc-pl-msg").textContent, boxText: box.innerText, pdf: d.getElementById("cc-pl-pdf").textContent };
+  await env.click("cc-pl-pdf");
+  const pdfCall = env.network.find((n) => n.message && n.message.binary);
+  return {
+    listText, searched, total, executeBody: execute && JSON.parse(execute.message.body), afterCreate,
+    pdfUrl: pdfCall && pdfCall.message.url.replace("http://127.0.0.1:8000", ""),
+    pdfMsg: d.getElementById("cc-pl-msg").textContent,
+    downloadClicked: env.events.some((e) => e.type === "click" && e.tag === "a")
+  };
+};
+
+/** A chat that isn't a customer can't be quoted from the price list: nothing is sent. */
+scenarios.price_list_quote_stranger = async (env) => {
+  await env.bootSidebar();
+  const d = env.document;
+  await env.switchChat("Mum", [["in", "Dinner at 7?"]]);
+  await env.click("cc-pl-toggle");
+  const el = d.getElementById("cc-pl-qty-0");
+  el.value = "1";
+  el.dispatchEvent(new Event("input"));
+  env.network.length = 0;
+  await env.click("cc-pl-create");
+  return { msg: d.getElementById("cc-pl-msg").textContent, network: env.network.length };
 };
 
 /** Login off: demo sign-in sets the role sent to the backend; sign-out shows the form again. */
