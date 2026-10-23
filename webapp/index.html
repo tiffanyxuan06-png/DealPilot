@@ -8,9 +8,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    // If a picture fails from /img/ (e.g. a server started before /img existed),
+    // retry it once from /static/img/, which every server version serves
+    (function () {
+      function retry(img) {
+        if (img.dataset.imgRetry) return;
+        var src = img.getAttribute('src') || '';
+        var m = src.match(/^(?:\.\/|\/)?img\/(.+)$/);
+        if (!m || location.protocol === 'file:') return;
+        img.dataset.imgRetry = '1';
+        img.src = '/static/img/' + m[1];
+      }
+      document.addEventListener('error', function (e) {
+        if (e.target && e.target.tagName === 'IMG') retry(e.target);
+      }, true);
+      document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('img').forEach(function (img) {
+          if (img.complete && img.naturalWidth === 0) retry(img);
+        });
+      });
+    })();
+  </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261022" />
+  <link rel="stylesheet" href="css/style.css?v=20261023" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -184,6 +206,10 @@
       <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
       <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+      <symbol id="i-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 19 9-7-9-7v14z"/><path d="m2 19 9-7-9-7v14z"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
       <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
       <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
@@ -810,26 +836,40 @@
       </div>
 
       <!-- 60-Second Setup: template or own stock list -> starting cash -> hold time & threshold -->
-      <div class="p-4 rounded-2xl bg-[#ECFDF5] border border-emerald-300 space-y-2.5">
-        <div>
-          <div class="font-semibold text-sm text-[#042970]">60-second setup for a new business</div>
-          <div class="text-xs text-[#5B6B85]">Pick a template, or upload your existing stock list, enter today's cash, and set your hold time and approval threshold.</div>
+      <section class="cc-panel space-y-4" aria-labelledby="onboarding-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
+          <div>
+            <h3 id="onboarding-title" class="font-semibold text-sm text-[#042970]">Set up your own business in 60 seconds</h3>
+            <p class="text-xs text-[#5B6B85]">Start from a template or your stock list, add today's cash, then set your rules.</p>
+          </div>
         </div>
-        <div id="onboarding-body" class="space-y-2.5"></div>
-      </div>
+        <div id="onboarding-body" class="space-y-4"></div>
+      </section>
 
       <!-- Team & Permissions: Owner decides what Staff can do (enforced by the backend) -->
-      <div class="p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3">
-        <div>
-          <div class="font-semibold text-sm text-[#042970]">Team &amp; permissions</div>
-          <div class="text-xs text-[#5B6B85]">The Owner always has full access. For each Staff action choose <b>Allowed</b>, <b>Needs Owner approval</b> (goes to Owner approvals on the Dashboard) or <b>Off</b>.</div>
+      <section class="cc-panel space-y-4" aria-labelledby="team-perms-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-users"/></svg></span>
+          <div>
+            <h3 id="team-perms-title" class="font-semibold text-sm text-[#042970]">Team &amp; permissions</h3>
+            <p class="text-xs text-[#5B6B85]">You always have full access. For each Staff action pick <b>Allowed</b>, <b>Needs approval</b> (shows up under Owner approvals on the Dashboard) or <b>Off</b>.</p>
+          </div>
         </div>
         <div id="team-perms-body" class="space-y-3"></div>
-      <div class="mt-4 pt-4 border-t border-[#D5DFEE]">
-        <h3 class="text-xs font-bold text-[#042970] mb-2 uppercase tracking-wide">Activity & Audit Trail</h3>
-        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-[#F8FAFC] p-3 rounded-xl border border-[#D5DFEE]"></div>
-      </div>
-      </div>
+      </section>
+
+      <!-- Activity: every approval, deal change and permission edit -->
+      <section class="cc-panel space-y-3" aria-labelledby="audit-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-clock"/></svg></span>
+          <div>
+            <h3 id="audit-title" class="font-semibold text-sm text-[#042970]">Activity &amp; audit trail</h3>
+            <p class="text-xs text-[#5B6B85]">Every approval, deal change and permission edit, newest first.</p>
+          </div>
+        </div>
+        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-white p-3 rounded-xl border border-[#DCE4F2]"></div>
+      </section>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
