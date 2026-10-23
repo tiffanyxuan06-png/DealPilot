@@ -42,7 +42,7 @@
                 : 'wa-bubble-in'
             }">
               ${hasAtt ? `
-                <div class="p-2.5 rounded-xl bg-white/70 border border-black/5 flex items-center gap-3">
+                <${hasAtt.url ? `a href="${escapeHtmlText(hasAtt.url)}" target="_blank" rel="noopener" title="Open ${escapeHtmlText(hasAtt.name || 'PDF')}"` : 'div'} class="p-2.5 rounded-xl bg-white/70 border border-black/5 flex items-center gap-3">
                   <div class="w-9 h-9 rounded-lg bg-rose-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
                     PDF
                   </div>
@@ -50,10 +50,12 @@
                     <div class="font-bold truncate text-[#042970]">${escapeHtmlText(hasAtt.name || 'Document.pdf')}</div>
                     <div class="text-[10px] text-[#5B6B85] flex items-center gap-2">
                       <span>${escapeHtmlText(hasAtt.size || '142 KB')}</span>
-                      <span class="px-1.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Read by AI</span>
+                      ${hasAtt.url
+                        ? '<span class="px-1.5 rounded-full bg-blue-100 text-blue-800 font-semibold">Open PDF</span>'
+                        : '<span class="px-1.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Read by AI</span>'}
                     </div>
                   </div>
-                </div>
+                </${hasAtt.url ? 'a' : 'div'}>
               ` : ''}
               <div>${escapeHtmlText(m.text)}</div>
               <div class="text-[10px] opacity-75 text-right">${m.time}</div>
@@ -770,6 +772,7 @@
             }, msgs[chat.extActionType] || `${chat.extTitle || 'Action'} executed!`).then(d => {
               if (!d) { chat.done = false; return; }
               if (chat.extActionType === 'CREATE_QUOTE' && typeof openPdfFromChat === 'function') {
+                chat.dealId = d.createdDealId || d.createdId || chat.dealId;  // the PDF is for the quote just created
                 openPdfFromChat();
               }
             });
