@@ -17,7 +17,7 @@ def test_state_shape(client):
     assert "stock" not in s and "invoices" not in s and "cashOnHand" not in s["company"]
     assert [r["name"] for r in s["reps"]] == ["Aina", "Ahmad", "Mei Ling"]
     assert {d["stage"] for d in s["deals"]} == {"INQUIRY", "QUOTED", "FOLLOW_UP", "WON", "LOST"}
-    assert (s["company"]["followUpHours"], s["company"]["marginFloorPct"]) == (48, 15)
+    assert (s["company"]["followUpHours"], s["company"]["marginFloorPct"]) == (2, 15)
 
 
 def test_amounts_and_order_numbers_come_from_code(client):

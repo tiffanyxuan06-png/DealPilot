@@ -90,7 +90,7 @@
       const isOwner = currentRole === 'OWNER';
       const groups = [...new Set(p.actions.map(a => a.group))];
       const threshold = marginFloorDraft ?? p.marginFloorPct ?? 20.0;
-      const holdHours = followUpHoursDraft ?? p.followUpHours ?? 48;
+      const holdHours = followUpHoursDraft ?? p.followUpHours ?? 2;
       const changedCount = Object.keys(permissionDraft).length + (marginFloorDraft !== null ? 1 : 0) + (followUpHoursDraft !== null ? 1 : 0);
 
       box.innerHTML = `

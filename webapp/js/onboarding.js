@@ -3,7 +3,7 @@
     // =========================================================================
     let onboardingItems = [];
     let onboardingWarnings = [];
-    const obForm = { company: '', followUpHours: 48, marginFloorPct: 20 };
+    const obForm = { company: '', followUpHours: 2, marginFloorPct: 20 };
 
     function renderOnboarding() {
       const box = document.getElementById('onboarding-body');
@@ -119,7 +119,7 @@
       const setup = {
         role: currentRole,
         companyName: company,
-        followUpHours: Math.max(1, parseInt(document.getElementById('ob-followup')?.value || '48', 10)),
+        followUpHours: Math.max(1, parseInt(document.getElementById('ob-followup')?.value || '2', 10)),
         marginFloorPct: Math.max(0, parseFloat(document.getElementById('ob-margin')?.value || '20.0')),
         items: onboardingItems.map(i => ({
           sku: i.sku,

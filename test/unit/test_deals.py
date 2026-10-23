@@ -18,7 +18,7 @@ def test_quote_is_priced_by_code(client):
                                         "items": [{"sku": "acn-dai-15", "qty": 2}, {"sku": "GAS-R32", "qty": 1}]}).json()
     d = deal(r["state"], r["createdId"])
     assert r["createdId"] == "QT-2026-106" and d["stage"] == "QUOTED" and d["amount"] == 2 * 1150 + 180
-    assert d["repId"] == 1 and d["followUpText"].startswith("⏳ 47h")  # Staff login = Aina, follow-up in 48h
+    assert d["repId"] == 1 and d["followUpText"].startswith("⏳ 1h")  # Staff login = Aina, follow-up in 2h
     assert any(c["name"] == "Hotel Baru" for c in r["state"]["customers"])
     assert client.post("/api/deals", json={**OWNER, "customer": "X", "items": [{"sku": "NOPE", "qty": 1}]}).status_code == 404
 

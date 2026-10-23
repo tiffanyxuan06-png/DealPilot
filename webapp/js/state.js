@@ -840,7 +840,7 @@ let currentRole = 'OWNER';
       const st = smeProfiles[backendPreset] || smeProfiles.aircond;
       st.name = data.company.name;
       if (data.company.framework) st.framework = data.company.framework;
-      st.followUpHours = data.company.followUpHours || 48;
+      st.followUpHours = data.company.followUpHours || 2;
       st.marginFloorPct = data.company.marginFloorPct || 20.0;
 
       st.deals = data.deals || [];
