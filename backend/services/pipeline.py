@@ -33,6 +33,11 @@ def loss_bucket(reason: Optional[str]) -> str:
     return reason or "No reason"
 
 
+def staff_rep_id(session: Session) -> Optional[int]:
+    # ponytail: the demo has one Staff login, so it is the first active rep (Aina); link logins to reps for real teams.
+    return session.scalars(select(orm.Rep.id).where(orm.Rep.active.is_(True)).order_by(orm.Rep.id).limit(1)).first()
+
+
 def log(session: Session, message: str) -> None:
     """Adds a line to the append-only activity log."""
     ts = now_time_str()
@@ -155,7 +160,8 @@ def _deal(row: orm.Deal, costs: Dict[str, int], floor: float, is_owner: bool) ->
 
 def build_state(role: Optional[str] = None) -> StatePayload:
     """Everything the WebApp and extension show. Staff never receive unit costs or margin %."""
-    from backend.services.customers import customers_payload
+    from backend.services.customers import customer_key, customers_payload
+    from backend.services.intent import buying_level, reengage_alerts
     from backend.services.permissions import approvals_payload, normalize_role, permissions_payload
 
     is_owner = normalize_role(role) == Role.OWNER.value
@@ -211,6 +217,16 @@ def build_state(role: Optional[str] = None) -> StatePayload:
         for rep in reps:
             rep.rank = 1 + sum(1 for o in reps if o.won_rm > rep.won_rm)
 
+        # Staff see only their own work: their deals, customers and chats, their own rep row (with its rank)
+        # and no activity log. The Owner sees everyone.
+        me = None if is_owner else staff_rep_id(session)
+        team_size = len(reps)
+        customers = customers_payload(session)
+        if not is_owner:
+            deals = [d for d in deals if d.rep_id == me]
+            reps = [r for r in reps if r.id == me]
+            customers = [c for c in customers if c.rep_id == me]
+
         won_count = sum(1 for d in deals if d.stage == Stage.WON)
         lost_count = sum(1 for d in deals if d.stage == Stage.LOST)
         pipeline = Pipeline(
@@ -224,11 +240,19 @@ def build_state(role: Optional[str] = None) -> StatePayload:
             loss_reasons=dict(Counter(loss_bucket(d.loss_reason) for d in deals if d.stage == Stage.LOST)),  # all time
         )
 
+        mine = {customer_key(c.name).lower() for c in customers}
+        memory_rows = [
+            m for m in session.scalars(select(orm.ClientMemory).order_by(orm.ClientMemory.score.desc())).all()
+            if is_owner or customer_key(m.customer).lower() in mine
+        ]
         memories = {
-            m.customer: entities.ClientMemory.model_validate(m)
-            for m in session.scalars(select(orm.ClientMemory).order_by(orm.ClientMemory.score.desc())).all()
+            m.customer: entities.ClientMemory.model_validate(m).model_copy(update={"buying_level": buying_level(m.last_message)})
+            for m in memory_rows
         }
-        logs = [r.entry for r in session.scalars(select(orm.AuditLog).order_by(orm.AuditLog.id.desc()).limit(100))]
+        logs = (
+            [r.entry for r in session.scalars(select(orm.AuditLog).order_by(orm.AuditLog.id.desc()).limit(100))]
+            if is_owner else []
+        )
 
         return StatePayload(
             company=Company(
@@ -246,9 +270,13 @@ def build_state(role: Optional[str] = None) -> StatePayload:
             reps=reps,
             deals=deals,
             pipeline=pipeline,
-            customers=customers_payload(session),
+            customers=customers,
             client_memories=memories,
             permissions=permissions_payload(session),
             approvals=approvals_payload(session),
             logs=logs,
+            team_size=team_size,
+            my_rep_id=me,
+            # Re-engage alerts are the rep's job, so only Staff get them (for their own customers).
+            reengage=[] if is_owner else reengage_alerts(memory_rows, deals),
         )

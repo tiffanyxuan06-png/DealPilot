@@ -16,6 +16,7 @@ from backend.models.requests import (
     DealCreateRequest,
     DealItemRequest,
     PhotoQuoteRequest,
+    ReengageRequest,
     WhatsAppAnalyzeRequest,
     WhatsAppExecuteRequest,
 )
@@ -23,7 +24,7 @@ from backend.models.responses import ClientMemoryRating, OcrExtractResponse, Pho
 from backend.models.state import ActionResponse
 from backend.routes.deals import api_create_deal, api_deal_action
 from backend.services.business import load_business
-from backend.services.clock import now_time_str
+from backend.services.clock import now_stamp, now_time_str
 from backend.services.customers import (
     apply_tin,
     find_customer,
@@ -94,6 +95,8 @@ def _save_memory(session: Session, customer: str, phone: str, req: WhatsAppAnaly
             recent_history_json=json.dumps([m.model_dump() for m in req.recent_messages or []]),
             cached_analysis_json=json.dumps(analysis),
             updated_at=now_time_str(),
+            # The analysed message is the customer's latest one, so this is when they last wrote.
+            last_customer_at=now_stamp() if req.message else (old.last_customer_at if old else ""),
         )
     )
 
@@ -607,6 +610,17 @@ def api_create_customer(req: CustomerCreateRequest) -> ActionResponse:
     with session_scope() as s:
         upsert_customer(s, req.name, now_time_str(), phone=req.phone or "")
         log(s, f"[{role}] Added customer {clean_customer_name(req.name)} to directory.")
+    return ActionResponse(status="ok", state=build_state(role))
+
+
+@router.post("/api/reengage", response_model=ActionResponse)
+def api_reengage(req: ReengageRequest) -> ActionResponse:
+    """Records what the rep did with a re-engage alert (one activity-log line). A send on an open deal goes
+    through SEND_FOLLOW_UP instead, which logs and resets its timer."""
+    role = normalize_role(req.role)
+    name = clean_customer_name(req.customer)
+    with session_scope() as s:
+        log(s, f"[{role}] " + (f"Re-engaged {name} on WhatsApp." if req.action == "SENT" else f"Dismissed the re-engage alert for {name}."))
     return ActionResponse(status="ok", state=build_state(role))
 
 

@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.db import orm, session_scope
-from backend.models.enums import OPEN_STAGES, PIPELINE_STAGES, DealAction, Stage
+from backend.models.enums import OPEN_STAGES, PIPELINE_STAGES, DealAction, Role, Stage
 from backend.models.requests import DealActionRequest, DealCreateRequest, ProductUpsertRequest, ReassignRequest, RepUpsertRequest
 from backend.models.state import ActionResponse
 from backend.services.business import load_business
@@ -22,6 +22,7 @@ from backend.services.pipeline import (
     follow_up_due_str,
     log,
     product_costs,
+    staff_rep_id,
 )
 
 router = APIRouter(tags=["Deals & Pipeline"])
@@ -61,8 +62,7 @@ def below_floor(session: Session, items: List[Dict[str, Any]], amount: int) -> b
 
 
 def default_rep_id(session: Session) -> Optional[int]:
-    # ponytail: the demo has one Staff login, so new deals go to the first rep (Aina); link logins to reps for real teams.
-    return session.scalars(select(orm.Rep.id).where(orm.Rep.active.is_(True)).order_by(orm.Rep.id).limit(1)).first()
+    return staff_rep_id(session)
 
 
 def next_deal_id(session: Session) -> str:
@@ -139,6 +139,9 @@ def api_deal_action(deal_id: str, req: DealActionRequest) -> ActionResponse:
         d = s.get(orm.Deal, deal_id)
         if not d:
             raise HTTPException(status_code=404, detail=f"Deal {deal_id} not found")
+        # Staff work only on their own deals (they don't even see the others).
+        if role == Role.STAFF.value and d.rep_id != staff_rep_id(s):
+            raise HTTPException(status_code=403, detail=f"#{deal_id} belongs to another rep. Ask the Owner to reassign it.")
         if act == DealAction.CANCEL_WON and d.stage != Stage.WON.value:
             raise HTTPException(status_code=409, detail=f"#{deal_id} is not a won order, so there is nothing to cancel.")
         # Won and lost deals are settled: only the TIN can still be added, and only a won order can be cancelled

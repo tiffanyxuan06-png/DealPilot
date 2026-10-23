@@ -99,6 +99,23 @@ class ClientMemory(ApiModel):
     total_paid_rm: int
     last_message: str = ""
     updated_at: str
+    last_customer_at: str = ""  # when the customer last wrote (full timestamp); empty if unknown
+    buying_level: str = ""  # READY / INTERESTED / BROWSING, read from last_message (services/intent.py)
+
+
+class ReengageAlert(ApiModel):
+    """A customer who was interested or ready to buy and went quiet: shown on the rep's My Day."""
+
+    customer: str
+    phone: str = ""
+    deal_id: Optional[str] = None
+    amount: Optional[int] = None
+    level: str  # READY or INTERESTED
+    said: str  # the customer's own last message
+    quiet_hours: int
+    reason: str  # why it fired now, e.g. "They said 'tomorrow' and that has passed"
+    tier: str = ""
+    suggested_message: str
 
 
 class Approval(ApiModel):

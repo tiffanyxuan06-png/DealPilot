@@ -451,7 +451,8 @@
       "payment_behavior": "\u2b50\u2b50\u2b50\u2b50\u2b50 Repeat buyer \u00b7 6 past orders (RM 28,400) \u00b7 Usually confirms within 2 hours of a quote",
       "total_orders": 6,
       "total_paid_rm": 28400,
-      "last_message": "Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah?"
+      "last_message": "Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah?",
+      "last_message_hours_ago": 1
     },
     {
       "customer": "Klinik Dr. Lim",
@@ -462,7 +463,8 @@
       "payment_behavior": "\u2b50\u2b50\u2b50\u2b50 Reliable buyer \u00b7 4 past orders (RM 19,200) \u00b7 Open complaint about a leaking R32 cylinder",
       "total_orders": 4,
       "total_paid_rm": 19200,
-      "last_message": "One of the R32 gas cylinders you delivered is leaking at the valve."
+      "last_message": "One of the R32 gas cylinders you delivered is leaking at the valve.",
+      "last_message_hours_ago": 30
     },
     {
       "customer": "Kedai Runcit Ah Seng",
@@ -473,7 +475,8 @@
       "payment_behavior": "\u26a0\ufe0f Goes quiet after quotes \u00b7 2 past quotes lost to no reply \u00b7 Follow up early",
       "total_orders": 1,
       "total_paid_rm": 1150,
-      "last_message": "Hold 3 units Daikin 1.5HP for me first boss, I transfer deposit tomorrow."
+      "last_message": "Hold 3 units Daikin 1.5HP for me first boss, I transfer deposit tomorrow.",
+      "last_message_hours_ago": 48
     },
     {
       "customer": "Wisma Perdana Sdn Bhd",
@@ -484,7 +487,8 @@
       "payment_behavior": "\u26a0\ufe0f Haggles on most quotes \u00b7 3 past orders (RM 9,600) \u00b7 Check the margin before giving a discount",
       "total_orders": 3,
       "total_paid_rm": 9600,
-      "last_message": "Can do better price for 2 units?"
+      "last_message": "Can do better price for 2 units?",
+      "last_message_hours_ago": 26
     }
   ],
   "logs": [

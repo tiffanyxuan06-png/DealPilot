@@ -1,5 +1,5 @@
 """Request bodies. JSON uses camelCase (e.g. repId); Python uses snake_case. Simple checks live here, not in routes."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator
 
@@ -74,6 +74,13 @@ class PhotoQuoteRequest(RoleRequest):
 class CustomerCreateRequest(RoleRequest):
     name: str
     phone: Optional[str] = ""
+
+
+class ReengageRequest(RoleRequest):
+    """The rep acted on a re-engage alert: SENT (messaged without an open deal) or DISMISSED."""
+
+    customer: str
+    action: Literal["SENT", "DISMISSED"]
 
 
 class DealCreateRequest(RoleRequest):

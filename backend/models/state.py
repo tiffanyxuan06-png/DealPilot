@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from pydantic import Field
 
 from backend.models.base import ApiModel
-from backend.models.entities import Approval, ClientMemory, Customer, Deal, Permissions, Product, Rep
+from backend.models.entities import Approval, ClientMemory, Customer, Deal, Permissions, Product, ReengageAlert, Rep
 
 
 class Company(ApiModel):
@@ -50,7 +50,10 @@ class StatePayload(ApiModel):
     client_memories: Dict[str, ClientMemory]
     permissions: Permissions
     approvals: List[Approval]
-    logs: List[str]
+    logs: List[str]  # Owner only; empty for Staff
+    team_size: int = 0  # active reps, so Staff can read their rank as "1st of 3"
+    my_rep_id: Optional[int] = None  # the rep this Staff login is; None for the Owner
+    reengage: List[ReengageAlert] = []  # Staff only: their customers who were ready to buy and went quiet
 
 
 def _only_when_set():

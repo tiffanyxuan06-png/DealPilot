@@ -21,7 +21,7 @@ def test_state_shape(client):
 
 
 def test_amounts_and_order_numbers_come_from_code(client):
-    s = client.get("/api/state").json()
+    s = client.get("/api/state?role=OWNER").json()
     tan = deal(s, "QT-2026-099")
     assert tan["amount"] == 3 * 1150 + 3 * 180 - 90
     assert tan["orderNo"] == "SO-2026-099" and tan["depositRef"] == "DN-20261021-88310"
@@ -29,7 +29,7 @@ def test_amounts_and_order_numbers_come_from_code(client):
 
 
 def test_follow_up_due_and_complaint_pause(client):
-    s = client.get("/api/state").json()
+    s = client.get("/api/state?role=OWNER").json()
     due = deal(s, "QT-2026-101")
     assert due["stage"] == "FOLLOW_UP" and due["followUpText"].startswith("🔔")
     paused = deal(s, "QT-2026-104")  # follow-up time has passed, but the customer has an open complaint
@@ -37,15 +37,15 @@ def test_follow_up_due_and_complaint_pause(client):
 
 
 def test_quote_moves_to_follow_up_when_time_passes(client):
-    assert deal(client.get("/api/state").json(), "QT-2026-102")["stage"] == "QUOTED"
+    assert deal(client.get("/api/state?role=OWNER").json(), "QT-2026-102")["stage"] == "QUOTED"
     client.post("/api/demo/fast-forward", json={**OWNER, "hours": 48})
-    s = client.get("/api/state").json()
+    s = client.get("/api/state?role=OWNER").json()
     assert deal(s, "QT-2026-102")["stage"] == "FOLLOW_UP"
     assert any("QT-2026-102" in line and "follow-up due" in line for line in s["logs"])
 
 
 def test_pipeline_and_commission(client):
-    s = client.get("/api/state").json()
+    s = client.get("/api/state?role=OWNER").json()
     p = s["pipeline"]
     assert p["valueRm"] == sum(d["amount"] for d in s["deals"] if d["stage"] in ("QUOTED", "FOLLOW_UP"))
     assert p["winRate"] == round(4 / 5, 2)  # aircond seed: 4 won, 1 lost

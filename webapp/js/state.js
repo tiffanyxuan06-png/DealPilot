@@ -851,6 +851,8 @@ let currentRole = 'OWNER';
       st.customers = data.customers || [];
       st.clientMemories = data.clientMemories || {};
       st.logs = data.logs || [];
+      st.teamSize = data.teamSize || (data.reps || []).length;
+      st.reengage = data.reengage || [];
 
       backendPermissions = data.permissions || backendPermissions;
       backendApprovals = data.approvals || [];
@@ -895,6 +897,7 @@ let currentRole = 'OWNER';
         data.deals,
         data.reps,
         data.pipeline,
+        data.reengage,
         data.logs,
         data.permissions,
         data.approvals
@@ -913,7 +916,8 @@ let currentRole = 'OWNER';
 
     async function syncFromBackend() {
       try {
-        const res = await fetch(`${BACKEND_API_BASE}/api/state`);
+        // Say who is asking: Staff get only their own deals, customers and pay (with login on, the server decides)
+        const res = await fetch(`${BACKEND_API_BASE}/api/state`, { headers: { "X-CashChase-Role": currentRole } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         backendOnline = true;
@@ -993,6 +997,8 @@ let currentRole = 'OWNER';
       }
       showToast(`Switched role to ${currentRole === 'OWNER' ? 'Encik Hafiz (Owner)' : 'Aina (Staff)'}.`);
       renderAll();
+      // Each role gets its own data from the server (Staff only their own), so fetch it again
+      if (usesBackend()) syncFromBackend();
     }
 
     function renderSimulationBar() {
