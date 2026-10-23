@@ -117,6 +117,7 @@ class ClientMemory(Base):
     recent_history_json: Mapped[str] = mapped_column(Text, default="[]")
     cached_analysis_json: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[str] = mapped_column(Text)
+    last_customer_at: Mapped[str] = mapped_column(Text, default="")  # full timestamp of the customer's last message
 
 
 class Customer(Base):

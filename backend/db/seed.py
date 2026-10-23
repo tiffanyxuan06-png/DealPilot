@@ -84,6 +84,7 @@ class SeedMemory(BaseModel):
     total_orders: int = 0
     total_paid_rm: int = 0
     last_message: str = ""
+    last_message_hours_ago: Optional[float] = Field(None, ge=0)  # when the customer sent last_message
 
 
 class SeedFile(BaseModel):
@@ -193,6 +194,13 @@ def seed_business(session: Session, preset: str) -> None:
 
     session.add_all(orm.Customer(name=c.name, phone=c.phone, tin=c.tin, ssm_brn="", updated_at=ts) for c in seed.customers)
     session.add_all(
-        orm.ClientMemory(**m.model_dump(), recent_history_json="[]", cached_analysis_json="", updated_at=ts) for m in seed.memories
+        orm.ClientMemory(
+            **m.model_dump(exclude={"last_message_hours_ago"}),
+            recent_history_json="[]",
+            cached_analysis_json="",
+            updated_at=ts,
+            last_customer_at=at(-m.last_message_hours_ago) if m.last_message_hours_ago is not None else "",
+        )
+        for m in seed.memories
     )
     session.add_all(orm.AuditLog(entry=e, created_at=ts) for e in seed.logs)

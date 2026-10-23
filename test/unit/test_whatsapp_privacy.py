@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import select
-from conftest import STAFF
+from conftest import OWNER, STAFF
 
 from backend.db import orm, session_scope
 
@@ -253,7 +253,7 @@ def test_phone_titled_chat_finds_the_open_deal(client, ai):
         assert by_phone[key] == by_name[key]
     assert by_phone["clientMemory"]["tier"] == by_name["clientMemory"]["tier"] != "NEW_CLIENT"
     r = client.post("/api/whatsapp/execute", json={
-        **STAFF, "customer": "+60 16-882 1920", "phone": "60168821920", "actionType": "SEND_FOLLOW_UP",
+        **OWNER, "customer": "+60 16-882 1920", "phone": "60168821920", "actionType": "SEND_FOLLOW_UP",
     })
     assert r.status_code == 200, r.text
     assert "Klinik Dr. Lim" in audit_text()

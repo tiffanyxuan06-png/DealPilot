@@ -75,7 +75,13 @@ document.addEventListener('keydown', e => {
 function openSettingsModal(tab) {
   if (typeof renderTeamPermissions === 'function') renderTeamPermissions();
   if (typeof renderOnboarding === 'function') renderOnboarding();
-  showSettingsTab(typeof tab === 'string' ? tab : 'business');
+  // Staff can't change business settings, pricing rules or the AI, and don't get the activity log, so they
+  // only see what they are allowed to do (read-only)
+  const isOwner = currentRole === 'OWNER';
+  ['business', 'pricing', 'activity', 'advanced'].forEach(k => { const t = document.getElementById(`stab-${k}`); if (t) t.hidden = !isOwner; });
+  const title = document.getElementById('settings-title');
+  if (title) title.textContent = isOwner ? 'Settings' : 'What you can do';
+  showSettingsTab(isOwner ? (typeof tab === 'string' ? tab : 'business') : 'team');
   const m = document.getElementById('settings-modal');
   if (m) m.classList.remove('hidden');
 }
@@ -92,7 +98,7 @@ function renderPipelineView() {
   const st = getState();
   // Staff see their own day; the Owner sees the whole pipeline
   const heroCopy = currentRole === 'OWNER'
-    ? ['Pipeline', 'Every deal, from chat to order.', 'See what is quoted, what needs a follow-up and what you won this month.']
+    ? ['Pipeline', 'How the business is doing.', 'Paid orders, open deals and each rep\'s results this month.']
     : ['My day', 'Your follow-ups and wins today.', 'Send the reminders that are due, then close the deals that are ready.'];
   [['pipeline-hero-pill', 0], ['pipeline-hero-title', 1], ['pipeline-hero-sub', 2]].forEach(([id, n]) => {
     const el = document.getElementById(id);
@@ -109,9 +115,10 @@ function renderPipelineView() {
 
   const badgePipeline = document.getElementById('badge-pipeline');
   if (badgePipeline) {
-    const overdueCount = pipeline.overdue || 0;
-    badgePipeline.textContent = overdueCount > 0 ? `${overdueCount} Due` : `${deals.length}`;
-    badgePipeline.className = overdueCount > 0 ? 'nav-badge !bg-amber-500 !text-white' : 'nav-badge';
+    // Chasing is the rep's job, so only Staff get a "due" badge (for their own follow-ups and re-engage alerts)
+    const dueCount = isOwner ? 0 : (pipeline.overdue || 0) + (st.reengage || []).length;
+    badgePipeline.textContent = dueCount > 0 ? `${dueCount} Due` : `${deals.length}`;
+    badgePipeline.className = dueCount > 0 ? 'nav-badge !bg-amber-500 !text-white' : 'nav-badge';
   }
 
   const badgeDeals = document.getElementById('badge-deals');
@@ -133,166 +140,264 @@ function renderPipelineView() {
   if (staffBox) staffBox.classList.toggle('hidden', isOwner);
 
   if (isOwner) {
-    // Top numbers for Owner
-    const wonThisMonth = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
-    const winRatePct = Math.round((pipeline.winRate || 0) * 100);
-
-    const valEl = document.getElementById('kpi-pipeline-val');
-    if (valEl) valEl.textContent = 'RM ' + (pipeline.valueRm || 0).toLocaleString();
-
-    const wonEl = document.getElementById('kpi-won-month');
-    if (wonEl) wonEl.textContent = 'RM ' + wonThisMonth.toLocaleString();
-
-    const rateEl = document.getElementById('kpi-win-rate');
-    if (rateEl) rateEl.textContent = winRatePct + '%';
-
-    const overdueEl = document.getElementById('kpi-overdue-count');
-    if (overdueEl) overdueEl.textContent = (pipeline.overdue || 0) + ((pipeline.overdue || 0) === 1 ? ' deal' : ' deals');
-
-    // Stage breakdown cards
-    const byStage = pipeline.byStage || {};
-    const stages = ['INQUIRY', 'QUOTED', 'FOLLOW_UP', 'WON', 'LOST'];
-
-    const stageContainer = document.getElementById('pipeline-stage-cards');
-    if (stageContainer) {
-      stageContainer.innerHTML = stages.map((key, i) => {
-        const meta = STAGE_META[key];
-        const item = byStage[key] || { count: 0, valueRm: 0 };
-        return `
-          <button onclick="filterDealsToStage('${key}')" class="stage-card" style="--stage:${meta.dot}">
-            <span class="flex items-center gap-2 text-[13px] font-semibold text-[#324564]"><span class="step-num !w-5 !h-5 !text-[11px]">${i + 1}</span>${meta.label}</span>
-            <span class="block text-2xl font-bold text-[#042970] mt-2 tabular-nums">${item.count}</span>
-            <span class="block text-xs text-[#5B6B85] tabular-nums">RM ${(item.valueRm || 0).toLocaleString()}</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    // At-Risk Deals Section (suggestLost, paused complaint, or 3+ follow-ups)
-    const atRiskDeals = deals.filter(d => d.suggestLost || d.paused || (d.followUpCount >= 2 && d.stage !== 'WON' && d.stage !== 'LOST'));
-    const atRiskList = document.getElementById('pipeline-at-risk-list');
-    if (atRiskList) {
-      if (atRiskDeals.length === 0) {
-        atRiskList.innerHTML = `<div class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>Nothing needs attention right now.</span></div>`;
-      } else {
-        atRiskList.innerHTML = atRiskDeals.map(d => `
-          <div class="deal-row is-attention">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="deal-id">${d.id}</span>
-                <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
-                <span class="deal-meta"><svg aria-hidden="true"><use href="#i-users"/></svg>${escapeHtmlText(repNameOf(st, d))}</span>
-                <span class="text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
-              </div>
-              <div class="text-[13px] text-[#93370D] mt-1.5">
-                ${d.paused ? '<b>Paused for a complaint:</b> ' + escapeHtmlText(noEmoji(d.notes).replace(/^paused:\s*/i, '') || 'Waiting for it to be sorted') : (d.followUpCount >= 3 ? 'No reply after 3 follow-ups. Consider marking it lost.' : 'Follow-up due')}
-              </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <button onclick="markLostDeal('${d.id}')" class="cc-btn cc-btn-ghost">Mark lost</button>
-              ${d.paused
-                ? `<button onclick="pauseResumeDeal('${d.id}', false)" class="cc-btn cc-btn-primary">Resume follow-ups</button>`
-                : `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary">Send follow-up</button>`}
-            </div>
-          </div>
-        `).join('');
-      }
-    }
-
-    // Reps Leaderboard Snippet
-    const repSnippet = document.getElementById('pipeline-reps-snippet');
-    if (repSnippet) {
-      repSnippet.innerHTML = reps.map((r, idx) => `
-        <div class="rep-card">
-          <span class="rep-rank ${idx === 0 ? 'is-top' : ''}">${idx + 1}</span>
-          <span class="min-w-0 flex-1">
-            <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(r.name)}</span>
-            <span class="block text-xs text-[#5B6B85]">${r.commissionPct}% commission</span>
-          </span>
-          <span class="text-right">
-            <span class="block text-sm font-semibold text-[#042970] tabular-nums">RM ${(r.wonRm || 0).toLocaleString()}</span>
-            <span class="block text-xs text-[#5B6B85] tabular-nums">RM ${(r.commissionRm || 0).toLocaleString()} earned</span>
-          </span>
-        </div>
-      `).join('');
-    }
-
-    // Owner Activity Log
-    const logList = document.getElementById('audit-log-list');
-    if (logList) {
-      logList.innerHTML = (st.logs || []).map(l => `
-        <div class="flex items-start gap-2 py-1 text-xs text-[#324564]">
-          <span class="cc-dot mt-1.5" style="background:#0152FC"></span>
-          <span>${escapeHtmlText(noEmoji(l))}</span>
-        </div>
-      `).join('');
-    }
-
+    renderOwnerResults(st, deals, reps, pipeline);
   } else {
-    // STAFF ("MY DAY") DASHBOARD
-    // Assume logged in rep is Aina (id = 1) or first rep
-    const myRep = reps.find(r => r.name.toLowerCase().includes('aina')) || reps[0] || { id: 1, name: 'Aina', commissionPct: 3, wonRm: 0, commissionRm: 0 };
-    const myDeals = deals.filter(d => d.repId === myRep.id);
-    const myFollowUps = myDeals.filter(d => d.stage === 'FOLLOW_UP');
-    const myWonDeals = myDeals.filter(d => d.stage === 'WON');
-    const myOpenQuotes = myDeals.filter(d => d.stage === 'QUOTED');
-    const potentialComm = myOpenQuotes.reduce((sum, d) => sum + Math.round((d.amount * myRep.commissionPct) / 100), 0);
+    renderStaffDay(st, deals, reps);
+  }
+}
 
-    const sFollowEl = document.getElementById('staff-kpi-followups');
-    if (sFollowEl) sFollowEl.textContent = myFollowUps.length;
+const RM = n => 'RM ' + (n || 0).toLocaleString();
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
 
-    const sWonEl = document.getElementById('staff-kpi-won');
-    if (sWonEl) sWonEl.textContent = 'RM ' + (myRep.wonRm || 0).toLocaleString();
+// Customer health from the agent's rating, shown before the rep replies
+const TIER_TAG = {
+  VIP_FAST_PAYER: { label: 'Fast payer', tone: 'ok' },
+  LONG_TERM_PARTNER: { label: 'Long-term', tone: 'ok' },
+  PARTIAL_SHORT_PAYER: { label: 'Haggler', tone: 'warn' },
+  SLOW_PAYER_GHOST_RISK: { label: 'Ghost risk', tone: 'warn' },
+};
+const LEVEL_TAG = {
+  READY: { label: 'Ready to buy', tone: 'bad' },
+  INTERESTED: { label: 'Interested', tone: 'warn' },
+  BROWSING: { label: 'Browsing', tone: 'info' },
+};
+const tag = (t) => t ? `<span class="lvl-tag is-${t.tone}">${t.label}</span>` : '';
 
-    const sCommEl = document.getElementById('staff-kpi-comm');
-    if (sCommEl) sCommEl.textContent = 'RM ' + (myRep.commissionRm || 0).toLocaleString();
+function quietText(stamp) {
+  const t = stamp ? new Date(stamp.replace(' ', 'T')) : null;
+  if (!t || isNaN(t)) return '';
+  const h = Math.max(0, Math.floor((Date.now() - t.getTime()) / 3600000));
+  return h < 1 ? 'Last wrote under an hour ago' : h < 48 ? `Last wrote ${h}h ago` : `Last wrote ${Math.floor(h / 24)} days ago`;
+}
 
-    const sPotEl = document.getElementById('staff-kpi-potential');
-    if (sPotEl) sPotEl.textContent = '+RM ' + potentialComm.toLocaleString();
+function renderOwnerResults(st, deals, reps, pipeline) {
+  const month = new Date().toISOString().slice(0, 7);
+  const paid = deals.filter(d => d.stage === 'WON' && (d.wonAt || '').startsWith(month))
+    .sort((a, b) => (a.wonAt || '').localeCompare(b.wonAt || ''));
+  const paidTotal = paid.reduce((sum, d) => sum + (d.amount || 0), 0);
+  const won = deals.filter(d => d.stage === 'WON').length;
+  const lost = deals.filter(d => d.stage === 'LOST').length;
+  const commTotal = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);
 
-    // Staff Follow-up action list
-    const staffFollowList = document.getElementById('staff-followups-list');
-    if (staffFollowList) {
-      if (myFollowUps.length === 0) {
-        staffFollowList.innerHTML = `<div class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>All caught up. No follow-ups due today.</span></div>`;
-      } else {
-        staffFollowList.innerHTML = myFollowUps.map(d => `
-          <div class="deal-row is-attention">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="deal-id">${d.id}</span>
-                <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
-                <span class="text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
-              </div>
-              <div class="text-[13px] text-[#5B6B85] mt-1">${escapeHtmlText(d.phone || 'WhatsApp')} · ${escapeHtmlText(noEmoji(d.followUpText) || 'Follow-up due now')}</div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <button onclick="markWonDeal('${d.id}')" class="cc-btn cc-btn-ghost">Mark won</button>
-              <button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send follow-up</button>
-            </div>
-          </div>
-        `).join('');
-      }
-    }
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('kpi-won-month', RM(paidTotal));
+  set('kpi-won-note', `${paid.length} order${paid.length === 1 ? '' : 's'} marked won with a payment slip`);
+  // A percentage on a handful of deals swings wildly, so show the count until there are 20 closed deals
+  set('kpi-win-rate', won + lost >= 20 ? Math.round(won / (won + lost) * 100) + '%' : `${won} of ${won + lost}`);
+  set('kpi-win-note', `${won} won, ${lost} lost, all time`);
+  set('kpi-comm-pay', RM(commTotal));
+  set('kpi-comm-note', `This month, ${reps.length} rep${reps.length === 1 ? '' : 's'}`);
 
-    // Staff Recent Wins
-    const staffWinsList = document.getElementById('staff-recent-wins');
-    if (staffWinsList) {
-      staffWinsList.innerHTML = myWonDeals.slice(0, 4).map(d => `
-        <div class="rep-card">
-          <span class="cc-stat-icon !w-8 !h-8 bg-emerald-50 text-emerald-600"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
-          <span class="min-w-0 flex-1">
-            <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(d.customer)}</span>
-            <span class="block text-xs font-mono text-[#5B6B85]">#${d.orderNo || d.id}</span>
-          </span>
-          <span class="text-right">
-            <span class="block text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
-            <span class="block text-xs text-emerald-700 tabular-nums">+RM ${Math.round(d.amount * myRep.commissionPct / 100)} commission</span>
-          </span>
-        </div>
-      `).join('') || `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No wins yet this month. Each quote you close adds commission.</span></div>`;
+  // Paid orders: running total as a small line chart, with every order as a point you can hover or tap
+  const chart = document.getElementById('pipeline-paid-chart');
+  if (chart) {
+    if (!paid.length) {
+      chart.innerHTML = `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No paid orders yet this month.</span></div>`;
+    } else {
+      const W = 520, H = 180, L = 44, R = 16, T = 14, B = 28;
+      let run = 0;
+      const pts = paid.map(d => ({ d, total: (run += d.amount || 0) }));
+      const max = Math.max(1000, Math.ceil(run / 1000 / 2) * 2000);
+      const x = i => pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1);
+      const y = v => T + (1 - v / max) * (H - T - B);
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.total).toFixed(1)}`).join(' ');
+      const area = `${line} L${x(pts.length - 1).toFixed(1)} ${H - B} L${x(0).toFixed(1)} ${H - B} Z`;
+      const day = s => new Date(s.replace(' ', 'T')).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+      chart.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="paid-chart" role="img" aria-label="Paid orders this month: ${RM(run)} from ${pts.length} orders">
+          ${[0, max / 2, max].map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" class="pc-grid"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" class="pc-axis">${t ? (t / 1000) + 'k' : '0'}</text>`).join('')}
+          <path d="${area}" class="pc-area"/><path d="${line}" class="pc-line"/>
+          ${pts.map((p, i) => `<g class="pc-pt" tabindex="0" data-i="${i}"><rect x="${x(i) - 24}" y="${T}" width="48" height="${H - T - B}" fill="transparent"/><circle cx="${x(i)}" cy="${y(p.total)}" r="4.5"/><text x="${x(i)}" y="${H - 8}" text-anchor="middle" class="pc-axis">${day(p.d.wonAt)}</text></g>`).join('')}
+        </svg>
+        <p id="paid-chart-readout" class="text-[13px] text-[#324564] mt-1" aria-live="polite"></p>`;
+      const readout = i => {
+        const p = pts[i];
+        document.getElementById('paid-chart-readout').innerHTML = `<b class="tabular-nums">${RM(p.total)}</b> by ${day(p.d.wonAt)} · +${RM(p.d.amount)} from ${escapeHtmlText(p.d.customer)}`;
+        chart.querySelectorAll('.pc-pt').forEach(g => g.classList.toggle('is-on', +g.dataset.i === i));
+      };
+      chart.querySelectorAll('.pc-pt').forEach(g => {
+        const i = +g.dataset.i;
+        g.addEventListener('mouseenter', () => readout(i));
+        g.addEventListener('focus', () => readout(i));
+        g.addEventListener('click', () => readout(i));
+      });
+      readout(pts.length - 1);
     }
   }
+
+  // Open deals by stage: bars to one scale, each opens that stage on the Deals page
+  const byStage = pipeline.byStage || {};
+  const open = ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].map(k => ({ k, ...(byStage[k] || { count: 0, valueRm: 0 }) }));
+  const openMax = Math.max(1, ...open.map(o => o.valueRm || 0));
+  const openTotal = open.reduce((sum, o) => sum + (o.valueRm || 0), 0);
+  const openCount = open.reduce((sum, o) => sum + (o.count || 0), 0);
+  const totalEl = document.getElementById('pipeline-open-total');
+  if (totalEl) totalEl.textContent = `${RM(openTotal)} · ${openCount} deal${openCount === 1 ? '' : 's'}`;
+  const stageContainer = document.getElementById('pipeline-stage-cards');
+  if (stageContainer) {
+    stageContainer.innerHTML = open.map(o => `
+      <button onclick="filterDealsToStage('${o.k}')" class="stage-bar" aria-label="${STAGE_META[o.k].label}: ${RM(o.valueRm)}, ${o.count} deals">
+        <span class="sb-label">${STAGE_META[o.k].label}</span>
+        <span class="sb-track"><span class="sb-fill" style="width:${Math.max(2, (o.valueRm || 0) / openMax * 100)}%"></span></span>
+        <span class="sb-value tabular-nums">${RM(o.valueRm)}<small>${o.count} deal${o.count === 1 ? '' : 's'}</small></span>
+      </button>`).join('');
+  }
+
+  // Team this month: won and commission per rep, best first
+  const repTable = document.getElementById('pipeline-reps-snippet');
+  if (repTable) {
+    repTable.innerHTML = [...reps].sort((a, b) => (b.wonRm || 0) - (a.wonRm || 0)).map(r => `
+      <tr><td class="px-4 font-semibold text-[#042970]">${escapeHtmlText(r.name)}</td>
+        <td class="px-4 text-right tabular-nums">${RM(r.wonRm)}</td>
+        <td class="px-4 text-right tabular-nums">${RM(r.commissionRm)}</td></tr>`).join('');
+  }
+
+  // Why we lose: the reasons recorded on lost deals, most common first
+  const lossBox = document.getElementById('pipeline-loss-reasons');
+  if (lossBox) {
+    const lostDeals = deals.filter(d => d.stage === 'LOST');
+    const reasons = Object.entries(pipeline.lossReasons || {}).sort((a, b) => b[1] - a[1]);
+    lossBox.innerHTML = `<div class="text-sm font-semibold text-[#042970]">Why we lose</div>` + (reasons.length
+      ? reasons.map(([reason, n]) => {
+          const value = lostDeals.filter(d => (d.lossReason || '').startsWith(reason)).reduce((sum, d) => sum + (d.amount || 0), 0);
+          return `<div class="flex items-baseline justify-between gap-3 mt-2 text-sm"><span>${escapeHtmlText(reason)}</span><span class="tabular-nums text-[#5B6B85]">${n} deal${n === 1 ? '' : 's'} · ${RM(value)}</span></div>`;
+        }).join('') + `<p class="text-xs text-[#5B6B85] mt-3">If one reason keeps coming up, review prices or the margin floor.</p>`
+      : `<p class="text-sm text-[#5B6B85] mt-1">No lost deals yet.</p>`);
+  }
+
+  // Owner Activity Log
+  const logList = document.getElementById('audit-log-list');
+  if (logList) {
+    logList.innerHTML = (st.logs || []).map(l => `
+      <div class="flex items-start gap-2 py-1 text-xs text-[#324564]">
+        <span class="cc-dot mt-1.5" style="background:#0152FC"></span>
+        <span>${escapeHtmlText(noEmoji(l))}</span>
+      </div>
+    `).join('');
+  }
+}
+
+// Re-engage alerts the rep sent or dismissed stay hidden in this browser until the customer writes again
+function reengageKey(a) { return 'cc-reengage:' + a.customer + ':' + a.said; }
+function reengageHidden(a) { try { return localStorage.getItem(reengageKey(a)) === '1'; } catch (e) { return false; } }
+function hideReengage(a) { try { localStorage.setItem(reengageKey(a), '1'); } catch (e) { /* private window: shows again on reload */ } }
+
+function renderStaffDay(st, deals, reps) {
+  // The server sends Staff only their own rep row, deals, customers and chats
+  const me = reps[0] || { name: 'You', commissionPct: 0, wonRm: 0, commissionRm: 0, potentialRm: 0, rank: 0 };
+  const memories = st.clientMemories || {};
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('staff-kpi-rank', me.rank ? `${ordinal(me.rank)} of ${st.teamSize || reps.length}` : '-');
+  set('staff-kpi-won', RM(me.wonRm));
+  set('staff-kpi-comm', RM(me.commissionRm));
+  set('staff-kpi-potential', '+' + RM(me.potentialRm));
+
+  // Re-engage: customers who were about to buy and went quiet (the agent decides from their own words)
+  const alerts = (st.reengage || []).filter(a => !reengageHidden(a));
+  window.__reengage = alerts;
+  const card = document.getElementById('staff-reengage-card');
+  const list = document.getElementById('staff-reengage-list');
+  if (card) card.classList.toggle('hidden', alerts.length === 0);
+  if (list) {
+    list.innerHTML = alerts.map((a, i) => `
+      <div class="reengage">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(a.customer)}${a.dealId ? ` <span class="deal-id">${a.dealId}</span>` : ''}</span>
+          <span class="flex flex-wrap gap-1.5">${tag(LEVEL_TAG[a.level])}${tag(TIER_TAG[a.tier])}</span>
+        </div>
+        <blockquote class="reengage-said">"${escapeHtmlText(a.said)}"<span>${escapeHtmlText(a.reason)}${a.amount ? ' · ' + RM(a.amount) : ''}</span></blockquote>
+        <label for="reengage-msg-${i}" class="cc-label">Suggested message (edit before sending)</label>
+        <textarea id="reengage-msg-${i}" rows="2" class="cc-input">${escapeHtmlText(a.suggestedMessage)}</textarea>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button onclick="sendReengage(${i})" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send on WhatsApp</button>
+          <button onclick="dismissReengage(${i})" class="cc-btn cc-btn-ghost">Dismiss</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Next up: a short ranked list. Follow-ups due first, then quotes the customer is warm on, then new questions.
+  const alerted = new Set(alerts.map(a => (a.customer || '').toLowerCase()));
+  const memoryOf = name => memories[name] || Object.values(memories).find(m => m.customer.toLowerCase() === (name || '').toLowerCase());
+  const open = deals.filter(d => ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].includes(d.stage) && !d.paused && !alerted.has(d.customer.toLowerCase()));
+  const rank = d => d.stage === 'FOLLOW_UP' ? 0 : d.stage === 'QUOTED' ? 1 : 2;
+  const items = open.sort((a, b) => rank(a) - rank(b)).map(d => ({ deal: d, name: d.customer, mem: memoryOf(d.customer) }));
+  // New chats with no deal yet (e.g. a price question) come last
+  Object.values(memories).forEach(m => {
+    const key = m.customer.toLowerCase();
+    if (m.buyingLevel && !alerted.has(key) && !deals.some(d => d.customer.toLowerCase() === key && ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].includes(d.stage))
+      && !deals.some(d => d.customer.toLowerCase() === key && d.stage === 'WON' && (d.wonAt || '') >= (m.lastCustomerAt || ''))) {
+      items.push({ deal: null, name: m.customer, mem: m });
+    }
+  });
+  const top = items.slice(0, 3);
+  const staffFollowList = document.getElementById('staff-followups-list');
+  if (staffFollowList) {
+    staffFollowList.innerHTML = top.length ? top.map((it, i) => {
+      const d = it.deal, m = it.mem;
+      const what = d ? `${d.id} · ${RM(d.amount)} · ${escapeHtmlText(noEmoji(d.followUpText) || STAGE_META[d.stage].label)}` : 'New chat · no quote yet';
+      const tip = m && m.paymentBehavior ? noEmoji(m.paymentBehavior) : '';
+      const action = d && d.stage === 'FOLLOW_UP'
+        ? `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send follow-up</button>`
+        : d && d.stage === 'INQUIRY'
+          ? `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary">Send quote</button>`
+          : `<button onclick="switchPage('wa')" class="cc-btn ${d ? 'cc-btn-ghost' : 'cc-btn-primary'}"><svg aria-hidden="true"><use href="#i-chat"/></svg>Open chat</button>`;
+      return `
+        <li class="next-up">
+          <span class="next-up-n tabular-nums">${i + 1}</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(it.name)}</span>
+              ${m ? tag(LEVEL_TAG[m.buyingLevel]) + tag(TIER_TAG[m.tier]) : ''}
+            </div>
+            <div class="text-[13px] text-[#5B6B85] mt-0.5">${what}${m && quietText(m.lastCustomerAt) ? ' · <b>' + quietText(m.lastCustomerAt) + '</b>' : ''}</div>
+            ${tip ? `<div class="text-[13px] text-[#324564] mt-1">${escapeHtmlText(tip)}</div>` : ''}
+          </div>
+          <div class="shrink-0">${action}</div>
+        </li>`;
+    }).join('') : `<li class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>All caught up. Nothing waiting on you.</span></li>`;
+  }
+
+  // Staff Recent Wins
+  const myWonDeals = deals.filter(d => d.stage === 'WON');
+  const staffWinsList = document.getElementById('staff-recent-wins');
+  if (staffWinsList) {
+    staffWinsList.innerHTML = myWonDeals.slice(0, 4).map(d => `
+      <div class="rep-card">
+        <span class="cc-stat-icon !w-8 !h-8 bg-emerald-50 text-emerald-600"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(d.customer)}</span>
+          <span class="block text-xs font-mono text-[#5B6B85]">#${d.orderNo || d.id}</span>
+        </span>
+        <span class="text-right">
+          <span class="block text-sm font-semibold text-[#042970] tabular-nums">${RM(d.amount)}</span>
+          <span class="block text-xs text-emerald-700 tabular-nums">+${RM(Math.round(d.amount * (me.commissionPct || 0) / 100))} commission</span>
+        </span>
+      </div>
+    `).join('') || `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No wins yet this month. Each quote you close adds commission.</span></div>`;
+  }
+}
+
+// Send opens WhatsApp with the edited message. With an open deal it also counts as a follow-up (logged and the
+// timer resets); otherwise it is logged on its own.
+function sendReengage(i) {
+  const a = (window.__reengage || [])[i];
+  if (!a) return;
+  const text = (document.getElementById(`reengage-msg-${i}`) || {}).value || a.suggestedMessage;
+  const digits = (a.phone || '').replace(/\D/g, '');
+  if (digits) window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  hideReengage(a);
+  if (a.dealId) {
+    sendFollowUpDeal(a.dealId);
+  } else {
+    backendAction('/api/reengage', { customer: a.customer, action: 'SENT' }, `Re-engaged ${a.customer}.`);
+  }
+}
+
+function dismissReengage(i) {
+  const a = (window.__reengage || [])[i];
+  if (!a) return;
+  hideReengage(a);
+  backendAction('/api/reengage', { customer: a.customer, action: 'DISMISSED' }, `Dismissed the alert for ${a.customer}.`);
 }
 
 function filterDealsToStage(stage) {
@@ -318,6 +423,11 @@ function renderDealsView() {
   const isOwner = currentRole === 'OWNER';
   const deals = st.deals || [];
   const reps = st.reps || [];
+
+  // Staff only get their own deals, so the rep filter is the Owner's alone
+  const repFilter = document.getElementById('deals-rep-filter');
+  if (repFilter) repFilter.classList.toggle('hidden', !isOwner);
+  if (!isOwner) currentDealRepFilter = 'ALL';
 
   // Update Rep filter options
   const repSelect = document.getElementById('deals-rep-select');
@@ -815,6 +925,16 @@ function renderCommissionView() {
   const reps = st.reps || [];
   const tbody = document.getElementById('commission-tbody');
   if (!tbody) return;
+
+  // Staff get only their own row from the server, so the page speaks to them about their own pay
+  const say = (id, owner, staff) => { const el = document.getElementById(id); if (el) el.textContent = isOwner ? owner : staff; };
+  say('comm-hero-sub', "Each rep's sales and commission, worked out from the deals they closed.", 'Your sales and commission, worked out from the deals you closed.');
+  say('comm-won-label', 'Won sales', 'Your won sales');
+  say('comm-won-note', 'All won deals added together', 'Orders you closed this month');
+  say('comm-pay-label', 'Commission to pay', 'Your commission');
+  say('comm-pay-note', 'Owed across all reps', 'Estimated; the Owner confirms your pay');
+  const addRep = document.getElementById('comm-add-rep');
+  if (addRep) addRep.classList.toggle('hidden', !isOwner);
 
   const totalWon = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
   const totalComm = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);

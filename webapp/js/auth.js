@@ -205,6 +205,7 @@ function applyRole(session) {
   document.getElementById('role-sub').textContent = session.email;
   document.getElementById('role-btn').disabled = true;
   renderAll();
+  if (typeof usesBackend === 'function' && usesBackend()) syncFromBackend();
 }
 
 function hideLoginScreen() {
