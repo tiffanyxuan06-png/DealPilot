@@ -17,6 +17,20 @@ def clean_customer_name(name: str) -> str:
     return cleaned or "Boss"
 
 
+def same_phone(a: str, b: str) -> bool:
+    """True when two numbers are the same line: digits only, at least 7, one ends with the other (country code or not)."""
+    da, db = re.sub(r"\D", "", a or ""), re.sub(r"\D", "", b or "")
+    return len(da) >= 7 and len(db) >= 7 and (da.endswith(db) or db.endswith(da))
+
+
+def find_memory_by_phone(session: Session, phone: str) -> Optional[orm.ClientMemory]:
+    """The saved client memory whose phone is the same line as this number."""
+    if not re.sub(r"\D", "", phone or ""):
+        return None
+    rows = session.scalars(select(orm.ClientMemory).where(orm.ClientMemory.phone != "").order_by(orm.ClientMemory.customer))
+    return next((m for m in rows if same_phone(m.phone, phone)), None)
+
+
 def _new_client(customer: str, phone: str, message: str) -> Dict[str, Any]:
     return {
         "customer": customer or "New Client",
@@ -42,14 +56,21 @@ def compute_client_memory_rating(customer: str, phone: str = "", message: str = 
         with session_scope() as s:
             return compute_client_memory_rating(customer, phone, message, s)
 
+    from backend.services.customers import find_customer  # customers.py imports this module
+
     cust = customer.strip()
     phone_clean = (phone or "").strip()
     if not cust or cust.lower() in ("customer", "client", "walk-in", "walk-in counter", "no chat open"):
         return _new_client(cust, phone_clean, message)
+    # Only a registered customer has a rating; a stranger (or a number nobody saved) is just new.
+    row = find_customer(session, cust, phone_clean)
+    if row is None:
+        return _new_client(cust, phone_clean, message)
+    cust, phone_clean = row.name, row.phone or phone_clean
 
     mem = session.scalars(select(orm.ClientMemory).where(func.lower(orm.ClientMemory.customer) == cust.lower())).first()
-    if not mem and phone_clean:
-        mem = session.scalars(select(orm.ClientMemory).where(orm.ClientMemory.phone == phone_clean, orm.ClientMemory.phone != "")).first()
+    if not mem and row.phone:
+        mem = find_memory_by_phone(session, row.phone)
 
     deals = []
     if len(cust) >= 3:

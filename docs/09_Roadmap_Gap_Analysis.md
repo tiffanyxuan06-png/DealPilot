@@ -16,8 +16,8 @@
 | Data | Price list, reps, deals with stages, 48h follow-up timer, follow-up count + "suggest lost", loss reason, slip ref, complaint pause | — | — |
 | Sales logic | Mark won/lost, margin guard, commission, reassign, log inquiry, won-orders CSV, quote PDF with disclaimer, permissions, price-list import, "Ask AI" on the pipeline, customer memory scored from deals (data-layer refactor), dashboard numbers and cancel won order (gap fixes below) | Disclaimer and margin guard inside **WhatsApp replies** | Webapp pages (Phase 5) |
 | AI | — | New intents incl. discount request; prompt uses the price list (no stock); `/api/whatsapp/execute` creates and moves deals; photo → quote (`/api/whatsapp/photo-quote`) | — |
-| Privacy | — | **Backend half:** skip non-customers before calling the AI, don't save casual chats, `POST /api/customers` | **Extension half (Phase 4):** Analyse button only, "Add as customer" |
-| Extension | — | — | All of Phase 4 |
+| Privacy | Skip non-customers before calling the AI, casual chat not saved, `POST /api/customers`; photo → quote and `execute` also refuse strangers (Phase 4 fixes below) | — | ✅ Extension half done (Phase 4 fixes below) |
+| Extension | — | — | The 6 roadmap rows are done (Phase 4 fixes below). Still left: the manual run on real WhatsApp Web (doc 11 §5 steps 1–5) and a slip-reference box for Mark won |
 | Webapp | — | — | All of Phase 5 |
 
 ### Phase 1–2 gap fixes (22 Oct 2026, committed) / 第一、二阶段补漏
@@ -31,6 +31,23 @@ Found by comparing Phases 1–2 with the dashboards in doc 08 and the overview p
 | 3 | Link each login to a rep; Staff see only their own numbers | ⏸ Parked | Built, but the access-control review found Staff could still see other reps' data (activity log, approvals, customer memory, quote PDF, `/api/client/memory`, WhatsApp TIN). Removed from the code; the work is saved as `.claude/parked/item3-rep-login.patch` (applies cleanly; not in git) with the reviewer's findings to fix before resuming | — |
 
 Tests after items 1–2: **97 passed, 2 failed** (`test_runpod.py::test_runpod_down_falls_back`, `test_security.py::test_uploads_must_be_small_images_or_pdfs`, both waiting on Phase 3).
+
+### Phase 4 extension fixes (23 Oct 2026, committed) / 第四阶段插件
+
+Each row was built by one agent and checked by a separate reviewer; every review round's findings were fixed and re-reviewed. The extension is tested from pytest with a Node harness (`test/unit/extension_harness*.js`, Node built-ins only, fake WhatsApp DOM, records every network call). Not yet tried on real WhatsApp Web.
+
+| # | Roadmap row | Status | What changed | Proof |
+|---|---|---|---|---|
+| 1 | Sidebar that inserts the reply | ✅ Verified, reviewed (APPROVE) | No change needed: fills the WhatsApp box and never presses Send | `test_extension.py::test_insert_reply_*` |
+| 2 | Manual "Analyse" trigger | ✅ Done, reviewed (APPROVE) | Switching chats or new messages make **no** network call. Only a click sends chat content: 🔄 Rescan, Ask AI / Enter, or the new "📷 Quote from photo" button (`/api/whatsapp/photo-quote`; the automatic `/api/ocr/extract` call is gone, PDFs get a "type the items" hint) | `test_switching_chats_and_new_messages_send_nothing`, `test_analyse_click_sends_the_open_chat_once`, `test_customer_photo_offers_a_button_and_sends_only_on_click` |
+| 3 | Customers-only allowlist | ✅ Done, reviewed (APPROVE) | The sidebar checks the customer list from `/api/state` locally (name, or phone digits like the backend). A friend's chat shows "Not a customer" + "➕ Add as customer" (`POST /api/customers`) and nothing can be sent for it; the phone number is now sent with analyze, execute, photo-quote and the memory lookup | `test_friend_chat_says_not_a_customer_and_no_button_sends_anything`, `test_add_as_customer_posts_once_then_rescan_analyses`, `test_phone_title_sends_its_digits_in_analyze_execute_and_photo_quote` |
+| 4 | Casual chat not saved | ✅ Done, reviewed (APPROVE) | Backend fixes: photo-quote refused strangers' photos too late (now before the AI); the AI could relabel casual chat as a sales intent and get it saved (now casual stays casual); short words like "ac" matched inside "coaching"/"back" (now whole words); phone match needed whole numbers; unreadable photo returned 500; `execute` for a stranger no longer logs their name. Found with the mock data: a customer whose chat is titled by phone number got a second, blank memory and their open deal wasn't found; now every request is matched to the stored customer once and uses their name, memory lookups compare phone digits, and the memory lookup only rates registered customers | `test_whatsapp_privacy.py` (39 tests) |
+| 5 | Rep, stage and commission in the sidebar | ✅ Done, reviewed (APPROVE) | Stock card and all stock wording removed (manifest too). New card: follow-ups due and reps' commission this month. Each quote shows rep, stage ("New quote" for a new one), follow-up n of 3, total and "Margin ✓ · You earn RM x" (Staff never see cost or margin %). The offline draft prices only from the price list, else says "let me confirm the price". The main button sends the real execute body (no more `ACN-DAI-15` / RM 6,650 defaults); `CREATE_QUOTE` without items is refused (400) | `test_sidebar_shows_followups_due_and_commission_and_no_stock_wording`, `test_rescan_shows_rep_stage_follow_up_total_margin_and_commission`, `test_offline_guess_prices_from_the_loaded_price_list_only`, `test_main_button_sends_only_the_contract_fields_from_the_analysis`, `test_whatsapp_execute_create_quote_needs_an_item` |
+| 6 | Unread-chat pre-check | ✅ Verified, reviewed (APPROVE) | No change needed: local only, no network call (checked including delayed timers) | `test_unread_precheck_fills_cache_with_no_network_call` |
+
+Left for later: run doc 11 §5 steps 1–5 on real WhatsApp Web; a slip-reference box so Mark won can be done from the sidebar when the chat has no slip ref (today it asks for one and sends nothing).
+
+Tests after Phase 4: **237 passed, 3 failed**. The 3 are teammates' Phase 3 tests that already failed before this work: `test_consultation_intent.py::test_consultative_product_advice_does_not_quote`, `test_phase3_sales_agent.py::test_buying_inquiry_has_disclaimer`, `test_receipts_and_replies.py::test_ai_reply_check`.
 
 So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsApp routes, photo → quote, privacy). Phases 4–5 are frontend.
 后端还没做完：第三阶段（AI、WhatsApp 接口、照片报价、隐私）都是后端工作；第四、五阶段才是前端。
@@ -83,16 +100,16 @@ So the backend is **not** finished: Phase 3 is backend work (AI prompts, WhatsAp
 | Photo → quote | ⚠️ | Vision OCR exists (`api_ocr_extract` in `backend/routes/invoices.py`) and the extension already spots images in chat, but it only reads receipts, not order lists |
 | Local LLM plus offline fallback | ✅ | LM Studio, RunPod and built-in answers |
 
-## 4. Extension / 插件 (roadmap Phase 4)
+## 4. Extension / 插件 (roadmap Phase 4) — verified 23 Oct 2026
 
-| Roadmap item | Status | What exists now |
-|---|---|---|
-| Sidebar that inserts the reply | ✅ | Inserts into the WhatsApp message box |
-| Manual "Analyse" trigger | ⚠️ conflict | A `MutationObserver` sends whichever chat is open to the backend and AI automatically (`extension/content.js:1165`). An "Analyse" button exists, but it isn't the only trigger |
-| Customers-only allowlist | ❌ | Only a keyword check for casual chat (`extension/content.js:172`); no customer list |
-| Casual chat not saved | ❌ | The backend saves memory for every analysed chat (`backend/routes/whatsapp.py`) |
-| Rep, stage and commission in the sidebar | ❌ | It shows a stock summary instead (`extension/content.js:1059`), which needs removing |
-| Unread-chat pre-check | ✅ | `scanUnreadSidebarChatsAndPreCache` runs locally only, with no network call |
+| Roadmap item | Status | What exists now | Now (after Phase 4 fixes) |
+|---|---|---|---|
+| Sidebar that inserts the reply | ✅ | Inserts into the WhatsApp message box | ✅ Verified · `test_extension.py::test_insert_reply_fills_compose_box_without_sending` |
+| Manual "Analyse" trigger | ⚠️ conflict | A `MutationObserver` sends whichever chat is open to the backend and AI automatically (`extension/content.js:1165`). An "Analyse" button exists, but it isn't the only trigger | ✅ Done · the observer only reads the chat locally; Rescan / Ask AI / photo button are the only senders · `test_switching_chats_and_new_messages_send_nothing` |
+| Customers-only allowlist | ❌ | Only a keyword check for casual chat (`extension/content.js:172`); no customer list | ✅ Done · "Not a customer" + "Add as customer" · `test_friend_chat_says_not_a_customer_and_no_button_sends_anything` |
+| Casual chat not saved | ❌ | The backend saves memory for every analysed chat (`backend/routes/whatsapp.py`) | ✅ Done · `test_whatsapp_privacy.py` |
+| Rep, stage and commission in the sidebar | ❌ | It shows a stock summary instead (`extension/content.js:1059`), which needs removing | ✅ Done · stock removed; follow-ups due, commission, rep/stage/"You earn RM x" · `test_rescan_shows_rep_stage_follow_up_total_margin_and_commission` |
+| Unread-chat pre-check | ✅ | `scanUnreadSidebarChatsAndPreCache` runs locally only, with no network call | ✅ Verified · `test_unread_precheck_fills_cache_with_no_network_call` |
 
 ## 5. Webapp / 网页 (roadmap Phase 5)
 
