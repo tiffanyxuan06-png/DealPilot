@@ -42,6 +42,128 @@ let currentRole = 'OWNER';
       }
     }
 
+    // ---------------------------------------------------------------------
+    // FORM DIALOG
+    // One in-app dialog for every "ask for a few details" step. It replaces the browser's prompt(),
+    // which many browsers and embedded views block (it then returns null and the button looks dead).
+    //
+    //   askForm({ title, message, okText, isDanger, fields: [
+    //     { name, label, type: 'text'|'number'|'textarea'|'select', value, placeholder, hint, required,
+    //       requiredMsg, min, max, step, options: [{ value, label }], chips: ['quick', 'picks'] }
+    //   ] }, values => ...)
+    //
+    // `values` holds trimmed strings; number fields give a number, or null when left empty.
+    // Required fields and number limits are checked inline, and the dialog stays open until they pass.
+    // ---------------------------------------------------------------------
+    let pendingForm = null;
+    let formReturnFocus = null;
+
+    function formFieldHtml(f) {
+      const id = `form-field-${f.name}`;
+      const describedBy = [f.hint ? `${id}-hint` : '', `${id}-error`].filter(Boolean).join(' ');
+      const common = `id="${id}" name="${f.name}" class="cc-input" aria-describedby="${describedBy}"${f.required ? ' aria-required="true"' : ''}`;
+      const value = escapeHtmlText(String(f.value ?? ''));
+      const placeholder = escapeHtmlText(f.placeholder || '');
+      let control;
+      if (f.type === 'select') {
+        control = `<select ${common}>${(f.options || []).map(o =>
+          `<option value="${escapeHtmlText(String(o.value))}" ${String(o.value) === String(f.value) ? 'selected' : ''}>${escapeHtmlText(o.label)}</option>`).join('')}</select>`;
+      } else if (f.type === 'textarea') {
+        control = `<textarea ${common} rows="3" maxlength="500" placeholder="${placeholder}">${value}</textarea>`;
+      } else if (f.type === 'number') {
+        control = `<input ${common} type="number" inputmode="decimal" step="${f.step ?? 'any'}"${f.min !== undefined ? ` min="${f.min}"` : ''}${f.max !== undefined ? ` max="${f.max}"` : ''} value="${value}" placeholder="${placeholder}" autocomplete="off" />`;
+      } else {
+        control = `<input ${common} type="text" maxlength="200" value="${value}" placeholder="${placeholder}" autocomplete="off" />`;
+      }
+      const chips = (f.chips || []).length
+        ? `<div class="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="Quick picks">${f.chips.map(c =>
+            `<button type="button" class="cc-chip !min-h-[30px] !text-xs" data-fill="${id}" data-value="${escapeHtmlText(c)}">${escapeHtmlText(c)}</button>`).join('')}</div>`
+        : '';
+      return `
+        <div>
+          <label for="${id}" class="cc-label">${escapeHtmlText(f.label)}${f.required ? '' : ' <span class="font-normal text-[#5B6B85]">(optional)</span>'}</label>
+          ${control}
+          ${chips}
+          ${f.hint ? `<p id="${id}-hint" class="text-xs text-[#5B6B85] mt-1">${escapeHtmlText(f.hint)}</p>` : ''}
+          <p id="${id}-error" class="login-error" hidden></p>
+        </div>`;
+    }
+
+    function askForm(config, onSubmit) {
+      const { title, message = '', fields = [], okText = 'Save', isDanger = false } = config;
+      formReturnFocus = document.activeElement;
+      document.getElementById('form-title').textContent = title;
+      const msg = document.getElementById('form-message');
+      msg.textContent = message;
+      msg.classList.toggle('hidden', !message);
+      document.getElementById('form-fields').innerHTML = fields.map(formFieldHtml).join('');
+      const ok = document.getElementById('form-ok-btn');
+      ok.textContent = okText;
+      ok.className = isDanger ? 'cc-btn bg-red-600 hover:bg-red-700 text-white' : 'cc-btn cc-btn-primary';
+      pendingForm = { fields, onSubmit };
+      const modal = document.getElementById('form-modal');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        const first = modal.querySelector('#form-fields input, #form-fields select, #form-fields textarea');
+        if (!first) return;
+        first.focus();
+        if (typeof first.select === 'function' && first.tagName !== 'SELECT') first.select();
+      }, 50);
+    }
+
+    function closeForm() {
+      document.getElementById('form-modal').classList.add('hidden');
+      pendingForm = null;
+      if (formReturnFocus && document.contains(formReturnFocus)) formReturnFocus.focus();
+      formReturnFocus = null;
+    }
+
+    function submitForm(event) {
+      event.preventDefault();
+      if (!pendingForm) return;
+      const { fields, onSubmit } = pendingForm;
+      const values = {};
+      let firstBad = null;
+      fields.forEach(f => {
+        const id = `form-field-${f.name}`;
+        const el = document.getElementById(id);
+        const raw = (el.value || '').trim();
+        let problem = '';
+        if (!raw) {
+          if (f.required) problem = f.requiredMsg || 'This is required.';
+          values[f.name] = f.type === 'number' ? null : '';
+        } else if (f.type === 'number') {
+          const n = parseFloat(raw.replace(/,/g, ''));
+          if (isNaN(n)) problem = 'Enter a number.';
+          else if (f.min !== undefined && n < f.min) problem = `Enter ${f.min} or more.`;
+          else if (f.max !== undefined && n > f.max) problem = `Enter ${f.max} or less.`;
+          else values[f.name] = n;
+        } else {
+          values[f.name] = raw;
+        }
+        const err = document.getElementById(`${id}-error`);
+        err.textContent = problem;
+        err.hidden = !problem;
+        el.classList.toggle('is-invalid', !!problem);
+        el.setAttribute('aria-invalid', problem ? 'true' : 'false');
+        if (problem && !firstBad) firstBad = el;
+      });
+      if (firstBad) { firstBad.focus(); return; }
+      closeForm();
+      onSubmit(values);
+    }
+
+    // Quick-pick chips fill their field; Escape closes the dialog
+    document.addEventListener('click', e => {
+      const chip = e.target.closest && e.target.closest('[data-fill]');
+      if (!chip) return;
+      const input = document.getElementById(chip.dataset.fill);
+      if (input) { input.value = chip.dataset.value; input.focus(); }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !document.getElementById('form-modal').classList.contains('hidden')) closeForm();
+    });
+
     const smeProfiles = {
       aircond: {
         name: 'Sejuk Jaya Aircond Sdn Bhd',

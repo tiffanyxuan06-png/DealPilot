@@ -429,68 +429,95 @@ function sendFollowUpDeal(dealId) {
 }
 
 function markWonDeal(dealId) {
-  const ref = prompt('Enter Bank / DuitNow Transfer Slip Ref (e.g. DN-20261023-889):', 'DN-20261023-889');
-  if (ref === null) return;
-  const amtStr = prompt('Enter deposit or paid amount (RM):', '1000');
-  const depositAmount = amtStr ? parseInt(amtStr.replace(/,/g, ''), 10) : null;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  askForm({
+    title: `Mark #${dealId} as won`,
+    message: 'Record the customer\'s payment slip. The order number and commission are created for you.',
+    okText: 'Mark won',
+    fields: [
+      { name: 'ref', label: 'Bank / DuitNow transfer slip ref', value: 'DN-20261023-889', required: true, requiredMsg: 'Enter the slip reference.' },
+      { name: 'amount', label: 'Deposit or amount paid (RM)', type: 'number', value: 1000, min: 1, hint: 'Recorded with the order.' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: 'MARK_WON',
-    depositRef: ref.trim(),
-    depositAmount: depositAmount
-  }, `Deal #${dealId} marked WON! Order confirmed.`);
+    depositRef: v.ref,
+    depositAmount: v.amount
+  }, `Deal #${dealId} marked WON! Order confirmed.`));
 }
 
 function markLostDeal(dealId) {
-  const reason = prompt('Choose / enter a reason the deal was lost:\n(e.g. Competitor price, No reply, Timing, Cancelled)', 'Customer declined on WhatsApp');
-  if (!reason || !reason.trim()) return;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  askForm({
+    title: `Mark #${dealId} as lost`,
+    okText: 'Mark lost',
+    isDanger: true,
+    fields: [
+      { name: 'reason', label: 'Why was it lost?', value: 'Customer declined on WhatsApp', required: true, requiredMsg: 'Enter a reason.',
+        chips: ['Competitor price', 'No reply', 'Timing', 'Cancelled'] }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: 'MARK_LOST',
-    reason: reason.trim()
-  }, `Deal #${dealId} marked LOST.`);
+    reason: v.reason
+  }, `Deal #${dealId} marked LOST.`));
 }
 
 function discountDeal(dealId) {
-  const discStr = prompt('Enter discount amount to apply in RM (e.g. 50):', '50');
-  if (!discStr) return;
-  const discount = parseInt(discStr.replace(/,/g, ''), 10);
-  if (isNaN(discount) || discount <= 0) return;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  askForm({
+    title: `Apply a discount to #${dealId}`,
+    okText: 'Apply discount',
+    fields: [
+      { name: 'discount', label: 'Discount (RM)', type: 'number', value: 50, min: 1, required: true, requiredMsg: 'Enter the discount in RM.',
+        hint: 'A discount that takes the margin below your floor needs Owner approval.' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: 'APPLY_DISCOUNT',
-    discount: discount
-  }, `Discount of RM ${discount} applied to #${dealId}!`);
+    discount: Math.round(v.discount)
+  }, `Discount of RM ${Math.round(v.discount)} applied to #${dealId}!`));
 }
 
 function pauseResumeDeal(dealId, pause) {
-  const note = pause ? prompt('Enter complaint / pause reason:', 'Customer reported issue') : '';
-  if (pause && note === null) return;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  const send = note => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: pause ? 'PAUSE' : 'RESUME',
     note: note || ''
   }, `${pause ? 'Paused' : 'Resumed'} follow-ups on #${dealId}.`);
+
+  if (!pause) { send(''); return; }
+  askForm({
+    title: `Pause follow-ups on #${dealId}`,
+    message: 'Reminders stop until you resume them.',
+    okText: 'Pause follow-ups',
+    fields: [
+      { name: 'note', label: 'What happened?', value: 'Customer reported issue', required: true, requiredMsg: 'Add a short reason.' }
+    ]
+  }, v => send(v.note));
 }
 
 function setTinDeal(dealId) {
-  const tin = prompt('Enter Buyer LHDN TIN (e.g. C2588190021):', 'C2588190021');
-  if (!tin || !tin.trim()) return;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  askForm({
+    title: `Add buyer TIN to #${dealId}`,
+    message: 'The LHDN tax ID goes on the e-Invoice.',
+    okText: 'Save TIN',
+    fields: [
+      { name: 'tin', label: 'Buyer LHDN TIN', value: 'C2588190021', required: true, requiredMsg: 'Enter the TIN.', hint: 'For example C2588190021' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: 'SET_TIN',
-    tin: tin.trim()
-  }, `Saved LHDN TIN ${tin.trim()} on #${dealId}!`);
+    tin: v.tin
+  }, `Saved LHDN TIN ${v.tin} on #${dealId}!`));
 }
 
 function cancelWonDeal(dealId) {
-  const reason = prompt('Reason for cancelling this won sales order:\n(e.g. Customer returned units, payment bounced)', 'Customer requested cancellation');
-  if (!reason || !reason.trim()) return;
-
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+  askForm({
+    title: `Cancel won order #${dealId}`,
+    message: 'The order is marked lost and its commission is taken off this month.',
+    okText: 'Cancel order',
+    isDanger: true,
+    fields: [
+      { name: 'reason', label: 'Why is it cancelled?', value: 'Customer requested cancellation', required: true, requiredMsg: 'Enter a reason.',
+        chips: ['Customer returned units', 'Payment bounced', 'Customer requested cancellation'] }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
     action: 'CANCEL_WON',
-    reason: reason.trim()
-  }, `Cancelled won order #${dealId}.`);
+    reason: v.reason
+  }, `Cancelled won order #${dealId}.`));
 }
 
 function openPdfForDeal(dealId) {
@@ -694,49 +721,62 @@ function renderCustomersView() {
 }
 
 function promptCustomerTin(customerName) {
-  const tin = prompt(`Enter Buyer LHDN TIN for ${customerName} (e.g. C2588190021):`, 'C2588190021');
-  if (!tin || !tin.trim()) return;
-
-  // Find latest deal for this customer if any
-  const st = getState();
-  const d = (st.deals || []).find(x => x.customer === customerName);
-  if (d) {
-    setTinDeal(d.id);
-  } else {
-    showToast(`Saved TIN ${tin.trim()} for ${customerName}!`);
-  }
+  askForm({
+    title: `Buyer TIN for ${customerName}`,
+    message: 'The LHDN tax ID goes on their e-Invoices.',
+    okText: 'Save TIN',
+    fields: [
+      { name: 'tin', label: 'Buyer LHDN TIN', value: 'C2588190021', required: true, requiredMsg: 'Enter the TIN.', hint: 'For example C2588190021' }
+    ]
+  }, v => {
+    // Find latest deal for this customer if any
+    const st = getState();
+    const d = (st.deals || []).find(x => x.customer === customerName);
+    if (d) {
+      backendAction(`/api/deals/${encodeURIComponent(d.id)}/action`, { action: 'SET_TIN', tin: v.tin }, `Saved LHDN TIN ${v.tin} on #${d.id}!`);
+    } else {
+      showToast(`Saved TIN ${v.tin} for ${customerName}!`);
+    }
+  });
 }
 
 function promptReassignCustomer(customerName) {
   const st = getState();
   const reps = st.reps || [];
-  const repNames = reps.map((r, i) => `${i + 1}. ${r.name}`).join('\n');
-  const choice = prompt(`Reassign open deals for ${customerName} to which rep?\n\n${repNames}\n\nEnter rep number (1-${reps.length}):`, '2');
-  if (!choice) return;
-  const idx = parseInt(choice, 10) - 1;
-  const targetRep = reps[idx];
-  if (!targetRep) {
-    showToast('⚠️ Invalid rep selected.');
-    return;
-  }
-
-  // Find a rep to move from
+  if (!reps.length) { showToast('There are no sales reps yet. Add one on the Commission page.'); return; }
+  // Find the rep the customer's deals currently belong to
   const d = (st.deals || []).find(x => x.customer === customerName);
   const fromRepId = d ? d.repId : 1;
-  backendAction(`/api/reps/${fromRepId}/reassign`, {
-    toRepId: targetRep.id
-  }, `Reassigned open deals for ${customerName} to ${targetRep.name}!`);
+  const firstOther = reps.find(r => r.id !== fromRepId) || reps[0];
+  askForm({
+    title: `Reassign ${customerName}`,
+    message: 'Their open deals move to the rep you pick.',
+    okText: 'Reassign',
+    fields: [
+      { name: 'repId', label: 'New rep', type: 'select', value: firstOther.id, required: true,
+        options: reps.map(r => ({ value: r.id, label: r.id === fromRepId ? `${r.name} (current)` : r.name })) }
+    ]
+  }, v => {
+    const targetRep = reps.find(r => String(r.id) === String(v.repId));
+    if (!targetRep) { showToast('Pick a rep from the list.'); return; }
+    backendAction(`/api/reps/${fromRepId}/reassign`, {
+      toRepId: targetRep.id
+    }, `Reassigned open deals for ${customerName} to ${targetRep.name}!`);
+  });
 }
 
 function addCustomerPrompt() {
-  const name = prompt('Enter customer or company name:');
-  if (!name || !name.trim()) return;
-  const phone = prompt('Enter customer WhatsApp phone (+60...):', '+60 12-345 6789');
-
-  backendAction('/api/customers', {
-    name: name.trim(),
-    phone: (phone || '').trim()
-  }, `Added ${name.trim()} to customer directory!`);
+  askForm({
+    title: 'Add a customer',
+    okText: 'Add customer',
+    fields: [
+      { name: 'name', label: 'Customer or company name', required: true, requiredMsg: 'Enter a name.', placeholder: 'e.g. Tan Bros Trading' },
+      { name: 'phone', label: 'WhatsApp phone', value: '+60 12-345 6789' }
+    ]
+  }, v => backendAction('/api/customers', {
+    name: v.name,
+    phone: v.phone
+  }, `Added ${v.name} to customer directory!`));
 }
 
 // =========================================================================
@@ -778,30 +818,34 @@ function renderCommissionView() {
 }
 
 function promptEditRepRate(repId, repName, currentPct) {
-  const newRateStr = prompt(`Update commission rate for ${repName} (%):`, currentPct);
-  if (!newRateStr) return;
-  const newPct = parseFloat(newRateStr);
-  if (isNaN(newPct) || newPct < 0) return;
-
-  backendAction('/api/reps', {
+  askForm({
+    title: `Commission rate for ${repName}`,
+    okText: 'Save rate',
+    fields: [
+      { name: 'rate', label: 'Commission (%)', type: 'number', value: currentPct, min: 0, max: 100, step: 0.5, required: true, requiredMsg: 'Enter a percentage.',
+        hint: 'Paid on won orders only.' }
+    ]
+  }, v => backendAction('/api/reps', {
     id: repId,
     name: repName,
-    commissionPct: newPct,
+    commissionPct: v.rate,
     active: true
-  }, `Updated ${repName}'s commission to ${newPct}%!`);
+  }, `Updated ${repName}'s commission to ${v.rate}%!`));
 }
 
 function promptAddNewRep() {
-  const name = prompt('Enter Sales Rep name:');
-  if (!name || !name.trim()) return;
-  const rateStr = prompt('Enter sales commission percentage (%):', '3.0');
-  const rate = rateStr ? parseFloat(rateStr) : 3.0;
-
-  backendAction('/api/reps', {
-    name: name.trim(),
-    commissionPct: rate,
+  askForm({
+    title: 'Add a sales rep',
+    okText: 'Add rep',
+    fields: [
+      { name: 'name', label: 'Rep name', required: true, requiredMsg: 'Enter a name.', placeholder: 'e.g. Siti' },
+      { name: 'rate', label: 'Commission (%)', type: 'number', value: 3, min: 0, max: 100, step: 0.5, required: true, requiredMsg: 'Enter a percentage.', hint: 'Paid on won orders only.' }
+    ]
+  }, v => backendAction('/api/reps', {
+    name: v.name,
+    commissionPct: v.rate,
     active: true
-  }, `Added sales rep ${name.trim()} (${rate}% commission)!`);
+  }, `Added sales rep ${v.name} (${v.rate}% commission)!`));
 }
 
 // Master render invoked by main.js
