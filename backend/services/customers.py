@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from backend.db import orm
 from backend.models import entities
 from backend.models.enums import OPEN_STAGES
-from backend.services.memory import clean_customer_name
+from backend.services.memory import clean_customer_name, same_phone
 
 # Malaysian LHDN TIN: letter prefix (C, IG, SG, OG, D, E, F, ...) + 8-12 digits, e.g. C2588190021, IG115002000.
 TIN_RE = re.compile(r"\b((?:C|CS|D|E|F|FA|PT|TA|TC|TN|TR|TP|J|LE|IG|SG|OG)\s?\d{8,12})\b", re.I)
@@ -38,21 +38,21 @@ def parse_ssm(text: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def is_customer(session: Session, name: str, phone: str = "") -> bool:
-    """Checks if either clean_customer_name(name) or the digits of phone match an existing row in customers."""
+def find_customer(session: Session, name: str, phone: str = "") -> Optional[orm.Customer]:
+    """The customer whose clean name equals clean_customer_name(name), else whose phone is the same line as `phone`."""
     key = customer_key(name).lower()
     if key:
         row = session.scalars(select(orm.Customer).where(func.lower(orm.Customer.name) == key)).first()
         if row is not None:
-            return True
-    clean_digits = re.sub(r"\D", "", phone or "")
-    if clean_digits and len(clean_digits) >= 7:
-        rows = session.scalars(select(orm.Customer.phone).where(orm.Customer.phone != "")).all()
-        for p in rows:
-            p_digits = re.sub(r"\D", "", p)
-            if p_digits and (clean_digits in p_digits or p_digits in clean_digits):
-                return True
-    return False
+            return row
+    for c in session.scalars(select(orm.Customer).where(orm.Customer.phone != "").order_by(orm.Customer.name)):
+        if same_phone(c.phone, phone):
+            return c
+    return None
+
+
+def is_customer(session: Session, name: str, phone: str = "") -> bool:
+    return find_customer(session, name, phone) is not None
 
 
 def get_customer(session: Session, name: str) -> Optional[orm.Customer]:

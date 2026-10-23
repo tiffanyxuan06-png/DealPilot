@@ -199,6 +199,39 @@ def _ensure_disclaimer(text: str) -> str:
     return f"{stripped}. ({DISCLAIMER})"
 
 
+def is_business_message(msg_lower: str, products: List[Any], user_instruction: str = "") -> bool:
+    """True when the message mentions a product, price, order or other business word (otherwise it is casual chat)."""
+    all_keywords = set()
+    for p in products:
+        all_keywords.add(p["sku"].lower())
+        for w in re.split(r"\W+", p["name"]):
+            wl = w.lower()
+            if len(wl) >= 3 and wl not in ["unit", "set", "pack", "carton", "box", "with", "and", "the"]:
+                all_keywords.add(wl)
+
+    generic_biz_words = [
+        "quote", "quotation", "sebut harga", "harga", "price", "deposit", "duitnow",
+        "stok", "stock", "unit", "set", "carton", "seat", "bag", "order", "pesanan",
+        "install", "pasang", "bocor", "leak", "rosak", "defect", "renew", "delivery",
+        "aircond", "air-cond", "aircon", "ac", "hvac", "daikin", "panasonic", "gas", "r32",
+        "beli", "tanya", "nak", "cari", "item", "product", "model", "spec", "servis",
+        "service", "wiring", "bantu", "help", "catalogue", "katalog", "inquiry"
+    ]
+
+    def mentions(k: str) -> bool:
+        if len(k) > 4:
+            return k in msg_lower
+        # Short words ("ac", "set", "gas") only count as whole words, so "factory" or "setup" are not business.
+        return bool(re.search(r"\b" + re.escape(k) + r"(?:s|es|ed|ing)?\b", msg_lower))
+
+    return (
+        bool(user_instruction)
+        or any(mentions(k) for k in all_keywords)
+        or any(mentions(k) for k in generic_biz_words)
+        or bool(re.search(r"\d+\s*(?:units?|x|sets?|pcs|cartons?|bottles?|tanks?|bags?|kg)", msg_lower))
+    )
+
+
 def deterministic_fallback_analysis(
     customer_name: str,
     phone: str,
@@ -396,29 +429,7 @@ def deterministic_fallback_analysis(
         }
 
     # 5. Check if message is a genuine business inquiry or casual chat
-    all_keywords = set()
-    for p in products:
-        all_keywords.add(p["sku"].lower())
-        for w in re.split(r"\W+", p["name"]):
-            wl = w.lower()
-            if len(wl) >= 3 and wl not in ["unit", "set", "pack", "carton", "box", "with", "and", "the"]:
-                all_keywords.add(wl)
-
-    generic_biz_words = [
-        "quote", "quotation", "sebut harga", "harga", "price", "deposit", "duitnow",
-        "stok", "stock", "unit", "set", "carton", "seat", "bag", "order", "pesanan",
-        "install", "pasang", "bocor", "leak", "rosak", "defect", "renew", "delivery",
-        "aircond", "air-cond", "aircon", "ac", "hvac", "daikin", "panasonic", "gas", "r32",
-        "beli", "tanya", "nak", "cari", "item", "product", "model", "spec", "servis",
-        "service", "wiring", "bantu", "help", "catalogue", "katalog", "inquiry", "ask"
-    ]
-
-    is_biz = (
-        bool(user_instruction)
-        or any(k in msg_lower for k in all_keywords)
-        or any(k in msg_lower for k in generic_biz_words)
-        or bool(re.search(r"\d+\s*(?:units?|x|sets?|pcs|cartons?|bottles?|tanks?|bags?|kg)", msg_lower))
-    )
+    is_biz = is_business_message(msg_lower, products, user_instruction)
 
     if not is_biz:
         greeting = f"Hi {clean_cust}! Let us know if {company_name} can assist with any orders or price inquiries today."

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CashChase Orbyte SME Copilot (WhatsApp Web + LM Studio)",
   "version": "2.0.0",
-  "description": "Orbyte Smart SME sidebar for WhatsApp Web — auto-detects chats, checks live stock, remembers client trust/tone, customizes quotes, and verifies receipts.",
+  "description": "Orbyte Smart SME sidebar for WhatsApp Web — reads customer chats, quotes from your price list, drafts replies, and tracks follow-ups and commission.",
   "permissions": [
     "activeTab",
     "storage"

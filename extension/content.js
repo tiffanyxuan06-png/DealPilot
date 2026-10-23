@@ -31,6 +31,12 @@ const processedSidebarPreviews = new Map(); // contactTitle -> last unread previ
 let lastDetectedAttachmentKey = "";
 let isAnalyzing = false;
 let lastAnalyzedHash = "";
+let knownCustomers = null; // customers from GET /api/state; null = not loaded (backend offline)
+let knownDeals = []; // deals and reps from GET /api/state (for the follow-ups card and the deal line)
+let knownReps = [];
+let knownProducts = []; // the price list (sku, name, sellPrice) from GET /api/state; the offline guess prices only from this
+let gateState = ""; // "not_customer" | "offline" while the panel shows a blocked contact
+let isAddingCustomer = false;
 
 function getCacheKey(customer, message, instruction = "") {
   const cleanCust = (customer || "").trim().toLowerCase();
@@ -149,26 +155,106 @@ async function ccLogout() {
   showCcAuth({ enabled: true });
 }
 
+// Mirrors backend clean_customer_name: drop (tags) / [tags], then trim spaces and !?,.:;*#-_"' from both ends.
 function cleanCustomerName(name) {
   if (!name) return "Client";
-  return name.replace(/\s*\([^)]*\)/g, "").replace(/\s*\[[^\]]*\]/g, "").trim() || name;
+  return name.replace(/\s*[(\[][^)\]]*[)\]]/g, "").replace(/^[\s!?,.:;*#\-_"']+|[\s!?,.:;*#\-_"']+$/g, "") || name;
+}
+
+const phoneDigits = (s) => String(s || "").replace(/\D/g, "");
+// A WhatsApp title can be a phone number; send it so the backend matches by phone like the local check does.
+const titlePhone = (title) => (phoneDigits(title).length >= 7 ? phoneDigits(title) : "");
+const backendDenied = new Set(); // titles the backend refused as "not a customer" even though our list had them
+
+// Same rule as the backend (is_customer): clean name equal, case-insensitive, or phone digits
+// (both >= 7) where one ends with the other. A WhatsApp title is a saved name or a phone number, so it is tried as both.
+function isKnownCustomer(title) {
+  const key = cleanCustomerName(title).toLowerCase();
+  const digits = phoneDigits(title);
+  return (knownCustomers || []).some((c) => {
+    const p = phoneDigits(c.phone);
+    return String(c.name || "").toLowerCase() === key ||
+      (digits.length >= 7 && p.length >= 7 && (digits.endsWith(p) || p.endsWith(digits)));
+  });
+}
+
+// Customers only: true (and the "Not a customer" / offline state is drawn) when this contact must not be analysed.
+function blockIfNotCustomer(title) {
+  if (knownCustomers && !backendDenied.has(title) && isKnownCustomer(title)) {
+    gateState = "";
+    return false;
+  }
+  renderNotCustomer(title);
+  return true;
+}
+
+function renderNotCustomer(title) {
+  const offline = !knownCustomers;
+  gateState = offline ? "offline" : "not_customer";
+  lastAnalysis = null;
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set("cc-ext-title", offline ? "⚠️ Can't check the customer list (backend offline)" : "🚫 Not a customer");
+  set("cc-intent-badge", offline ? "Offline" : "Not a customer");
+  set("cc-ext-check", offline
+    ? "Nothing is sent until the customer list loads. Start the backend, then tap 🔄 Rescan."
+    : "CashChase only reads chats from your customers, so nothing was sent. Add this contact to start quoting.");
+  set("cc-msg-snippet", "Messages are not read for this contact.");
+  set("cc-deal-ctx", "");
+  set("cc-big-action-btn", offline ? "⚠️ Backend offline" : "➕ Add as customer");
+  const msgInput = document.getElementById("cc-message-input");
+  if (msgInput) msgInput.value = "";
+  const draftEl = document.getElementById("cc-draft-output");
+  if (draftEl) { draftEl.value = ""; draftEl.disabled = false; }
+  const tabsEl = document.getElementById("cc-reply-tabs");
+  if (tabsEl) tabsEl.innerHTML = "";
+  const paramBox = document.getElementById("cc-custom-param-box");
+  if (paramBox) paramBox.style.display = "none";
+  const btnEl = document.getElementById("cc-big-action-btn");
+  if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = "1"; }
+  const banner = document.getElementById("cc-auto-ocr-banner");   // no "Quote from photo" for a blocked contact
+  if (banner) { banner.style.display = "none"; banner.innerHTML = ""; }
+  refreshClientMemoryPill(title);
+}
+
+// Re-read the open chat from the page, locally (no network): used once the customer list changes.
+function reevaluateChat() {
+  currentActiveChat = "";
+  lastDetectedAttachmentKey = "";   // offer the photo button again if this contact is now a customer
+  scanActiveWhatsAppChat(false);
+}
+
+async function addCurrentAsCustomer() {
+  const title = currentActiveChat;
+  if (!title || isAddingCustomer) return;
+  isAddingCustomer = true;
+  try {
+    await ccApiRequest("/api/customers", "POST", {
+      name: cleanCustomerName(title),
+      phone: titlePhone(title),
+      role: getCcRole()
+    });
+    backendDenied.delete(title);
+    // Success re-reads the open chat as a customer (normal idle state, nothing analysed). If the refresh failed, Rescan retries it.
+    if (!(await refreshStateFromBackend())) {
+      const checkEl = document.getElementById("cc-ext-check");
+      if (checkEl) checkEl.textContent = "Added. Tap 🔄 Rescan to reload the customer list.";
+    }
+  } catch (err) {
+    const checkEl = document.getElementById("cc-ext-check");
+    const denied = String(err && err.message).includes("403");
+    if (checkEl) checkEl.textContent = denied ? "🔒 Staff can't add customers (ask the Owner)." : `Couldn't add this customer (${err && err.message}). Try again.`;
+  } finally {
+    isAddingCustomer = false;
+  }
 }
 
 function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
   const cleanCust = cleanCustomerName(customer);
   const combined = `${message} ${userInstruction}`.toLowerCase();
-  const instrLow = (userInstruction || "").toLowerCase();
-
-  const mD = combined.match(/(\d+)\s*(?:units?|x|sets?)?\s*(?:daikin|aircond|ac|1\.5)/);
-  const mR = combined.match(/(\d+)\s*(?:bottles?|x|tanks?)?\s*(?:r32|gas)/);
-  const mPipe = combined.match(/(\d+)\s*(?:sets?|x)?\s*(?:copper|pipe|piping)/);
 
   // Check if message is a genuine business inquiry or casual chat with friends
   const isBusinessInquiry =
     Boolean(userInstruction.trim()) ||
-    Boolean(mD) ||
-    Boolean(mR) ||
-    Boolean(mPipe) ||
     /(?:aircond|aircon|daikin|inverter|gas|r32|pipe|copper|quote|quotation|sebut harga|harga|price|deposit|duitnow|stok|stock|pasang|install|bocor|leak|rosak|repair|technician)/i.test(combined);
 
   if (!isBusinessInquiry) {
@@ -181,7 +267,7 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
         intent: "CASUAL_CHAT",
         badge: "💬 Casual Chat",
         extTitle: `💬 Chatting with ${cleanCust}`,
-        extCheck: "🟢 Personal / Casual chat detected.\nNo warehouse stock hold or quotation needed.",
+        extCheck: "🟢 Personal / casual chat detected.\nNo quotation needed.",
         extActionDesc: "Casual conversation. Type in 'PROMPT AI' below if this contact asks for a quote.",
         extDraft: greeting,
         replyOptions: [
@@ -190,8 +276,6 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
         ],
         extBtnLabel: "💬 Insert Friendly Reply",
         extActionType: "NO_ACTION",
-        sku: null,
-        qty: 0,
         amount: 0,
         clientMemory: {
           tier: "NEW_CLIENT",
@@ -203,50 +287,43 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
     };
   }
 
-  let dQty = 1;
-  if (mD) {
-    dQty = parseInt(mD[1], 10);
-  } else if (combined.includes("daikin") || combined.includes("aircond")) {
-    dQty = 1;
+  // Prices come only from the price list in GET /api/state. Nothing loaded, or nothing matched: no RM at all.
+  const lines = matchPriceListItems(combined) || [];
+  const total = lines.reduce((sum, l) => sum + l.qty * l.price, 0);
+  const memory = localClientMemory(customer);
+  if (!lines.length) {
+    const wait = `Hi ${cleanCust}! Thanks for asking. Let me confirm the price and get back to you shortly.`;
+    return {
+      source: "local_smart_engine",
+      lmstudio_connected: false,
+      model_used: "Local Smart Engine",
+      analysis: {
+        intent: "BUYING_INQUIRY",
+        badge: "1. Price & Quote Info",
+        extTitle: "📋 Customer is asking about price",
+        extCheck: "No price yet. Tap 🔄 Rescan to quote from your price list.",
+        extActionDesc: "Insert a holding reply, then Rescan for the price-list quote.",
+        extDraft: wait,
+        replyOptions: [
+          { label: "💬 Option 1: Will confirm price", text: wait },
+          { label: "🇲🇾 Option 2: Bahasa Melayu", text: `Salam ${cleanCust}, terima kasih. Saya akan semak harga dan hubungi anda semula sebentar lagi.` }
+        ],
+        extBtnLabel: "💬 Insert Selected Reply",
+        extActionType: "REPLY_ONLY",
+        amount: 0,
+        clientMemory: memory
+      }
+    };
   }
 
-  let rQty = 0;
-  if (mR) {
-    rQty = parseInt(mR[1], 10);
-  } else if (combined.includes("r32") || combined.includes("gas")) {
-    rQty = 1;
-  }
+  const scopeStr = lines.map((l) => `${l.qty}x ${l.name} (RM ${(l.qty * l.price).toLocaleString()})`).join(" + ");
+  const disclaimer = "Subject to stock availability · prices valid 7 days";   // the same legal wording the backend adds
+  const opt1 = `Hi ${cleanCust}! ${scopeStr} = RM ${total.toLocaleString()}. ${disclaimer}. Let us know if you would like to confirm and we will arrange the deposit and delivery!`;
+  const opt2 = `Official Quotation for ${cleanCust}: ${scopeStr} = Total RM ${total.toLocaleString()}. ${disclaimer}. Please let us know to confirm your order and we will advise the deposit and delivery schedule.`;
+  const opt3 = `Boss, ${scopeStr} = Total RM ${total.toLocaleString()}. Confirm anytime and we will arrange earliest delivery! (${disclaimer})`;
+  const opt4 = `Salam ${cleanCust}, sebut harga untuk ${scopeStr} ialah RM ${total.toLocaleString()}. Sila sahkan pesanan dan kami akan maklumkan deposit serta jadual penghantaran. (${disclaimer})`;
 
-  let pQty = 0;
-  if (mPipe) {
-    pQty = parseInt(mPipe[1], 10);
-  } else if (instrLow.includes("copper") || instrLow.includes("pipe")) {
-    pQty = 2;
-  }
-
-  const withInstall =
-    (combined.includes("install") || combined.includes("pasang")) &&
-    !instrLow.includes("no install") &&
-    !instrLow.includes("supply only");
-  const installRM = withInstall ? dQty * 250 : 0;
-  const subTotal = dQty * 1150 + rQty * 180 + pQty * 150 + installRM;
-  let discRM = instrLow.includes("5%") ? Math.round(subTotal * 0.05) : 0;
-  const finalTotal = Math.max(0, subTotal - discRM);
-  const dep40 = Math.round(finalTotal * 0.4);
-  const dep50 = Math.round(finalTotal * 0.5);
-
-  const scopeParts = [`${dQty}x Daikin 1.5HP (RM ${(dQty * 1150).toLocaleString()})`];
-  if (rQty > 0) scopeParts.push(`${rQty}x R32 Gas (RM ${(rQty * 180).toLocaleString()})`);
-  if (pQty > 0) scopeParts.push(`${pQty}x Copper Pipe 3m (RM ${(pQty * 150).toLocaleString()})`);
-  if (installRM > 0) scopeParts.push(`Standard Install Labor (RM ${installRM.toLocaleString()})`);
-  if (discRM > 0) scopeParts.push(`Special Discount (-RM ${discRM.toLocaleString()})`);
-  const scopeStr = scopeParts.join(" + ");
-
-  const opt1 = `Hi ${cleanCust}! Ready stock available: ${scopeStr} = RM ${finalTotal.toLocaleString()}. Let us know if you would like to confirm with a 40% deposit (RM ${dep40.toLocaleString()}) to confirm your order and schedule delivery!`;
-  const opt2 = `Official Quotation for ${cleanCust}: ${scopeStr} = Total RM ${finalTotal.toLocaleString()}. Please transfer 40% deposit (RM ${dep40.toLocaleString()}) to confirm your order and schedule delivery.`;
-  const opt3 = `Ready stock Boss! ${scopeStr} = Total RM ${finalTotal.toLocaleString()}. Just DuitNow 40% deposit (RM ${dep40.toLocaleString()}) when ready, and we will confirm your order and arrange earliest delivery!`;
-  const opt4 = `Salam ${cleanCust}, sebut harga rasmi untuk ${scopeStr} ialah RM ${finalTotal.toLocaleString()}. Sila buat bayaran deposit 40% (RM ${dep40.toLocaleString()}) untuk pengesahan pesanan dan penjadualan penghantaran.`;
-
+  // An offline guess from the loaded price list; Rescan asks the backend for the real quote.
   return {
     source: "local_smart_engine",
     lmstudio_connected: false,
@@ -254,69 +331,92 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
     analysis: {
       intent: "BUYING_INQUIRY",
       badge: userInstruction ? "✨ Custom Quote" : "1. Price & Quote Info",
-      extTitle: userInstruction
-        ? `✨ Custom Quote (${userInstruction}) · No Stock Locked`
-        : "📋 Price Quotation · No Stock Locked Yet",
+      extTitle: userInstruction ? `✨ Custom Quote (${userInstruction}) · Draft` : "📋 Price Quotation · Draft",
       extCheck:
-        `📦 ${dQty}x Daikin 1.5HP + ${rQty}x Gas + ${pQty}x Pipe\n` +
-        (installRM > 0 ? `🛠️ Install Labor Included: RM ${installRM.toLocaleString()}\n` : "") +
-        (discRM > 0 ? `🎁 Special Discount: -RM ${discRM.toLocaleString()}\n` : "") +
-        `💰 Quote Total: RM ${finalTotal.toLocaleString()} (40% Deposit: RM ${dep40.toLocaleString()})\n` +
-        `ℹ️ Warehouse stock is NOT locked yet. Only lock stock when customer confirms deposit.`,
-      extActionDesc: "Insert quotation reply below. Stock will remain open until customer pays deposit.",
+        lines.map((l) => `${l.qty} × RM ${l.price.toLocaleString()} ${l.name}`).join("\n") + "\n" +
+        `💰 Quote Total: RM ${total.toLocaleString()}\n` +
+        `${disclaimer}\n` +
+        `ℹ️ Rough estimate only. Tap 🔄 Rescan for the price-list quote.`,
+      extActionDesc: "Insert the quotation reply below. Rescan for the exact price-list quote before sending.",
       extDraft: opt1,
       replyOptions: [
-        { label: "💬 Option 1: Stock Info & Price (No Hold)", text: opt1 },
+        { label: "💬 Option 1: Price Quote", text: opt1 },
         { label: "📋 Option 2: Official Quotation (Deposit Required)", text: opt2 },
-        { label: `🤝 Option 3: Boss Style (DuitNow 40% to Confirm)`, text: opt3 },
+        { label: "🤝 Option 3: Boss Style", text: opt3 },
         { label: "🇲🇾 Option 4: Bahasa Melayu (Sebut Harga Rasmi)", text: opt4 }
       ],
-      extBtnLabel: `💬 Insert Selected Reply (No Stock Hold)`,
+      extBtnLabel: `💬 Insert Selected Reply`,
       extActionType: "REPLY_ONLY",
-      sku: "ACN-DAI-15",
-      qty: dQty,
-      extraSku: rQty > 0 ? "GAS-R32" : null,
-      extraQty: rQty,
-      amount: finalTotal,
-      clientMemory: (() => {
-        const knownDemos = {
-          "tan bros trading": {
-            tier: "VIP_FAST_PAYER",
-            score: 94,
-            styleSummary: "Friendly Malaysian Boss style ('Boss, got stock?') · Prefers fast itemization",
-            paymentBehavior: "⭐⭐⭐⭐⭐ Grade A Client · 6 past orders (RM 28,400 paid) · Always pays 40% deposit promptly"
-          },
-          "klinik dr. lim": {
-            tier: "LONG_TERM_PARTNER",
-            score: 88,
-            styleSummary: "Polite & professional medical clinic · Values fast aftersales service",
-            paymentBehavior: "⭐⭐⭐⭐ Reliable Payer · 4 past orders (RM 19,200 paid) · Currently reporting leaking valve"
-          },
-          "kedai runcit ah seng": {
-            tier: "SLOW_PAYER_GHOST_RISK",
-            score: 42,
-            styleSummary: "Short casual messages · Frequently delays deposit >48 hours",
-            paymentBehavior: "⚠️ High Ghosting Risk · 2 expired quote holds in the past · Require strict 50% deposit"
-          },
-          "wisma perdana": {
-            tier: "PARTIAL_SHORT_PAYER",
-            score: 58,
-            styleSummary: "Corporate procurement · Tends to round down or deduct amounts",
-            paymentBehavior: "⚠️ Shortfall Risk · Sent RM 2,200 receipt for RM 2,400 invoice · Verify bank amount"
-          }
-        };
-        const custLower = (customer || "").toLowerCase();
-        for (const [k, v] of Object.entries(knownDemos)) {
-          if (custLower.includes(k)) return v;
-        }
-        return {
-          tier: "NEW_CLIENT",
-          score: 50,
-          styleSummary: "New contact · First-time interaction",
-          paymentBehavior: "🆕 New Customer · No past transaction history · Standard 40% deposit required"
-        };
-      })()
+      amount: total,
+      clientMemory: memory
     }
+  };
+}
+
+// Price-list lines named in a message: by SKU, or by the name's first word plus its size (1.5HP) if it has one.
+// The quantity is a standalone whole number of 1-99 just before the name, or "x5" right after it; 1 if there is no number.
+// Anything unclear (a phone number, "1.5", 100+): the quantity is unknown, so null comes back and no RM is guessed.
+function matchPriceListItems(text) {
+  const t = text.replace(/(\d)\s+hp\b/g, "$1hp");
+  const out = [];
+  for (const p of knownProducts) {
+    const price = Number(p.sellPrice);
+    const name = String(p.name || "").toLowerCase();
+    if (!price || !name) continue;
+    const size = (name.match(/\b\d+(?:\.\d+)?hp\b/) || [""])[0];
+    const first = name.split(/\s+/)[0].replace(/[^a-z0-9]/g, "");
+    const key = String(p.sku || "").toLowerCase();
+    const hit = (key && t.includes(key)) ? key : (first.length >= 3 && t.includes(first) && (!size || t.includes(size)) ? first : "");
+    if (!hit) continue;
+    const at = t.indexOf(hit);
+    const before = t.slice(0, at);
+    const lead = before.match(/(?:^|[^\d.+])(\d{1,2})\s*(?:x|units?|sets?|bottles?|tanks?|pcs)?\s*$/);
+    const after = t.slice(at + hit.length).replace(/^\s*\d+(?:\.\d+)?hp\b/, "");
+    const trail = after.match(/^\s*(?:[x×]\s*(\d{1,2})(?!\d)|(\d{1,2})\s*(?:units?|sets?|pcs)\b)/);
+    const unclear = /[\d.+]\s*(?:x|units?|sets?|bottles?|tanks?|pcs)?\s*$/.test(before) || /^\s*[x×]?\s*\d/.test(after);
+    const qty = lead ? parseInt(lead[1], 10) : trail ? parseInt(trail[1] || trail[2], 10) : unclear ? 0 : 1;
+    if (qty < 1) return null;
+    out.push({ name: p.name, price, qty });
+  }
+  return out;
+}
+
+function localClientMemory(customer) {
+  const knownDemos = {
+    "tan bros trading": {
+      tier: "VIP_FAST_PAYER",
+      score: 94,
+      styleSummary: "Friendly Malaysian Boss style ('Boss, can less?') · Prefers fast itemization",
+      paymentBehavior: "⭐⭐⭐⭐⭐ Grade A Client · Repeat orders, always paid · Pays the deposit promptly"
+    },
+    "klinik dr. lim": {
+      tier: "LONG_TERM_PARTNER",
+      score: 88,
+      styleSummary: "Polite & professional medical clinic · Values fast aftersales service",
+      paymentBehavior: "⭐⭐⭐⭐ Reliable Payer · Repeat orders, always paid · Currently reporting leaking valve"
+    },
+    "kedai runcit ah seng": {
+      tier: "SLOW_PAYER_GHOST_RISK",
+      score: 42,
+      styleSummary: "Short casual messages · Frequently delays the deposit",
+      paymentBehavior: "⚠️ High Ghosting Risk · Past quotes went cold · Ask for the deposit up front"
+    },
+    "wisma perdana": {
+      tier: "PARTIAL_SHORT_PAYER",
+      score: 58,
+      styleSummary: "Corporate procurement · Tends to round down or deduct amounts",
+      paymentBehavior: "⚠️ Shortfall Risk · Has paid less than invoiced before · Verify the bank amount"
+    }
+  };
+  const custLower = (customer || "").toLowerCase();
+  for (const [k, v] of Object.entries(knownDemos)) {
+    if (custLower.includes(k)) return v;
+  }
+  return {
+    tier: "NEW_CLIENT",
+    score: 50,
+    styleSummary: "New contact · First-time interaction",
+    paymentBehavior: "🆕 New Customer · No past transaction history · Ask for a deposit"
   };
 }
 
@@ -473,7 +573,6 @@ function detectIncomingReceiptOrPdf(mainContainer, chatTitle) {
     return {
       type: "PDF_DOCUMENT",
       fileName,
-      extractedText: rowText,
       imageBase64: null
     };
   }
@@ -487,7 +586,6 @@ function detectIncomingReceiptOrPdf(mainContainer, chatTitle) {
       return {
         type: "IMAGE_RECEIPT",
         fileName: `WhatsApp_Receipt_${chatTitle.replace(/\s+/g, "_")}.png`,
-        extractedText: rowText,
         imgElement: img,
         src
       };
@@ -612,18 +710,30 @@ function updateCacheBadgeCount() {
   }
 }
 
-function refreshClientMemoryPill(customer) {
+// Network lookup only when the user clicks Analyse/Rescan (lookup=true); switching chats never sends the name.
+function refreshClientMemoryPill(customer, lookup = false) {
   const safeName = customer || "Customer";
   const memPill = document.getElementById("cc-mem-pill");
   if (!memPill) return;
+
+  if (!lookup) {
+    memPill.textContent = "Client Ready";
+    memPill.style.background = "#E6EEFF";
+    memPill.style.color = "#0152FC";
+    memPill.style.border = "";
+    memPill.title = "Tap Rescan to check this client's history.";
+    return;
+  }
 
   memPill.textContent = "🆕 New Client";
   memPill.style.background = "#F1F5F9";
   memPill.style.color = "#475569";
   memPill.style.border = "1px solid #CBD5E1";
-  memPill.title = "New contact with no past purchase records. Require deposit to lock stock.";
+  memPill.title = "New contact with no past purchase records. Ask for a deposit to confirm the order.";
 
-  ccApiRequest(`/api/client/memory?customer=${encodeURIComponent(safeName)}`, "GET")
+  // A chat titled by number only matches its customer through the phone digits.
+  const phone = titlePhone(safeName);
+  ccApiRequest(`/api/client/memory?customer=${encodeURIComponent(safeName)}${phone ? `&phone=${phone}` : ""}`, "GET")
     .then((mem) => {
       if (mem && memPill) {
         if (mem.tier === "NEW_CLIENT") {
@@ -631,7 +741,7 @@ function refreshClientMemoryPill(customer) {
           memPill.style.background = "#F1F5F9";
           memPill.style.color = "#475569";
           memPill.style.border = "1px solid #CBD5E1";
-          memPill.title = "New customer with no past purchase records. Require deposit to lock stock.";
+          memPill.title = "New customer with no past purchase records. Ask for a deposit to confirm the order.";
         } else {
           const isRisk = (mem.score || 75) < 60;
           memPill.textContent = `${isRisk ? "⚠️" : "⭐"} ${mem.tier.replace(/_/g, " ")} (${mem.score}/100)`;
@@ -646,7 +756,7 @@ function refreshClientMemoryPill(customer) {
 }
 
 // ============================================================================
-// 5. SCAN ACTIVE CHAT + AUTO-ANALYZE (WITH MEMORY & PDF/RECEIPT AUTO-OCR)
+// 5. SCAN ACTIVE CHAT (LOCAL ONLY; ANALYSE / PHOTO QUOTE SEND ON CLICK)
 // ============================================================================
 async function scanActiveWhatsAppChat(forceRun = false) {
   const activeTitle = getActiveChatTitle();
@@ -689,14 +799,12 @@ async function scanActiveWhatsAppChat(forceRun = false) {
 
   const trimmedRecent = recentMessages.slice(-8);
 
-  // Check if customer sent a PDF or Image receipt in the active chat
+  // Customer sent an image/PDF: only offer the "Quote from photo" button. Nothing is sent until it is clicked.
   const attachment = detectIncomingReceiptOrPdf(main, activeTitle);
-  if (attachment) {
-    const attKey = `${activeTitle}::${attachment.fileName}`;
-    if (attKey !== lastDetectedAttachmentKey) {
-      lastDetectedAttachmentKey = attKey;
-      handleAutoDetectedAttachment(activeTitle, attachment);
-    }
+  const attKey = attachment ? `${activeTitle}::${attachment.fileName}::${attachment.src || ""}` : "";
+  if (attKey !== lastDetectedAttachmentKey) {
+    lastDetectedAttachmentKey = attKey;
+    offerPhotoQuote(activeTitle, attachment);
   }
 
   const chatSwitched = activeTitle !== currentActiveChat;
@@ -715,7 +823,14 @@ async function scanActiveWhatsAppChat(forceRun = false) {
 
     if (custInput) custInput.value = activeTitle;
     if (custDisp) custDisp.textContent = activeTitle || "Active Contact";
-    refreshClientMemoryPill(activeTitle);
+    if (blockIfNotCustomer(activeTitle)) {
+      if (forceRun) {   // Rescan re-reads the customer list (GET /api/state, no chat content); it does not analyse
+        backendDenied.delete(activeTitle);
+        refreshStateFromBackend();
+      }
+      return;
+    }
+    refreshClientMemoryPill(activeTitle, forceRun);
 
     if (absoluteLastSender === "ME") {
       // You sent the last message!
@@ -763,11 +878,27 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         renderAnalysisResult(precomputedCache.get(cacheKey), true);
         return;
       }
-      if (!forceRun && lastAnalyzedHash === cacheKey) {
+      if (!forceRun) {
+        // Chat switch / new message: stay local. The customer's text is sent only when Analyse/Rescan is clicked.
+        lastAnalysis = null;
+        const draftEl = document.getElementById("cc-draft-output");
+        const tabsEl = document.getElementById("cc-reply-tabs");
+        const bigBtn = document.getElementById("cc-big-action-btn");
+        const paramBox = document.getElementById("cc-custom-param-box");
+        const lmStatus = document.getElementById("cc-lm-status");
+        if (titleEl) titleEl.textContent = `💬 New message from ${activeTitle}`;
+        if (badgeEl) badgeEl.textContent = "Needs Reply";
+        if (draftEl && chatSwitched) draftEl.value = "";   // keep a draft the user is typing in this same chat
+        if (tabsEl) tabsEl.innerHTML = "";
+        if (bigBtn) bigBtn.textContent = "✅ Insert Selected Reply";
+        if (paramBox) paramBox.style.display = "none";
+        if (lmStatus) lmStatus.textContent = "Ready · tap Rescan";
+        const checkEl = document.getElementById("cc-ext-check");
+        if (checkEl) checkEl.textContent = "Tap 🔄 Rescan to analyse this chat and draft a reply.";
         return;
       }
 
-      await analyzeCurrentMessage(trimmedRecent, "", forceRun, {
+      await analyzeCurrentMessage(trimmedRecent, "", true, {
         lastSender: "CLIENT",
         lastClientMessage: lastClientText,
         lastMyMessage: lastMyText
@@ -800,7 +931,7 @@ function renderIdleStateForContact(customer) {
 
   const greeting1 = `Hi ${safeName}! How can we assist you with aircond supply or installation today?`;
   const greeting2 = `Salam ${safeName}, ada apa yang boleh kami bantu untuk servis atau pemasangan aircond hari ini?`;
-  const greeting3 = `Hello ${safeName}! Let us know if you need stock quotation or technician booking today.`;
+  const greeting3 = `Hello ${safeName}! Let us know if you need a quotation or technician booking today.`;
 
   if (draftEl) draftEl.value = greeting1;
   if (btnEl) btnEl.textContent = `💬 Insert Greeting to ${safeName}`;
@@ -824,69 +955,57 @@ function renderIdleStateForContact(customer) {
   }
 }
 
-async function handleAutoDetectedAttachment(customer, attachment) {
+// Customer sent an image/PDF: show a button only. Nothing leaves the browser until the user clicks it.
+function offerPhotoQuote(customer, attachment) {
   const banner = document.getElementById("cc-auto-ocr-banner");
   if (!banner) return;
+  if (!attachment) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
   banner.style.display = "block";
+  if (attachment.type === "PDF_DOCUMENT") {   // the PDF bytes are not readable from the page, so no button
+    banner.innerHTML = `<div style="font-size:11px; color:#324564;">📎 PDF received: please type the items to quote.</div>`;
+    return;
+  }
   banner.innerHTML = `
     <div style="font-weight:700; color:#042970; margin-bottom:4px;">
-      📎 Auto-Detected ${attachment.type === "PDF_DOCUMENT" ? "PDF Document" : "Receipt Image"}: ${escapeHtml(attachment.fileName)}
+      📎 Photo from ${escapeHtml(customer)}: ${escapeHtml(attachment.fileName)}
     </div>
-    <div style="font-size:11px; color:#324564;" id="cc-auto-ocr-status">
-      🤖 Auto-extracting receipt/bill details via LM Studio OCR...
-    </div>
+    <button type="button" id="cc-photo-quote-btn" class="cc-sec-btn" style="padding:4px 10px; font-size:11px; background:#fff; border:1px solid #10B981; color:#047857; cursor:pointer;">📷 Quote from photo</button>
+    <div style="font-size:11px; color:#324564; margin-top:4px;" id="cc-auto-ocr-status"></div>
   `;
+  document.getElementById("cc-photo-quote-btn").addEventListener("click", () => quoteFromPhoto(customer, attachment));
+}
 
-  let base64Data = null;
-  if (attachment.type === "IMAGE_RECEIPT" && attachment.src) {
-    base64Data = await blobUrlToBase64(attachment.src);
-  }
-
+async function quoteFromPhoto(customer, attachment) {
+  const btn = document.getElementById("cc-photo-quote-btn");
+  const statusEl = document.getElementById("cc-auto-ocr-status");
+  const say = (t) => { if (statusEl) statusEl.textContent = t; };
+  if (!btn || btn.disabled || blockIfNotCustomer(customer)) return;
+  btn.disabled = true;   // no double send while the request is in flight
   try {
-    const data = await ccApiRequest("/api/ocr/extract", "POST", {
-      fileName: attachment.fileName,
-      imageBase64: base64Data,
+    const imageBase64 = await blobUrlToBase64(attachment.src);
+    if (!imageBase64) {
+      say("Couldn't read this photo here. Please type the items.");
+      return;
+    }
+    say("⏳ Reading the photo...");
+    const data = await ccApiRequest("/api/whatsapp/photo-quote", "POST", {
       customer,
-      extractedText: attachment.extractedText
+      phone: titlePhone(customer),
+      imageBase64,
+      fileName: attachment.fileName,
+      role: getCcRole()
     });
-    const ex = data.extracted || {};
-    const statusEl = document.getElementById("cc-auto-ocr-status");
-    if (statusEl) {
-      statusEl.innerHTML = `
-        ✅ <b>${data.pdf_text_decoded ? "⚡ Direct PDF Text Decoded" : "👁️ Vision OCR Extracted"}:</b> RM ${(ex.amount || 2000).toLocaleString()} · Ref: <b>${escapeHtml(ex.ref || "DN-Check")}</b> (${escapeHtml(ex.kind || "customer")})
-        <div style="margin-top:6px; display:flex; gap:6px;">
-          <button type="button" id="cc-toggle-receipt-preview" class="cc-sec-btn" style="padding:3px 8px; font-size:10px; background:#fff; border:1px solid #10B981; color:#047857; cursor:pointer;">
-            👁️ View Receipt Copy
-          </button>
-        </div>
-        <div id="cc-receipt-inline-preview" style="display:none; margin-top:6px; padding:8px; background:#fff; border-radius:8px; border:1px solid #CBD5E1; font-size:11px;">
-          <div style="font-weight:700; color:#042970; margin-bottom:4px; display:flex; justify-content:space-between;">
-            <span>🧾 Attached Receipt Document</span>
-            <span style="color:#047857; font-weight:700;">● Stored Record</span>
-          </div>
-          <div style="background:#F8FAFC; padding:6px 8px; border-radius:6px; border:1px solid #E2E8F0; line-height:1.4;">
-            <div><b>Counterparty:</b> ${escapeHtml(customer)}</div>
-            <div><b>DuitNow Ref:</b> <span style="font-family:monospace; color:#0152FC; font-weight:700;">${escapeHtml(ex.ref || "DN-20261117-99102")}</span></div>
-            <div><b>Amount Paid:</b> <span style="font-weight:800; color:#042970;">RM ${(ex.amount || 2000).toLocaleString()}.00</span></div>
-            <div style="font-size:10px; color:#64748B; margin-top:3px;">Archive: Saved in CashChase SQLite receipt records</div>
-          </div>
-        </div>
-      `;
-      const tBtn = document.getElementById("cc-toggle-receipt-preview");
-      const pBox = document.getElementById("cc-receipt-inline-preview");
-      if (tBtn && pBox) {
-        tBtn.addEventListener("click", () => {
-          const isHidden = pBox.style.display === "none";
-          pBox.style.display = isHidden ? "block" : "none";
-          tBtn.textContent = isHidden ? "✕ Hide Receipt Copy" : "👁️ View Receipt Copy";
-        });
-      }
-    }
+    if (currentActiveChat !== customer) return;   // user moved to another chat meanwhile
+    renderAnalysisResult(data, false);
+    say("");
   } catch (e) {
-    const statusEl = document.getElementById("cc-auto-ocr-status");
-    if (statusEl) {
-      statusEl.innerHTML = `✅ <b>Auto-Parsed (${escapeHtml(attachment.fileName)}):</b> Ready for verification.`;
-    }
+    say("Couldn't reach CashChase. Please type the items.");
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -1009,18 +1128,19 @@ function createSidebar() {
         <input type="hidden" id="cc-customer-input" value="" />
         <input type="hidden" id="cc-message-input" value="" />
 
-        <!-- Auto-Detected PDF Banner (Hidden unless PDF arrives) -->
+        <!-- Customer photo / PDF banner (hidden unless one arrives) -->
         <div id="cc-auto-ocr-banner" style="display:none; background:#ECFDF5; border:1px solid #10B981; border-radius:8px; padding:6px 8px; margin-top:6px;"></div>
       </div>
 
-      <!-- 2. AI Action Card (Stock Summary + 1-Click Prompt Chips + 4 Tabs + Big Action) -->
+      <!-- 2. AI Action Card (deal line + 1-Click Prompt Chips + reply tabs + Big Action) -->
       <div class="cc-card" id="cc-result-card" style="padding:10px 12px;">
         <div style="font-weight:700; font-size:12px; color:#042970;" id="cc-ext-title">
           Ready for WhatsApp Message
         </div>
         <div class="cc-check-box" id="cc-ext-check" style="font-size:11px; padding:6px 8px; margin:6px 0; border-radius:8px; line-height:1.35;">
-          Checking live warehouse stock...
+          Tap 🔄 Rescan to analyse this chat.
         </div>
+        <div id="cc-deal-ctx" style="font-size:11px; color:#324564; line-height:1.4; margin-bottom:6px; white-space:pre-line;"></div>
         <div style="display:none;" id="cc-ext-desc"></div>
 
         <!-- Compact 1-Row Prompt Bar (Clean SME AI Copilot) -->
@@ -1051,17 +1171,16 @@ function createSidebar() {
 
         <!-- 1 Big Primary Action Button (Always in View Without Scrolling!) -->
         <button class="cc-big-btn" id="cc-big-action-btn" style="padding:11px 12px; font-size:12px;">
-          ✅ Hold Stock (48h) & Insert Selected Reply
+          ✅ Insert Selected Reply
         </button>
       </div>
 
-      <!-- 3. Compact Live Stock Footer (Saves 200px of space) -->
-      <div class="cc-card" id="cc-live-stock-card" style="padding:8px 10px; font-size:11px; margin-top:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-weight:700; color:#042970;">📦 Warehouse Stock</span>
-          <span id="cc-stock-summary-text" style="color:#047857; font-weight:600;">5x Daikin · 15x R32 · 13x Pipes Avail</span>
-        </div>
-        <div id="cc-stock-mini-list" style="display:none;"></div>
+      <!-- 3. Compact sales footer: follow-ups due now + reps' commission this month (GET /api/state) -->
+      <div class="cc-card" id="cc-sales-card" style="padding:8px 10px; font-size:11px; margin-top:auto;">
+        <div style="font-weight:700; color:#042970;">⏰ Follow-ups due</div>
+        <div id="cc-followups-text" style="color:#324564; margin-bottom:6px;">Loading...</div>
+        <div style="font-weight:700; color:#042970;">💰 Commission this month</div>
+        <div id="cc-commission-text" style="color:#324564;">Loading...</div>
       </div>
       <div style="font-size:10px; color:#92400E; text-align:center; padding:2px 0 4px;">Prototype — synthetic data, not connected to Orbyte</div>
     </div>
@@ -1127,32 +1246,23 @@ function createSidebar() {
   applyWhatsAppLayoutResize(false);
 
   document.getElementById("cc-read-dom-btn").addEventListener("click", () => scanActiveWhatsAppChat(true));
-  document.getElementById("cc-customer-input").addEventListener("change", () => analyzeCurrentMessage([]));
-  document.getElementById("cc-message-input").addEventListener("change", () => analyzeCurrentMessage([]));
   document.getElementById("cc-big-action-btn").addEventListener("click", executePrimaryAction);
 
+  const askAi = (instr) => {
+    const cust = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
+    const msg = document.getElementById("cc-message-input")?.value.trim() || "";
+    if (currentActiveChat && blockIfNotCustomer(cust)) return;
+    renderAnalysisResult(buildLocalSmartAnalysis(cust, msg, instr), true);
+    analyzeCurrentMessage([], instr);
+  };
   const customPromptBtn = document.getElementById("cc-custom-prompt-btn");
   if (customPromptBtn) {
-    customPromptBtn.addEventListener("click", () => {
-      const instr = document.getElementById("cc-user-instruction")?.value.trim() || "";
-      const cust = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
-      const msg = document.getElementById("cc-message-input")?.value.trim() || "";
-      const instantData = buildLocalSmartAnalysis(cust, msg, instr);
-      renderAnalysisResult(instantData, true);
-      analyzeCurrentMessage([], instr);
-    });
+    customPromptBtn.addEventListener("click", () => askAi(document.getElementById("cc-user-instruction")?.value.trim() || ""));
   }
   const instrInput = document.getElementById("cc-user-instruction");
   if (instrInput) {
     instrInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const instr = instrInput.value.trim();
-        const cust = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
-        const msg = document.getElementById("cc-message-input")?.value.trim() || "";
-        const instantData = buildLocalSmartAnalysis(cust, msg, instr);
-        renderAnalysisResult(instantData, true);
-        analyzeCurrentMessage([], instr);
-      }
+      if (e.key === "Enter") askAi(instrInput.value.trim());
     });
   }
 
@@ -1188,23 +1298,75 @@ function createSidebar() {
   }, 3000);
 }
 
+const fmtRm = (n) => `RM ${Number(n || 0).toLocaleString()}`;
+
+// Follow-ups due now (deals in FOLLOW_UP, not paused) and the reps' commission this month, from GET /api/state.
+function renderSalesCard() {
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  const due = knownDeals.filter((d) => d.stage === "FOLLOW_UP" && !d.paused);
+  set("cc-followups-text", due.length
+    ? `${due.length} due: ${due.slice(0, 3).map((d) => cleanCustomerName(d.customer)).join(", ")}${due.length > 3 ? "..." : ""}`
+    : "None due now");
+  const top = knownReps.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99)).slice(0, 3);
+  set("cc-commission-text", top.length
+    ? top.map((r) => `#${r.rank} ${r.name} ${fmtRm(r.commissionRm)}`).join(" · ")
+    : "No reps yet");
+}
+
 async function refreshStateFromBackend() {
-  const sumEl = document.getElementById("cc-stock-summary-text");
+  let ok = false;
   try {
     const state = await ccApiRequest("/api/state", "GET");
-    if (sumEl && state && state.stock) {
-      sumEl.textContent = state.stock
-        .map((s) => `${s.available}x ${s.sku.replace("ACN-", "").replace("GAS-", "")}`)
-        .join(" · ") + " Avail";
-    }
+    knownCustomers = Array.isArray(state && state.customers) ? state.customers : null;
+    knownDeals = Array.isArray(state && state.deals) ? state.deals : [];
+    knownReps = Array.isArray(state && state.reps) ? state.reps : [];
+    knownProducts = Array.isArray(state && state.products) ? state.products : [];
+    ok = true;
+    renderSalesCard();
+    if (lastAnalysis && !gateState) renderDealContext(lastAnalysis);   // the deal may have just changed
   } catch (err) {
-    if (sumEl) sumEl.textContent = "5x DAI · 15x R32 · 13x PIP Avail";
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set("cc-followups-text", "Backend offline");
+    set("cc-commission-text", "Backend offline");
   }
+  if (ok && gateState && knownCustomers) reevaluateChat(); // list loaded late, or Rescan / Add as customer re-read it
+  return ok;
+}
+
+// Doc 08 §1: who owns the deal, where it stands, follow-up n of 3, quote total, margin guard and commission.
+// Reps see "Margin ✓ / ⚠" only (marginOk); costs and margin % never reach the extension.
+function renderDealContext(a) {
+  const deal = a.dealId ? knownDeals.find((d) => d.id === a.dealId) : null;
+  // The deal's rep, else a rep the analysis names for a new quote; no rep is shown if neither is known.
+  const repId = deal ? deal.repId : a.repId;
+  const rep = repId != null ? knownReps.find((r) => r.id === repId) : null;
+  const lines = [];
+  const who = [];
+  if (rep) who.push(`Rep: ${rep.name}`);
+  // a.stage is the chat stage, not the deal's: a quote that has no deal yet is a "New quote".
+  const stage = deal ? deal.stage : (!a.dealId && a.extActionType === "CREATE_QUOTE" ? "New quote" : "");
+  if (stage) who.push(`Stage: ${stage}`);
+  if (a.followUp && a.followUp.count) who.push(`Follow-up ${a.followUp.count} of ${a.followUp.of || 3}`);
+  if (who.length) lines.push(who.join(" · "));
+  if (a.amount) lines.push(`Quote total: ${fmtRm(a.amount)}`);
+  if (a.amount && typeof a.marginOk === "boolean") {
+    lines.push(a.marginOk
+      ? `Margin ✓${a.commissionRm != null ? ` · You earn ${fmtRm(a.commissionRm)}` : ""}`
+      : "⚠ Below margin floor — needs Owner approval");
+  }
+  const el = document.getElementById("cc-deal-ctx");
+  if (el) el.textContent = lines.join("\n");
 }
 
 function renderAnalysisResult(data, fromCache = false) {
-  lastAnalysis = data.analysis;
   const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Customer";
+  if (data.analysis && data.analysis.intent === "NOT_A_CUSTOMER") {   // the backend's list is newer than ours
+    backendDenied.add(customer);
+    renderNotCustomer(customer);
+    return;
+  }
+  gateState = "";
+  lastAnalysis = data.analysis;
 
   const statusEl = document.getElementById("cc-lm-status");
   if (statusEl) {
@@ -1223,10 +1385,11 @@ function renderAnalysisResult(data, fromCache = false) {
   if (checkEl) {
     let checkText = lastAnalysis.extCheck || "";
     if (lastAnalysis.stage) {
-      checkText = `[Stage: ${lastAnalysis.stage}]\n` + (lastAnalysis.coachTip ? `💡 Coach: ${lastAnalysis.coachTip}\n\n` : "") + checkText;
+      checkText = `[Chat stage: ${lastAnalysis.stage}]\n` + (lastAnalysis.coachTip ? `💡 Coach: ${lastAnalysis.coachTip}\n\n` : "") + checkText;
     }
     checkEl.textContent = checkText;
   }
+  renderDealContext(lastAnalysis);
   const draftEl = document.getElementById("cc-draft-output");
   if (draftEl) {
     draftEl.disabled = false;
@@ -1249,7 +1412,7 @@ function renderAnalysisResult(data, fromCache = false) {
       memPill.style.background = "#F1F5F9";
       memPill.style.color = "#475569";
       memPill.style.border = "1px solid #CBD5E1";
-      memPill.title = "New contact with no past purchase records. Require deposit to lock stock.";
+      memPill.title = "New contact with no past purchase records. Ask for a deposit to confirm the order.";
     } else {
       const isRisk = (mem.score || 75) < 60;
       memPill.textContent = `${isRisk ? "⚠️" : "⭐"} ${mem.tier.replace(/_/g, " ")} (${mem.score}/100)`;
@@ -1299,10 +1462,11 @@ function renderAnalysisResult(data, fromCache = false) {
           paramBox.style.display = "block";
           paramBox.innerHTML = `
             <div style="font-size:10px; font-weight:700; color:#042970; margin-bottom:2px;">✏️ Edit Credit Rebate Amount (RM):</div>
-            <input id="cc-rebate-amt-input" type="number" value="180" step="10" class="cc-input" style="font-weight:700; padding:4px 6px; font-size:11px;" />
+            <input id="cc-rebate-amt-input" type="number" value="" placeholder="Type the amount" required min="1" step="10" class="cc-input" style="font-weight:700; padding:4px 6px; font-size:11px;" />
           `;
           document.getElementById("cc-rebate-amt-input").addEventListener("input", (e) => {
-            const rm = parseInt(e.target.value || "0", 10);
+            const rm = parseInt(e.target.value, 10);
+            if (!(rm > 0)) return;   // no amount typed yet: keep the reply as it is, never invent a figure
             const updatedText = `Hi ${customer}, sincere apologies! We can immediately deduct RM ${rm} credit rebate off your invoice balance today.`;
             if (draftEl) draftEl.value = updatedText;
             if (btnEl) btnEl.textContent = `💸 Apply RM ${rm} Rebate & Insert Reply`;
@@ -1311,10 +1475,11 @@ function renderAnalysisResult(data, fromCache = false) {
           paramBox.style.display = "block";
           paramBox.innerHTML = `
             <div style="font-size:10px; font-weight:700; color:#042970; margin-bottom:2px;">🕒 Edit Technician Drop-By Time:</div>
-            <input id="cc-tech-time-input" type="text" value="before 3:00 PM today" class="cc-input" style="font-weight:700; padding:4px 6px; font-size:11px;" />
+            <input id="cc-tech-time-input" type="text" value="" placeholder="e.g. before 3:00 PM today" required class="cc-input" style="font-weight:700; padding:4px 6px; font-size:11px;" />
           `;
           document.getElementById("cc-tech-time-input").addEventListener("input", (e) => {
-            const tVal = e.target.value || "before 3:00 PM today";
+            const tVal = (e.target.value || "").trim();
+            if (!tVal) return;   // no time typed yet: keep the reply as it is
             const updatedText = `Sorry about that ${customer}! Our technician can drop by ${tVal} to inspect and swap the unit on the spot.`;
             if (draftEl) draftEl.value = updatedText;
             if (btnEl) btnEl.textContent = `🛠️ Schedule Tech (${tVal}) & Insert Reply`;
@@ -1333,7 +1498,7 @@ function renderAnalysisResult(data, fromCache = false) {
 async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", forceRun = false, meta = {}) {
   const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
   const message = document.getElementById("cc-message-input")?.value.trim() || "";
-  if (!message) return;
+  if (!message || blockIfNotCustomer(customer)) return;
 
   const cacheKey = getCacheKey(customer, message, userInstruction);
   if (!forceRun && precomputedCache.has(cacheKey)) {
@@ -1351,7 +1516,7 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
 
   document.getElementById("cc-ext-title").textContent = userInstruction
     ? `⏳ AI Building Custom Quote: "${userInstruction}"...`
-    : "⏳ AI Analyzing Chat & Live Stock...";
+    : "⏳ AI Analyzing Chat...";
 
   // HIDE OLD REPLIES WHILE AI IS GENERATING NEW REPLY
   const tabsContainer = document.getElementById("cc-reply-tabs");
@@ -1373,6 +1538,7 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
   try {
     const data = await ccApiRequest("/api/whatsapp/analyze", "POST", {
       customer,
+      phone: titlePhone(customer),
       message,
       userInstruction,
       recentMessages,
@@ -1381,8 +1547,10 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
       lastClientMessage: meta.lastClientMessage || message,
       lastMyMessage: meta.lastMyMessage || ""
     });
-    precomputedCache.set(cacheKey, data);
-    updateCacheBadgeCount();
+    if (!(data.analysis && data.analysis.intent === "NOT_A_CUSTOMER")) {   // never cache a "not a customer" answer
+      precomputedCache.set(cacheKey, data);
+      updateCacheBadgeCount();
+    }
     renderAnalysisResult(data, Boolean(data.cached));
     refreshStateFromBackend();
   } catch (err) {
@@ -1397,7 +1565,21 @@ async function analyzeCurrentMessage(recentMessages = [], userInstruction = "", 
   }
 }
 
+// The quote's lines for the execute body: the analysis `items`, else the quote preview's, else its own sku/qty.
+function analysisItems(a) {
+  const list = [a.items, a.quotePreview && a.quotePreview.items].find((l) => Array.isArray(l) && l.length);
+  if (list) return list.map(({ sku, qty }) => ({ sku, qty }));
+  const lines = [];
+  if (a.sku && a.qty > 0) lines.push({ sku: a.sku, qty: a.qty });
+  if (a.extraSku && a.extraQty > 0) lines.push({ sku: a.extraSku, qty: a.extraQty });
+  return lines.length ? lines : null;
+}
+
 async function executePrimaryAction() {
+  if (gateState) {   // blocked contact: the big button adds the customer (or does nothing offline), never inserts a reply
+    if (gateState === "not_customer") addCurrentAsCustomer();
+    return;
+  }
   const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat || "Client";
   const draftEl = document.getElementById("cc-draft-output");
   const draft = draftEl ? draftEl.value.trim() : "";
@@ -1412,24 +1594,42 @@ async function executePrimaryAction() {
     return;
   }
 
+  // Nothing to record yet: say what is missing instead of inserting a reply or posting a blind action.
+  const a = lastAnalysis;
+  const items = a ? analysisItems(a) : null;
+  const missing = a && a.extActionType === "CREATE_QUOTE" && !items ? "⚠️ Type the items to quote first"
+    : a && a.extActionType === "MARK_WON" && !a.depositRef ? "⚠️ Add the slip reference first" : "";
+  if (missing) {
+    if (btnEl) {
+      btnEl.textContent = missing;
+      setTimeout(() => { btnEl.textContent = originalBtnText; }, 3000);
+    }
+    return;
+  }
+
   // Insert into WhatsApp message input box ONLY when this button is clicked
   insertReplyIntoWhatsAppBox(draft);
 
   if (lastAnalysis && lastAnalysis.extActionType && lastAnalysis.extActionType !== "NO_ACTION") {
     try {
-      const result = await ccApiRequest("/api/whatsapp/execute", "POST", {
+      // The contract body (docs/11 §2.4): only what the analysis says, nothing invented; empty fields are left out.
+      const body = {
         customer,
-        actionType: lastAnalysis.extActionType || "CREATE_QUOTE_HOLD",
-        items: lastAnalysis.quotePreview ? lastAnalysis.quotePreview.items : (lastAnalysis.items || null),
-        sku: lastAnalysis.sku || "ACN-DAI-15",
-        qty: lastAnalysis.qty || 5,
-        extraSku: lastAnalysis.extraSku || null,
-        extraQty: lastAnalysis.extraQty || 0,
-        amount: lastAnalysis.amount || 6650,
-        tin: lastAnalysis.tin || null,
-        ssmBrn: lastAnalysis.ssmBrn || null,
+        phone: titlePhone(customer),
+        actionType: a.extActionType,
+        dealId: a.dealId,
+        items,
+        discount: a.discount,
+        depositRef: a.depositRef,
+        depositAmount: a.depositAmount,
+        reason: a.lossReasonSuggestion,
+        note: a.note,
+        tin: a.tin,
+        ssmBrn: a.ssmBrn,
         role: getCcRole()
-      });
+      };
+      const result = await ccApiRequest("/api/whatsapp/execute", "POST",
+        Object.fromEntries(Object.entries(body).filter(([, v]) => v != null)));
       if (btnEl) {
         btnEl.textContent = result && result.status === "pending_approval"
           ? "📨 Reply Inserted · Sent to Owner for Approval"

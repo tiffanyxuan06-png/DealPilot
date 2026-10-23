@@ -80,6 +80,17 @@ def test_strict_ai_mode_rejects_offline_fallback(client, monkeypatch):
     assert "Strict AI mode is ON" in r.json()["detail"]
 
 
+def test_whatsapp_execute_create_quote_needs_an_item(client):
+    """No items and no sku is a 400, not a silent ACN-DAI-15 x1 quote."""
+    before = len(client.get("/api/state", params={"role": "STAFF"}).json()["deals"])
+    r = client.post("/api/whatsapp/execute", json={**STAFF, "customer": "Hotel Grand Malaya", "actionType": "CREATE_QUOTE"})
+    assert r.status_code == 400 and r.json()["detail"] == "Add at least one item to quote."
+    assert len(client.get("/api/state", params={"role": "STAFF"}).json()["deals"]) == before
+    ok = client.post("/api/whatsapp/execute", json={**STAFF, "customer": "Hotel Grand Malaya", "actionType": "CREATE_QUOTE",
+                                                    "items": [{"sku": "GAS-R32", "qty": 2}]})
+    assert ok.status_code == 200 and ok.json()["createdDealId"].startswith("QT-")
+
+
 def test_whatsapp_execute_deal_lifecycle(client):
     # 1. Create Quote Deal via WhatsApp button
     r1 = client.post("/api/whatsapp/execute", json={
@@ -163,6 +174,7 @@ def test_complaint_pauses_deal(client):
 
 
 def test_photo_quote_extracts_editable_items(client):
+    client.post("/api/customers", json={**STAFF, "name": "Bengkel Ah Hock"})  # photos are only read for customers
     payload = {
         "fileName": "order_daikin_r32.jpg",
         "imageBase64": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",

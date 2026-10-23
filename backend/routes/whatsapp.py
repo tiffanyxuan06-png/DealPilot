@@ -2,7 +2,7 @@
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, select
@@ -26,15 +26,15 @@ from backend.services.business import load_business
 from backend.services.clock import now_time_str
 from backend.services.customers import (
     apply_tin,
+    find_customer,
     get_customer,
-    is_customer,
     parse_ssm,
     parse_tin,
     tin_request_text,
     upsert_customer,
 )
 from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
-from backend.services.memory import clean_customer_name, compute_client_memory_rating
+from backend.services.memory import clean_customer_name, compute_client_memory_rating, find_memory_by_phone
 from backend.services.permissions import enforce, normalize_role, register_handler
 from backend.services.pipeline import build_state, log, resolve_active_ai_credentials
 from backend.services.sales_flow import (
@@ -66,11 +66,24 @@ def get_client_memory_endpoint(
     return compute_client_memory_rating(customer, phone)
 
 
-def _save_memory(session: Session, req: WhatsAppAnalyzeRequest, mem: Dict[str, Any], analysis: Dict[str, Any]) -> None:
+def _resolve_customer(customer: str, phone: str) -> Tuple[str, str, bool]:
+    """(name, phone, registered). A number-titled chat resolves to the stored customer: stored name and phone."""
+    with session_scope() as s:
+        row = find_customer(s, customer, phone)
+        if row is None:
+            return customer, phone, False
+        if not row.phone:  # a number that belongs to another customer is not this one's
+            other = find_customer(s, "", phone)
+            phone = "" if other and other.name != row.name else phone
+        return row.name, row.phone or phone, True
+
+
+def _save_memory(session: Session, customer: str, phone: str, req: WhatsAppAnalyzeRequest, mem: Dict[str, Any], analysis: Dict[str, Any]) -> None:
+    old = session.get(orm.ClientMemory, customer.strip())
     session.merge(
         orm.ClientMemory(
-            customer=req.customer.strip(),
-            phone=req.phone or "",
+            customer=customer.strip(),
+            phone=phone or (old.phone if old else ""),
             tier=mem["tier"],
             score=mem["score"],
             style_summary=mem["styleSummary"],
@@ -87,15 +100,8 @@ def _save_memory(session: Session, req: WhatsAppAnalyzeRequest, mem: Dict[str, A
 
 def _find_client_memory(session: Session, customer: str, phone: str = "") -> Optional[orm.ClientMemory]:
     c_clean = clean_customer_name(customer).strip()
-    if phone:
-        mem = session.scalars(
-            select(orm.ClientMemory).where(orm.ClientMemory.phone == phone)
-        ).first()
-        if mem:
-            return mem
-    return session.scalars(
-        select(orm.ClientMemory).where(orm.ClientMemory.customer.ilike(c_clean))
-    ).first()
+    mem = session.scalars(select(orm.ClientMemory).where(orm.ClientMemory.customer.ilike(c_clean))).first()
+    return mem or find_memory_by_phone(session, phone)
 
 
 def _find_open_deal(session: Session, customer: str) -> Optional[orm.Deal]:
@@ -110,21 +116,21 @@ def _find_open_deal(session: Session, customer: str) -> Optional[orm.Deal]:
 
 @router.post("/api/whatsapp/analyze", response_model=WhatsAppAnalyzeResponse)
 def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
-    mem = compute_client_memory_rating(req.customer, req.phone or "", req.message)
+    customer, phone, registered = _resolve_customer(req.customer, req.phone or "")
+    mem = compute_client_memory_rating(customer, phone, req.message)
     tier = mem["tier"]
 
     # Customer allowlist check (docs/11 §4.1)
     cached_pending = None
     open_deal_dict = None
     with session_scope() as s:
-        registered = is_customer(s, req.customer, req.phone or "")
-        mem_row = _find_client_memory(s, req.customer, req.phone or "")
+        mem_row = _find_client_memory(s, customer, phone)
         if mem_row and mem_row.cached_analysis_json:
             try:
                 cached_pending = json.loads(mem_row.cached_analysis_json).get("pendingOffer")
             except Exception:
                 pass
-        open_deal_row = _find_open_deal(s, req.customer)
+        open_deal_row = _find_open_deal(s, customer)
         if open_deal_row:
             open_deal_dict = {
                 "id": open_deal_row.id,
@@ -143,12 +149,12 @@ def api_whatsapp_analyze(req: WhatsAppAnalyzeRequest) -> Dict[str, Any]:
             "intent": "NOT_A_CUSTOMER",
             "isCustomer": False,
             "badge": "Not a customer",
-            "extTitle": f"{clean_customer_name(req.customer)} (Not in Directory)",
+            "extTitle": f"{clean_customer_name(customer)} (Not in Directory)",
             "extCheck": "🟡 Contact not registered in customer directory.\nClick 'Add as customer' to enable sales quotes and tracking.",
             "extActionDesc": "Add this contact to your customer list to start tracking deals.",
-            "extDraft": f"Hi {clean_customer_name(req.customer)}, thanks for reaching out! Let me get your details registered with our team.",
+            "extDraft": f"Hi {clean_customer_name(customer)}, thanks for reaching out! Let me get your details registered with our team.",
             "replyOptions": [
-                {"label": "Register Contact", "text": f"Hi {clean_customer_name(req.customer)}, thanks for reaching out! Let me get your details registered with our team."}
+                {"label": "Register Contact", "text": f"Hi {clean_customer_name(customer)}, thanks for reaching out! Let me get your details registered with our team."}
             ],
             "extActionType": "NO_ACTION",
             "extBtnLabel": "👤 Add as customer",
@@ -207,8 +213,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         company_name=state["company"]["name"],
         stock_context=price_context,
         framework=state["company"]["framework"],
-        clean_cust_req=clean_customer_name(req.customer),
-        phone=req.phone or "",
+        clean_cust_req=clean_customer_name(customer),
+        phone=phone,
         tier=tier,
         score=mem["score"],
         pay_behavior=mem["paymentBehavior"],
@@ -219,8 +225,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         custom_directive_block=custom_directive_block,
     )
     user_prompt = build_whatsapp_copilot_user_prompt(
-        customer=req.customer,
-        phone=req.phone or "",
+        customer=customer,
+        phone=phone,
         inquiry_message=req.last_client_message or req.message,
         last_my_message=req.last_my_message if req.last_sender == "ME" else None,
         user_instruction=req.user_instruction,
@@ -229,8 +235,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
     # Build deal context from complete chat history
     recent_msgs = [{"sender": m.sender, "text": m.text} for m in (req.recent_messages or [])]
     deal_ctx = build_deal_context(
-        customer=req.customer,
-        phone=req.phone or "",
+        customer=customer,
+        phone=phone,
         messages=recent_msgs,
         current_message=req.message,
         products=state["products"],
@@ -245,7 +251,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
     )
     sales_replies = generate_fallback_replies(deal_ctx, deal_action, state["products"])
 
-    fallback = deterministic_fallback_analysis(req.customer, req.phone or "", req.message, state, user_instruction=req.user_instruction or "")
+    fallback = deterministic_fallback_analysis(customer, phone, req.message, state, user_instruction=req.user_instruction or "")
     fallback["clientMemory"] = mem
     fallback["stage"] = deal_action["stage"]
     fallback["stageSteps"] = deal_action["stageSteps"]
@@ -330,9 +336,9 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
                 detail=f"Strict AI mode is ON: Live AI service is unreachable ({str(e)}). Templated fallback blocked."
             )
         with session_scope() as s:
-            _add_tin_request(s, fallback, req.customer)
+            _add_tin_request(s, fallback, customer)
             if fallback.get("intent") != "CASUAL_CHAT":
-                _save_memory(s, req, mem, fallback)
+                _save_memory(s, customer, phone, req, mem, fallback)
         return {
             "source": "deterministic_fallback",
             "lmstudio_connected": False,
@@ -343,7 +349,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         }
 
     with session_scope() as s:
-        _add_tin_request(s, fallback, req.customer)
+        _add_tin_request(s, fallback, customer)
         parsed = extract_json_from_llm(llm_res["clean_content"]) or {}
         merged = {**fallback, **{k: v for k, v in parsed.items() if v is not None and v != ""}, "clientMemory": mem}
 
@@ -358,8 +364,15 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         merged["compare"] = fallback.get("compare", deal_action["compare"])
         merged["pendingOffer"] = fallback.get("pendingOffer", deal_action["pendingOffer"])
 
-        # Code, not the AI, decides the action and prices the quote
-        if fallback.get("extActionType") == "OFFER_QUOTE":
+        # Code, not the AI, decides the action and prices the quote. Casual chat goes first so the AI cannot
+        # relabel it (e.g. as PRODUCT_CONSULTATION) and get it saved to client memory.
+        if fallback.get("intent") == "CASUAL_CHAT":
+            merged["intent"] = "CASUAL_CHAT"
+            merged["extActionType"] = "NO_ACTION"
+            merged["extBtnLabel"] = "💬 Insert Selected Reply"
+            merged["amount"] = 0
+            merged["items"] = []
+        elif fallback.get("extActionType") == "OFFER_QUOTE":
             merged["intent"] = "BUYING_INQUIRY"
             merged["extActionType"] = "OFFER_QUOTE"
             merged["extBtnLabel"] = fallback.get("extBtnLabel")
@@ -416,16 +429,12 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         elif fallback.get("intent") == "SAVE_LHDN_TIN":
             for k in ("intent", "extActionType", "extBtnLabel", "tin", "ssmBrn", "extCheck"):
                 merged[k] = fallback.get(k)
-        elif fallback.get("intent") == "CASUAL_CHAT":
-            merged["intent"] = "CASUAL_CHAT"
-            merged["extActionType"] = "NO_ACTION"
-            merged["extBtnLabel"] = "💬 Insert Selected Reply"
 
         # Every RM amount in an AI reply must be one CashChase calculated; pressure wording is blocked.
-        merged = check_ai_replies(merged, fallback, state, req.customer)
-        _add_tin_request(s, merged, req.customer)
+        merged = check_ai_replies(merged, fallback, state, customer)
+        _add_tin_request(s, merged, customer)
         if merged.get("intent") != "CASUAL_CHAT":
-            _save_memory(s, req, mem, merged)
+            _save_memory(s, customer, phone, req, mem, merged)
     return {
         "source": "lmstudio",
         "lmstudio_connected": True,
@@ -453,16 +462,22 @@ def _add_tin_request(session: Session, analysis: Dict[str, Any], customer: str) 
 @router.post("/api/whatsapp/execute", response_model=ActionResponse)
 def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
     role = normalize_role(req.role)
+    customer, phone, known = _resolve_customer(req.customer, req.phone or "")
     action = req.action_type
+
+    # A stranger leaves no trace: nothing is logged or saved for a contact that is not a customer.
+    if action in ("REPLY_ONLY", "NO_ACTION", "OFFER_QUOTE"):
+        if not known:
+            return ActionResponse(status="ok", state=build_state(role))
 
     if action in ("REPLY_ONLY", "NO_ACTION"):
         with session_scope() as s:
-            log(s, f"[{role}] Sent WhatsApp message to {req.customer}.")
+            log(s, f"[{role}] Sent WhatsApp message to {customer}.")
         return ActionResponse(status="ok", state=build_state(role))
 
     if action == "OFFER_QUOTE":
         with session_scope() as s:
-            mem_row = _find_client_memory(s, req.customer, req.phone or "")
+            mem_row = _find_client_memory(s, customer, phone)
             if mem_row:
                 try:
                     data = json.loads(mem_row.cached_analysis_json or "{}")
@@ -470,26 +485,26 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
                     data = {}
                 data["pendingOffer"] = "QUOTE"
                 mem_row.cached_analysis_json = json.dumps(data)
-            log(s, f"[{role}] Offered formal quotation to {req.customer}.")
+            log(s, f"[{role}] Offered formal quotation to {customer}.")
         return ActionResponse(status="ok", state=build_state(role))
 
     if action == "CREATE_QUOTE":
         deal_items = req.items
         if not deal_items:
-            sku = req.sku or "ACN-DAI-15"
-            qty = req.qty or 1
-            deal_items = [DealItemRequest(sku=sku, qty=qty)]
+            if not req.sku:
+                raise HTTPException(status_code=400, detail="Add at least one item to quote.")
+            deal_items = [DealItemRequest(sku=req.sku, qty=req.qty or 1)]
         create_req = DealCreateRequest(
             role=role,
-            customer=req.customer,
-            phone=req.phone or "",
+            customer=customer,
+            phone=phone,
             items=deal_items,
             discount=req.discount or 0,
             quote=True,
         )
         res = api_create_deal(create_req)
         with session_scope() as s:
-            mem_row = _find_client_memory(s, req.customer, req.phone or "")
+            mem_row = _find_client_memory(s, customer, phone)
             if mem_row and mem_row.cached_analysis_json:
                 try:
                     data = json.loads(mem_row.cached_analysis_json)
@@ -503,9 +518,9 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
         deal_id = req.deal_id
         if not deal_id:
             with session_scope() as s:
-                d = _find_open_deal(s, req.customer)
+                d = _find_open_deal(s, customer)
                 if not d:
-                    raise HTTPException(status_code=404, detail=f"No open deal found for {req.customer} to discount.")
+                    raise HTTPException(status_code=404, detail=f"No open deal found for {customer} to discount.")
                 deal_id = d.id
         return api_deal_action(deal_id, DealActionRequest(role=role, action=DealAction.APPLY_DISCOUNT, discount=req.discount or 0))
 
@@ -513,9 +528,9 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
         deal_id = req.deal_id
         if not deal_id:
             with session_scope() as s:
-                d = _find_open_deal(s, req.customer)
+                d = _find_open_deal(s, customer)
                 if not d:
-                    raise HTTPException(status_code=404, detail=f"No open deal found for {req.customer} to follow up.")
+                    raise HTTPException(status_code=404, detail=f"No open deal found for {customer} to follow up.")
                 deal_id = d.id
         return api_deal_action(deal_id, DealActionRequest(role=role, action=DealAction.SEND_FOLLOW_UP))
 
@@ -523,9 +538,9 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
         deal_id = req.deal_id
         if not deal_id:
             with session_scope() as s:
-                d = _find_open_deal(s, req.customer)
+                d = _find_open_deal(s, customer)
                 if not d:
-                    raise HTTPException(status_code=404, detail=f"No open deal found for {req.customer} to mark won.")
+                    raise HTTPException(status_code=404, detail=f"No open deal found for {customer} to mark won.")
                 deal_id = d.id
         return api_deal_action(
             deal_id,
@@ -541,9 +556,9 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
         deal_id = req.deal_id
         if not deal_id:
             with session_scope() as s:
-                d = _find_open_deal(s, req.customer)
+                d = _find_open_deal(s, customer)
                 if not d:
-                    raise HTTPException(status_code=404, detail=f"No open deal found for {req.customer} to mark lost.")
+                    raise HTTPException(status_code=404, detail=f"No open deal found for {customer} to mark lost.")
                 deal_id = d.id
         reason = req.reason or "Customer declined on WhatsApp"
         return api_deal_action(deal_id, DealActionRequest(role=role, action=DealAction.MARK_LOST, reason=reason))
@@ -552,14 +567,15 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
         deal_id = req.deal_id
         if not deal_id:
             with session_scope() as s:
-                d = _find_open_deal(s, req.customer)
+                d = _find_open_deal(s, customer)
                 if d:
                     deal_id = d.id
         if deal_id:
             return api_deal_action(deal_id, DealActionRequest(role=role, action=DealAction.PAUSE, note=req.note or "Customer complaint on WhatsApp"))
         else:
             with session_scope() as s:
-                log(s, f"[{role}] Logged complaint for {req.customer}: {req.note or 'Issue reported on WhatsApp'}")
+                if known:
+                    log(s, f"[{role}] Logged complaint for {customer}: {req.note or 'Issue reported on WhatsApp'}")
             return ActionResponse(status="ok", state=build_state(role))
 
     if action == "SAVE_LHDN_TIN":
@@ -569,15 +585,15 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
                 raise HTTPException(status_code=400, detail=f"'{req.tin}' does not look like an LHDN TIN (e.g. C2588190021).")
             gate = enforce(
                 s, role, "deal.set_tin", handler="whatsapp_execute", payload={"body": req.model_dump()},
-                summary=f"Save LHDN TIN {tin} for {req.customer}",
+                summary=f"Save LHDN TIN {tin} for {customer}",
             )
             if gate:
                 return gate
             ssm = parse_ssm(req.ssm_brn or "") or ""
-            updated = apply_tin(s, req.customer, tin, ssm, now_time_str())
+            updated = apply_tin(s, customer, tin, ssm, now_time_str())
             log(
                 s,
-                f"[{role}] Saved LHDN TIN {tin}" + (f" / SSM {ssm}" if ssm else "") + f" for {clean_customer_name(req.customer)} from WhatsApp"
+                f"[{role}] Saved LHDN TIN {tin}" + (f" / SSM {ssm}" if ssm else "") + f" for {clean_customer_name(customer)} from WhatsApp"
                 + (f" (open deals: {', '.join('#' + i for i in updated)})." if updated else "."),
             )
         return ActionResponse(status="ok", state=build_state(role), updated=updated)
@@ -597,6 +613,26 @@ def api_create_customer(req: CustomerCreateRequest) -> ActionResponse:
 @router.post("/api/whatsapp/photo-quote", response_model=PhotoQuoteResponse)
 def api_whatsapp_photo_quote(req: PhotoQuoteRequest) -> Dict[str, Any]:
     check_upload_type(req.image_base64)
+    customer, phone, registered = _resolve_customer(req.customer, req.phone or "")
+    if not registered:  # a stranger's photo is never sent to the AI
+        name = clean_customer_name(customer)
+        return {
+            "status": "not_a_customer",
+            "editable": False,
+            "items": [],
+            "analysis": {
+                "intent": "NOT_A_CUSTOMER",
+                "isCustomer": False,
+                "badge": "Not a customer",
+                "extTitle": f"{name} (Not in Directory)",
+                "extCheck": "🟡 Contact not registered in customer directory.\nClick 'Add as customer' to enable photo quotes.",
+                "extActionDesc": "Add this contact to your customer list to start tracking deals.",
+                "extDraft": "",
+                "extActionType": "NO_ACTION",
+                "extBtnLabel": "👤 Add as customer",
+                "amount": 0,
+            },
+        }
     extracted = extract_items_from_image(req.image_base64, req.file_name or "photo.jpg")
     if not extracted.get("success") or not extracted.get("items"):
         return {
@@ -615,6 +651,7 @@ def api_whatsapp_photo_quote(req: PhotoQuoteRequest) -> Dict[str, Any]:
                 ],
                 "extActionType": "NO_ACTION",
                 "extBtnLabel": "💬 Ask customer to type items",
+                "amount": 0,
             }
         }
     with session_scope() as s:
@@ -622,12 +659,12 @@ def api_whatsapp_photo_quote(req: PhotoQuoteRequest) -> Dict[str, Any]:
         subtotal_rm = sum(it["lineTotal"] for it in matched)
         lines_summary = "\n".join(f"{it['qty']}x {it['name']} · RM {it['lineTotal']:,}" for it in matched)
         items_line = ", ".join(f"{it['qty']}x {it['name']}" for it in matched)
-        draft_msg = f"Hi {clean_customer_name(req.customer)}! Based on your photo, here is the quotation: {items_line} = RM {subtotal_rm:,}. Subject to stock availability · prices valid 7 days."
+        draft_msg = f"Hi {clean_customer_name(customer)}! Based on your photo, here is the quotation: {items_line} = RM {subtotal_rm:,}. Subject to stock availability · prices valid 7 days."
         analysis = {
             "intent": "BUYING_INQUIRY",
             "isCustomer": True,
             "badge": "Photo Quote",
-            "extTitle": f"Photo Order Quote for {clean_customer_name(req.customer)}",
+            "extTitle": f"Photo Order Quote for {clean_customer_name(customer)}",
             "extCheck": f"{lines_summary}\nTotal: RM {subtotal_rm:,}\nSubject to stock availability · prices valid 7 days",
             "extActionDesc": "Review and edit the line items below, then create the quote.",
             "extDraft": draft_msg,

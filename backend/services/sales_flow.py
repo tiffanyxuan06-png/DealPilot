@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.services.prompts import is_business_message
 from backend.services.product_knowledge import (
     calculate_quote_preview,
     compare,
@@ -307,6 +308,8 @@ def build_deal_context(
         last_my_msg=last_my_msg,
     )
     ctx.stage = derive_stage(ctx)
+    if ctx.stage == "CASUAL" and is_business_message(latest_msg.lower(), products):
+        ctx.stage = "DISCOVERY"  # "later" or "makan" next to a product or price word is still an inquiry
     return ctx
 
 
