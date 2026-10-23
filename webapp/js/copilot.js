@@ -727,6 +727,13 @@
           }
 
           const staffDeposit = !usesBackend() && chat.extActionType === 'CONFIRM_DEPOSIT_DEDUCT' && currentRole === 'STAFF';
+          // Quote lines come from the analysis (quote preview, photo, or sku + extra sku), never from guessed demo stock.
+          const execItems = (chat.quotePreview && chat.quotePreview.items) || chat.items
+            || (chat.sku ? [{ sku: chat.sku, qty: chat.qty || 1 }].concat(chat.extraSku ? [{ sku: chat.extraSku, qty: chat.extraQty || 1 }] : []) : null);
+          if (!chat.done && usesBackend() && chat.extActionType === 'CREATE_QUOTE' && !execItems) {
+            showToast('⚠️ Analyse the chat first so the quote has items.');
+            return;
+          }
           if (!chat.done && usesBackend() && !staffDeposit && chat.extActionType !== 'REPLY_ONLY') {
             const msgs = {
               OFFER_QUOTE: `Quotation offer sent to ${chat.customer}! Awaiting customer confirmation.`,
@@ -741,14 +748,13 @@
               SAVE_LHDN_TIN: `Saved LHDN TIN ${chat.tin || ''} for ${chat.customer}!`
             };
             chat.done = true;
-            const execItems = (chat.quotePreview && chat.quotePreview.items) ? chat.quotePreview.items : (chat.items || null);
             backendAction('/api/whatsapp/execute', {
               customer: chat.customer,
               phone: (chat.phone || '').split(' · ')[0],
               actionType: chat.extActionType,
               dealId: chat.dealId || null,
               items: execItems,
-              sku: chat.sku || item1.sku,
+              sku: chat.sku || null,
               qty: chat.qty || 1,
               discount: chat.discount || 0,
               depositRef: chat.depositRef || null,

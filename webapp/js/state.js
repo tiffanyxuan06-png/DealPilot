@@ -817,7 +817,8 @@ let currentRole = 'OWNER';
 
 
 // --- API BASE URL ---
-    window.BACKEND_API_BASE = (window.location.protocol.startsWith('http') && (window.location.port === '8000' || window.location.port === ''))
+    // The backend serves this page, so talk to whichever port it is on; 8000 only when the file is opened directly.
+    window.BACKEND_API_BASE = window.location.protocol.startsWith('http')
       ? window.location.origin
       : 'http://127.0.0.1:8000';
     var BACKEND_API_BASE = window.BACKEND_API_BASE;
