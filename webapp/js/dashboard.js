@@ -7,6 +7,26 @@ let currentDealFilter = 'ALL';
 let currentDealRepFilter = 'ALL';
 let dealSearchQuery = '';
 
+// Backend text still carries emoji markers; the UI uses its own icons
+function noEmoji(text) {
+  return String(text || '').replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
+}
+
+// Deals carry repId only; look the name up from the reps list
+function repNameOf(st, d) {
+  if (d.repName) return d.repName;
+  const rep = (st.reps || []).find(r => r.id === d.repId);
+  return rep ? rep.name : 'Unassigned';
+}
+
+const STAGE_META = {
+  INQUIRY: { label: 'New inquiry', dot: '#0152FC', pill: 'background:#E6EEFF;color:#042970' },
+  QUOTED: { label: 'Quoted', dot: '#01AAFC', pill: 'background:#E3F6FF;color:#04527A' },
+  FOLLOW_UP: { label: 'Follow-up due', dot: '#F79009', pill: 'background:#FEF0C7;color:#93370D' },
+  WON: { label: 'Won', dot: '#12B76A', pill: 'background:#ECFDF3;color:#05603A' },
+  LOST: { label: 'Lost', dot: '#98A2B3', pill: 'background:#F2F4F7;color:#475467' }
+};
+
 function switchPage(page) {
   currentPage = page;
   const pages = ['pipeline', 'deals', 'catalog', 'customers', 'commission', 'wa'];
@@ -44,6 +64,14 @@ function closeSettingsModal() {
 // =========================================================================
 function renderPipelineView() {
   const st = getState();
+  // Staff see their own day; the Owner sees the whole pipeline
+  const heroCopy = currentRole === 'OWNER'
+    ? ['Pipeline', 'Every deal, from chat to order.', 'See what is quoted, what needs a follow-up and what you won this month.']
+    : ['My day', 'Your follow-ups and wins today.', 'Send the reminders that are due, then close the deals that are ready.'];
+  [['pipeline-hero-pill', 0], ['pipeline-hero-title', 1], ['pipeline-hero-sub', 2]].forEach(([id, n]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = heroCopy[n];
+  });
   const isOwner = currentRole === 'OWNER';
   const pipeline = st.pipeline || { valueRm: 0, winRate: 0, overdue: 0, byStage: {} };
   const reps = st.reps || [];
@@ -93,28 +121,23 @@ function renderPipelineView() {
     if (rateEl) rateEl.textContent = winRatePct + '%';
 
     const overdueEl = document.getElementById('kpi-overdue-count');
-    if (overdueEl) overdueEl.textContent = (pipeline.overdue || 0) + ' deals';
+    if (overdueEl) overdueEl.textContent = (pipeline.overdue || 0) + ((pipeline.overdue || 0) === 1 ? ' deal' : ' deals');
 
     // Stage breakdown cards
     const byStage = pipeline.byStage || {};
-    const stages = [
-      { key: 'INQUIRY', label: '1. Inquiries', color: 'border-blue-300 bg-blue-50/50' },
-      { key: 'QUOTED', label: '2. Quoted (48h)', color: 'border-cyan-300 bg-cyan-50/50' },
-      { key: 'FOLLOW_UP', label: '3. Follow-up Due', color: 'border-amber-300 bg-amber-50/50' },
-      { key: 'WON', label: '4. Won Orders', color: 'border-emerald-300 bg-emerald-50/50' },
-      { key: 'LOST', label: '5. Lost', color: 'border-slate-300 bg-slate-50/50' }
-    ];
+    const stages = ['INQUIRY', 'QUOTED', 'FOLLOW_UP', 'WON', 'LOST'];
 
     const stageContainer = document.getElementById('pipeline-stage-cards');
     if (stageContainer) {
-      stageContainer.innerHTML = stages.map(s => {
-        const item = byStage[s.key] || { count: 0, valueRm: 0 };
+      stageContainer.innerHTML = stages.map((key, i) => {
+        const meta = STAGE_META[key];
+        const item = byStage[key] || { count: 0, valueRm: 0 };
         return `
-          <div onclick="filterDealsToStage('${s.key}')" class="cursor-pointer p-4 rounded-xl border ${s.color} hover:shadow-md transition">
-            <div class="text-xs font-bold uppercase tracking-wider text-[#5B6B85]">${s.label}</div>
-            <div class="text-2xl font-bold text-[#042970] mt-1">${item.count}</div>
-            <div class="text-xs font-semibold text-[#0152FC] mt-0.5">RM ${(item.valueRm || 0).toLocaleString()}</div>
-          </div>
+          <button onclick="filterDealsToStage('${key}')" class="stage-card" style="--stage:${meta.dot}">
+            <span class="flex items-center gap-2 text-[13px] font-semibold text-[#324564]"><span class="step-num !w-5 !h-5 !text-[11px]">${i + 1}</span>${meta.label}</span>
+            <span class="block text-2xl font-bold text-[#042970] mt-2 tabular-nums">${item.count}</span>
+            <span class="block text-xs text-[#5B6B85] tabular-nums">RM ${(item.valueRm || 0).toLocaleString()}</span>
+          </button>
         `;
       }).join('');
     }
@@ -124,26 +147,26 @@ function renderPipelineView() {
     const atRiskList = document.getElementById('pipeline-at-risk-list');
     if (atRiskList) {
       if (atRiskDeals.length === 0) {
-        atRiskList.innerHTML = `<div class="text-xs text-[#5B6B85] p-3 bg-white rounded-lg border border-[#D5DFEE]">🎉 No at-risk deals right now! All quotes are progressing smoothly.</div>`;
+        atRiskList.innerHTML = `<div class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>Nothing needs attention right now.</span></div>`;
       } else {
         atRiskList.innerHTML = atRiskDeals.map(d => `
-          <div class="p-3.5 rounded-xl bg-white border border-amber-300 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">${d.id}</span>
-                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
-                <span class="text-xs text-[#5B6B85]">(${d.repName || 'Rep'})</span>
-                <span class="font-bold text-xs text-[#0152FC]">· RM ${(d.amount || 0).toLocaleString()}</span>
+          <div class="deal-row is-attention">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="deal-id">${d.id}</span>
+                <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+                <span class="deal-meta"><svg aria-hidden="true"><use href="#i-users"/></svg>${escapeHtmlText(repNameOf(st, d))}</span>
+                <span class="text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
               </div>
-              <div class="text-xs text-amber-900 mt-1">
-                ${d.paused ? '⚠️ <b>Paused (Complaint)</b>: ' + escapeHtmlText(d.notes || 'Awaiting resolution') : (d.followUpCount >= 3 ? '⚠️ No reply after 3 follow-ups (Ghost Risk)' : '⏳ Follow-up due')}
+              <div class="text-[13px] text-[#93370D] mt-1.5">
+                ${d.paused ? '<b>Paused for a complaint:</b> ' + escapeHtmlText(noEmoji(d.notes).replace(/^paused:\s*/i, '') || 'Waiting for it to be sorted') : (d.followUpCount >= 3 ? 'No reply after 3 follow-ups. Consider marking it lost.' : 'Follow-up due')}
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="markLostDeal('${d.id}')" class="cc-btn cc-btn-ghost">Mark lost</button>
               ${d.paused
-                ? `<button onclick="pauseResumeDeal('${d.id}', false)" class="cc-btn cc-btn-primary !min-h-[32px] !text-xs">Resume Follow-ups</button>`
-                : `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[32px] !text-xs">Send Follow-up</button>`}
-              <button onclick="markLostDeal('${d.id}')" class="cc-btn cc-btn-ghost !min-h-[32px] !text-xs text-rose-700">Mark Lost</button>
+                ? `<button onclick="pauseResumeDeal('${d.id}', false)" class="cc-btn cc-btn-primary">Resume follow-ups</button>`
+                : `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary">Send follow-up</button>`}
             </div>
           </div>
         `).join('');
@@ -154,16 +177,16 @@ function renderPipelineView() {
     const repSnippet = document.getElementById('pipeline-reps-snippet');
     if (repSnippet) {
       repSnippet.innerHTML = reps.map((r, idx) => `
-        <div class="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#D5DFEE] text-xs">
-          <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-amber-400 text-amber-900 font-bold' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-[10px] font-bold">${idx + 1}</span>
-            <span class="font-bold text-[#042970]">${escapeHtmlText(r.name)}</span>
-            <span class="text-[11px] text-[#5B6B85]">(${r.commissionPct}% rate)</span>
-          </div>
-          <div class="text-right">
-            <span class="font-bold text-[#0152FC]">RM ${(r.wonRm || 0).toLocaleString()}</span>
-            <span class="text-[11px] text-[#5B6B85] ml-1.5">(RM ${(r.commissionRm || 0).toLocaleString()} comm)</span>
-          </div>
+        <div class="rep-card">
+          <span class="rep-rank ${idx === 0 ? 'is-top' : ''}">${idx + 1}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(r.name)}</span>
+            <span class="block text-xs text-[#5B6B85]">${r.commissionPct}% commission</span>
+          </span>
+          <span class="text-right">
+            <span class="block text-sm font-semibold text-[#042970] tabular-nums">RM ${(r.wonRm || 0).toLocaleString()}</span>
+            <span class="block text-xs text-[#5B6B85] tabular-nums">RM ${(r.commissionRm || 0).toLocaleString()} earned</span>
+          </span>
         </div>
       `).join('');
     }
@@ -172,9 +195,9 @@ function renderPipelineView() {
     const logList = document.getElementById('audit-log-list');
     if (logList) {
       logList.innerHTML = (st.logs || []).map(l => `
-        <div class="p-2 rounded-lg bg-[#F8FAFC] border border-[#EEF2F8] text-xs text-[#042970] flex items-center gap-2">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#0152FC] shrink-0"></span>
-          <span>${escapeHtmlText(l)}</span>
+        <div class="flex items-start gap-2 py-1 text-xs text-[#324564]">
+          <span class="cc-dot mt-1.5" style="background:#0152FC"></span>
+          <span>${escapeHtmlText(noEmoji(l))}</span>
         </div>
       `).join('');
     }
@@ -205,21 +228,21 @@ function renderPipelineView() {
     const staffFollowList = document.getElementById('staff-followups-list');
     if (staffFollowList) {
       if (myFollowUps.length === 0) {
-        staffFollowList.innerHTML = `<div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-semibold">🎉 All caught up! Zero follow-ups overdue today.</div>`;
+        staffFollowList.innerHTML = `<div class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>All caught up. No follow-ups due today.</span></div>`;
       } else {
         staffFollowList.innerHTML = myFollowUps.map(d => `
-          <div class="p-4 rounded-xl bg-white border border-amber-300 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">${d.id}</span>
-                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
-                <span class="font-bold text-sm text-[#0152FC]">· RM ${(d.amount || 0).toLocaleString()}</span>
+          <div class="deal-row is-attention">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="deal-id">${d.id}</span>
+                <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+                <span class="text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
               </div>
-              <div class="text-xs text-[#5B6B85]">${d.phone || 'WhatsApp'} · ${d.followUpText || 'Follow-up due now'}</div>
+              <div class="text-[13px] text-[#5B6B85] mt-1">${escapeHtmlText(d.phone || 'WhatsApp')} · ${escapeHtmlText(noEmoji(d.followUpText) || 'Follow-up due now')}</div>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">💬 Send Follow-up</button>
-              <button onclick="markWonDeal('${d.id}')" class="cc-btn cc-btn-ghost !min-h-[34px] !text-xs text-emerald-700 font-bold">Mark Won</button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="markWonDeal('${d.id}')" class="cc-btn cc-btn-ghost">Mark won</button>
+              <button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send follow-up</button>
             </div>
           </div>
         `).join('');
@@ -230,17 +253,18 @@ function renderPipelineView() {
     const staffWinsList = document.getElementById('staff-recent-wins');
     if (staffWinsList) {
       staffWinsList.innerHTML = myWonDeals.slice(0, 4).map(d => `
-        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
-          <div>
-            <span class="font-bold text-[#042970]">${escapeHtmlText(d.customer)}</span>
-            <span class="font-mono text-emerald-800 ml-1.5 font-semibold">#${d.orderNo || d.id}</span>
-          </div>
-          <div class="text-right">
-            <span class="font-bold text-emerald-700">RM ${(d.amount || 0).toLocaleString()}</span>
-            <span class="text-[11px] text-emerald-800 ml-1">(+RM ${Math.round(d.amount * myRep.commissionPct / 100)} comm)</span>
-          </div>
+        <div class="rep-card">
+          <span class="cc-stat-icon !w-8 !h-8 bg-emerald-50 text-emerald-600"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(d.customer)}</span>
+            <span class="block text-xs font-mono text-[#5B6B85]">#${d.orderNo || d.id}</span>
+          </span>
+          <span class="text-right">
+            <span class="block text-sm font-semibold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</span>
+            <span class="block text-xs text-emerald-700 tabular-nums">+RM ${Math.round(d.amount * myRep.commissionPct / 100)} commission</span>
+          </span>
         </div>
-      `).join('') || `<div class="text-xs text-[#5B6B85]">No won deals yet this month. Close quotes to earn commission!</div>`;
+      `).join('') || `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No wins yet this month. Each quote you close adds commission.</span></div>`;
     }
   }
 }
@@ -273,7 +297,7 @@ function renderDealsView() {
   const repSelect = document.getElementById('deals-rep-select');
   if (repSelect) {
     const curVal = repSelect.value;
-    repSelect.innerHTML = `<option value="ALL">All Sales Reps</option>` +
+    repSelect.innerHTML = `<option value="ALL">All reps</option>` +
       reps.map(r => `<option value="${escapeHtmlText(r.name)}">${escapeHtmlText(r.name)}</option>`).join('');
     if (curVal) repSelect.value = curVal;
   }
@@ -303,9 +327,10 @@ function renderDealsView() {
 
   if (filtered.length === 0) {
     listEl.innerHTML = `
-      <div class="p-8 rounded-2xl bg-white border border-[#D5DFEE] text-center space-y-2">
-        <div class="text-sm font-bold text-[#042970]">No deals match this filter</div>
-        <p class="text-xs text-[#5B6B85]">Try selecting "All" or create a new quote via "Log Inquiry".</p>
+      <div class="cc-card p-8 text-center">
+        <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-16 h-auto mx-auto mb-3" aria-hidden="true" />
+        <div class="text-sm font-semibold text-[#042970]">No deals here</div>
+        <p class="text-[13px] text-[#5B6B85] mt-1">Pick another stage, or log a new inquiry.</p>
       </div>
     `;
     return;
@@ -317,64 +342,58 @@ function renderDealsView() {
     const isFollowUp = d.stage === 'FOLLOW_UP';
     const itemsSummary = (d.items || []).map(i => `${i.qty}x ${i.name || i.sku}`).join(', ') || 'Standard Quotation';
 
-    const stagePill = {
-      INQUIRY: 'bg-blue-100 text-blue-900 border-blue-300',
-      QUOTED: 'bg-cyan-100 text-cyan-900 border-cyan-300',
-      FOLLOW_UP: 'bg-amber-100 text-amber-900 border-amber-300',
-      WON: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-      LOST: 'bg-slate-200 text-slate-700 border-slate-300'
-    }[d.stage] || 'bg-slate-100 text-slate-800';
+    const meta = STAGE_META[d.stage] || STAGE_META.INQUIRY;
 
     // Primary action button based on stage
     let primaryBtn = '';
     if (d.stage === 'INQUIRY') {
-      primaryBtn = `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">📄 Send Quote</button>`;
+      primaryBtn = `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-send"/></svg>Send quote</button>`;
     } else if (d.stage === 'QUOTED') {
-      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">🔔 Follow Up</button>`;
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary">Follow up</button>`;
     } else if (d.stage === 'FOLLOW_UP') {
-      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary !min-h-[34px] !text-xs">⚡ Send Follow-Up</button>`;
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-clock"/></svg>Send follow-up</button>`;
     } else if (isWon) {
-      primaryBtn = `<span class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">✓ Order #${d.orderNo || d.id}</span>`;
+      primaryBtn = `<span class="cc-pill cc-pill-ok !py-1.5 !px-3"><svg aria-hidden="true"><use href="#i-check"/></svg>Order #${d.orderNo || d.id}</span>`;
     } else if (isLost) {
-      primaryBtn = `<span class="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-bold text-xs">Lost: ${escapeHtmlText(d.lossReason || 'Declined')}</span>`;
+      primaryBtn = `<span class="cc-pill cc-pill-muted !py-1.5 !px-3">Lost: ${escapeHtmlText(d.lossReason || 'Declined')}</span>`;
     }
 
     // Margin display: Owner sees %, Staff sees marginOk
     const marginBadge = isOwner
-      ? (d.marginOk ? `<span class="text-[11px] font-semibold text-emerald-700">Margin: ${d.marginPct || 25}%</span>` : `<span class="text-[11px] font-bold text-rose-700">Margin: ${d.marginPct || 10}% (Below floor)</span>`)
-      : (d.marginOk ? `<span class="text-[11px] font-semibold text-emerald-700">Margin ✓</span>` : `<span class="text-[11px] font-bold text-amber-700">Margin ✗ (Needs Boss)</span>`);
+      ? (d.marginOk ? `<span class="text-xs text-emerald-700">${d.marginPct || 25}% margin</span>` : `<span class="text-xs font-semibold text-rose-700">${d.marginPct || 10}% margin · below floor</span>`)
+      : (d.marginOk ? `<span class="text-xs text-emerald-700">Margin OK</span>` : `<span class="text-xs font-semibold text-amber-700">Needs Owner OK</span>`);
 
+    const followText = noEmoji(d.followUpText);
     return `
-      <div class="p-4 rounded-xl bg-white border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4 hover:border-[#0152FC]/40 transition shadow-xs">
-        <div class="space-y-1.5 max-w-xl">
+      <div class="deal-row ${isFollowUp ? 'is-attention' : ''}">
+        <div class="min-w-0 flex-1 space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded ${stagePill}">${d.id}</span>
-            <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-[#F2F6FF] border border-[#D5DFEE] text-[#5B6B85]">👤 ${escapeHtmlText(d.repName || 'Rep')}</span>
-            ${d.phone ? `<span class="text-xs text-[#5B6B85]">📞 ${escapeHtmlText(d.phone)}</span>` : ''}
-            <span class="text-xs text-[#5B6B85]">${d.followUpText || ''}</span>
+            <span class="deal-id">${d.id}</span>
+            <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+            <span class="cc-pill" style="${meta.pill}"><span class="cc-dot" style="background:${meta.dot}"></span>${meta.label}</span>
           </div>
-          <div class="text-xs text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
-          <div class="flex flex-wrap items-center gap-3 pt-1">
-            <button onclick="openPdfForDeal('${d.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer flex items-center gap-1">
-              <svg class="w-3.5 h-3.5"><use href="#i-file"/></svg> Preview PDF
-            </button>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="deal-meta"><svg aria-hidden="true"><use href="#i-users"/></svg>${escapeHtmlText(repNameOf(st, d))}</span>
+            ${d.phone ? `<span class="deal-meta"><svg aria-hidden="true"><use href="#i-chat"/></svg>${escapeHtmlText(d.phone)}</span>` : ''}
+            ${d.paused ? `<span class="deal-meta !text-[#93370D]"><svg aria-hidden="true"><use href="#i-alert"/></svg>Follow-ups paused (complaint)</span>` : (followText ? `<span class="deal-meta ${isFollowUp ? '!text-[#93370D]' : ''}"><svg aria-hidden="true"><use href="#i-clock"/></svg>${escapeHtmlText(followText)}</span>` : '')}
+          </div>
+          <div class="text-[13px] text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
+          <div class="deal-actions">
+            <button onclick="openPdfForDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-file"/></svg>PDF</button>
             ${!isWon && !isLost ? `
-              <button onclick="markWonDeal('${d.id}')" class="text-xs font-bold text-emerald-700 hover:underline cursor-pointer">Mark Won</button>
-              <button onclick="discountDeal('${d.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">Apply Discount</button>
-              <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="text-xs font-semibold text-slate-600 hover:underline cursor-pointer">${d.paused ? 'Resume' : 'Pause (Complaint)'}</button>
-              <button onclick="markLostDeal('${d.id}')" class="text-xs font-semibold text-rose-700 hover:underline cursor-pointer">Mark Lost</button>
+              <button onclick="markWonDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-check"/></svg>Mark won</button>
+              <button onclick="discountDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-sparkle"/></svg>Discount</button>
+              <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="deal-act">${d.paused ? 'Resume follow-ups' : 'Pause (complaint)'}</button>
+              <button onclick="markLostDeal('${d.id}')" class="deal-act is-danger">Mark lost</button>
             ` : ''}
-            ${isWon && isOwner ? `
-              <button onclick="cancelWonDeal('${d.id}')" class="text-xs font-semibold text-rose-700 hover:underline cursor-pointer">Cancel Order</button>
-            ` : ''}
-            <button onclick="setTinDeal('${d.id}')" class="text-xs font-semibold text-[#5B6B85] hover:underline cursor-pointer">Add TIN</button>
+            ${isWon && isOwner ? `<button onclick="cancelWonDeal('${d.id}')" class="deal-act is-danger">Cancel order</button>` : ''}
+            <button onclick="setTinDeal('${d.id}')" class="deal-act">Add TIN</button>
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 shrink-0">
           <div class="text-right">
-            <div class="text-base font-bold text-[#042970]">RM ${(d.amount || 0).toLocaleString()}</div>
+            <div class="text-base font-bold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</div>
             ${marginBadge}
           </div>
           ${primaryBtn}
@@ -544,23 +563,23 @@ function renderCatalogView() {
     ].filter(Boolean).join(' · ') || 'Standard catalog SKU';
 
     return `
-      <tr class="hover:bg-[#F2F6FF] transition align-top">
-        <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${escapeHtmlText(p.sku)}</td>
-        <td class="py-3.5 px-4">
-          <div class="font-bold text-[#042970]">${escapeHtmlText(p.name)}</div>
+      <tr class="align-top">
+        <td class="px-4 font-mono text-[13px] font-semibold text-[#0152FC]">${escapeHtmlText(p.sku)}</td>
+        <td class="px-4 min-w-[240px]">
+          <div class="font-semibold text-[#042970]">${escapeHtmlText(p.name)}</div>
           <div class="text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(specsSummary)}</div>
         </td>
-        <td class="py-3.5 px-4 font-bold text-[#042970]">RM ${p.sellPrice.toLocaleString()}</td>
-        <td class="py-3.5 px-4 font-semibold text-[#5B6B85]">
-          ${isOwner ? 'RM ' + cost.toLocaleString() : '🔒 Owner only'}
+        <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${p.sellPrice.toLocaleString()}</td>
+        <td class="px-4 text-right text-[#5B6B85] tabular-nums whitespace-nowrap">
+          ${isOwner ? 'RM ' + cost.toLocaleString() : '<span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#i-lock"/></svg>Owner only</span>'}
         </td>
-        <td class="py-3.5 px-4 font-bold ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">
-          ${isOwner ? `+RM ${margin} (${marginPct}%)` : (marginPct >= 15 ? 'Margin ✓' : 'Margin ✗')}
+        <td class="px-4 text-right whitespace-nowrap">
+          ${isOwner
+            ? `<span class="font-semibold tabular-nums ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">RM ${margin}</span> <span class="text-xs text-[#5B6B85]">(${marginPct}%)</span>`
+            : `<span class="text-xs font-semibold ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">${marginPct >= 15 ? 'OK' : 'Low'}</span>`}
         </td>
-        <td class="py-3.5 px-4 text-right">
-          ${isOwner ? `
-            <button onclick="openEditProductModal('${p.sku}')" class="text-xs font-bold text-[#0152FC] hover:underline">Edit Price</button>
-          ` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
+        <td class="px-4 text-right whitespace-nowrap">
+          ${isOwner ? `<button onclick="openEditProductModal('${p.sku}')" class="deal-act">Edit price</button>` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
         </td>
       </tr>
     `;
@@ -602,7 +621,7 @@ async function saveProductFromModal() {
   const unitCost = parseInt(document.getElementById('prod-modal-cost')?.value || '0', 10);
 
   if (!sku || !name || sellPrice <= 0) {
-    showToast('⚠️ Please enter a valid SKU, Name, and Selling Price.');
+    showToast('Enter a SKU, a name and a selling price.');
     return;
   }
 
@@ -628,26 +647,29 @@ function renderCustomersView() {
   const tbody = document.getElementById('customers-tbody');
   if (!tbody) return;
 
+  const deals = st.deals || [];
   tbody.innerHTML = customers.map(c => {
     const isReady = c.lhdnReady || !!c.tin;
     const tinBadge = isReady
-      ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs">🟢 ${escapeHtmlText(c.tin || 'LHDN Ready')}</span>`
-      : `<span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">🟡 Missing Buyer TIN</span>`;
+      ? `<span class="cc-pill cc-pill-ok font-mono">${escapeHtmlText(c.tin || 'LHDN ready')}</span>`
+      : `<span class="cc-pill cc-pill-warn">Missing TIN</span>`;
+    const won = deals.filter(d => d.customer === c.name && d.stage === 'WON');
+    const wonRm = won.reduce((sum, d) => sum + (d.amount || 0), 0);
+    const rep = (st.reps || []).find(r => r.id === c.repId);
 
     return `
-      <tr class="hover:bg-[#F2F6FF] transition align-middle">
-        <td class="py-3 px-4 font-bold text-[#042970]">${escapeHtmlText(c.name)}</td>
-        <td class="py-3 px-4 text-[#5B6B85] text-xs font-mono">${escapeHtmlText(c.phone || '-')}</td>
-        <td class="py-3 px-4">${tinBadge}</td>
-        <td class="py-3 px-4 text-xs font-bold text-[#0152FC]">${c.openRecords || 0} open deal(s)</td>
-        <td class="py-3 px-4 text-right">
-          <div class="flex items-center justify-end gap-2">
-            <button onclick="promptCustomerTin('${escapeHtmlText(c.name)}')" class="text-xs font-bold text-[#0152FC] hover:underline">
-              ${isReady ? 'Update TIN' : '✏️ Key in TIN'}
-            </button>
-            ${isOwner ? `
-              <button onclick="promptReassignCustomer('${escapeHtmlText(c.name)}')" class="text-xs font-semibold text-slate-600 hover:underline">Reassign Rep</button>
-            ` : ''}
+      <tr>
+        <td class="px-4 font-semibold text-[#042970] min-w-[150px]">${escapeHtmlText(c.name)}</td>
+        <td class="px-4 text-[#5B6B85] text-xs font-mono whitespace-nowrap">${escapeHtmlText(c.phone || '-')}</td>
+        <td class="px-4 whitespace-nowrap">${tinBadge}</td>
+        <td class="px-4 text-[#324564] whitespace-nowrap">${rep ? escapeHtmlText(rep.name) : '<span class="text-[#5B6B85]">Unassigned</span>'}</td>
+        <td class="px-4 text-right tabular-nums">${c.openRecords || 0}</td>
+        <td class="px-4 text-right tabular-nums">${won.length}</td>
+        <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${wonRm.toLocaleString()}</td>
+        <td class="px-4 text-right whitespace-nowrap">
+          <div class="inline-flex flex-col items-end gap-0.5">
+            <button onclick="promptCustomerTin('${escapeHtmlText(c.name)}')" class="deal-act">${isReady ? 'Update TIN' : 'Add TIN'}</button>
+            ${isOwner ? `<button onclick="promptReassignCustomer('${escapeHtmlText(c.name)}')" class="deal-act">Reassign</button>` : ''}
           </div>
         </td>
       </tr>
@@ -721,20 +743,19 @@ function renderCommissionView() {
   if (commTotalEl) commTotalEl.textContent = 'RM ' + totalComm.toLocaleString();
 
   tbody.innerHTML = reps.map((r, idx) => `
-    <tr class="hover:bg-[#F2F6FF] transition align-middle">
-      <td class="py-3 px-4 font-bold text-[#042970] flex items-center gap-2">
-        <span class="w-6 h-6 rounded-full ${idx === 0 ? 'bg-amber-400 text-amber-900 font-bold' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-xs font-bold">${idx + 1}</span>
-        <span>${escapeHtmlText(r.name)}</span>
+    <tr>
+      <td class="px-4">
+        <span class="inline-flex items-center gap-2.5 font-semibold text-[#042970] whitespace-nowrap">
+          <span class="rep-rank ${idx === 0 ? 'is-top' : ''}">${idx + 1}</span>${escapeHtmlText(r.name)}
+        </span>
       </td>
-      <td class="py-3 px-4 font-mono font-bold text-[#0152FC]">${r.commissionPct}%</td>
-      <td class="py-3 px-4 font-bold text-[#042970]">RM ${(r.wonRm || 0).toLocaleString()}</td>
-      <td class="py-3 px-4 font-bold text-emerald-700">RM ${(r.commissionRm || 0).toLocaleString()}</td>
-      <td class="py-3 px-4 text-xs font-semibold text-[#5B6B85]">${r.openDeals || 0} active</td>
-      <td class="py-3 px-4 text-xs font-semibold ${r.overdue > 0 ? 'text-amber-800 font-bold' : 'text-emerald-700'}">${r.overdue || 0} overdue</td>
-      <td class="py-3 px-4 text-right">
-        ${isOwner ? `
-          <button onclick="promptEditRepRate(${r.id}, '${escapeHtmlText(r.name)}', ${r.commissionPct})" class="text-xs font-bold text-[#0152FC] hover:underline">Change Rate</button>
-        ` : `<span class="text-xs text-emerald-700 font-bold">Active</span>`}
+      <td class="px-4 text-right tabular-nums">${r.commissionPct}%</td>
+      <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${(r.wonRm || 0).toLocaleString()}</td>
+      <td class="px-4 text-right font-semibold text-emerald-700 tabular-nums whitespace-nowrap">RM ${(r.commissionRm || 0).toLocaleString()}</td>
+      <td class="px-4 text-right tabular-nums">${r.openDeals || 0}</td>
+      <td class="px-4 text-right tabular-nums">${r.overdue > 0 ? `<span class="cc-pill cc-pill-warn">${r.overdue}</span>` : '<span class="text-[#5B6B85]">0</span>'}</td>
+      <td class="px-4 text-right whitespace-nowrap">
+        ${isOwner ? `<button onclick="promptEditRepRate(${r.id}, '${escapeHtmlText(r.name)}', ${r.commissionPct})" class="deal-act">Change rate</button>` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
       </td>
     </tr>
   `).join('');

@@ -162,7 +162,7 @@
                 <span class="font-semibold text-sm text-[#042970] truncate">${escapeHtmlText(activeChat.customer)}</span>
                 <span class="cc-pill" style="background:${rating.bg}; color:${rating.fg}">${rating.label}</span>
               </span>
-              <span class="block text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(plain(mem.tier))} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
+              <span class="block text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(plain(mem.tier).replace(/_/g, ' ').toLowerCase().replace(/^./, ch => ch.toUpperCase()))} · ${mem.totalOrders || 1} orders · RM ${(mem.totalPaidRM || 0).toLocaleString()} paid</span>
             </span>
           </div>
           ${firstNote ? `<p class="text-xs text-[#324564] mt-2.5"><span class="font-semibold text-[#042970]">AI says:</span> ${escapeHtmlText(plain(firstNote))}</p>` : ''}
@@ -193,14 +193,14 @@
         </div>
 
         <!-- Sales Stage Stepper -->
-        <div class="ext-stage-stepper flex items-center justify-between gap-1 mt-3 px-2 py-1.5 bg-[#F0F4FA] rounded-xl text-[10px] font-semibold text-[#5B6B85]">
+        <div class="ext-stage-stepper flex flex-wrap items-center gap-1 mt-3 px-2 py-1.5 bg-[#F0F4FA] rounded-xl text-[11px] font-semibold text-[#5B6B85]" aria-label="Sales stage">
           ${(activeChat.stageSteps || ['Discovery', 'Recommend', 'Ready to Quote', 'Quote Confirmed', 'Closed']).map((step, sIdx) => {
             const curIdx = typeof activeChat.stageIndex === 'number' ? activeChat.stageIndex : 0;
             const isCur = sIdx === curIdx;
             const isDone = sIdx < curIdx;
             return `
               <span class="flex items-center gap-1 px-2 py-0.5 rounded-md ${isCur ? 'bg-[#0152FC] text-white shadow-xs font-bold' : (isDone ? 'text-emerald-700 bg-emerald-50' : 'opacity-60')}">
-                ${isDone ? '✓ ' : ''}${escapeHtmlText(step)}
+                ${isDone ? '<svg class="w-3 h-3" aria-hidden="true"><use href="#i-check"/></svg>' : ''}${escapeHtmlText(step)}
               </span>
             `;
           }).join('')}
@@ -209,7 +209,7 @@
         <!-- AI Coach Tip Advice -->
         ${activeChat.coachTip ? `
           <div class="mt-2.5 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/70 flex items-start gap-2">
-            <span class="text-sm leading-none mt-0.5 shrink-0">💡</span>
+            <svg class="w-4 h-4 mt-0.5 shrink-0 text-amber-600" aria-hidden="true"><use href="#i-sparkle"/></svg>
             <div class="text-xs text-amber-950 leading-relaxed min-w-0">
               <span class="font-bold text-amber-900 block text-[11px] uppercase tracking-wider mb-0.5">Sales Coach Advice</span>
               ${escapeHtmlText(activeChat.coachTip)}
@@ -420,13 +420,30 @@
 
     // Jump from a capability card to a chat that shows it, then point at the part
     function showCapability(key) {
-      const typeFor = { reserve: 'CREATE_QUOTE_HOLD', reply: 'CREATE_QUOTE_HOLD', rating: 'CREATE_QUOTE_HOLD', confirm: 'CONFIRM_DEPOSIT_DEDUCT', payment: 'CONFIRM_DEPOSIT_DEDUCT' };
+      // Sales jobs first; the older cash-and-stock scenario types are the fallback
+      const typesFor = {
+        quote: ['CREATE_QUOTE', 'CREATE_QUOTE_HOLD'],
+        counter: ['SEND_COUNTER_OFFER'],
+        followup: ['SEND_FOLLOW_UP', 'RELEASE_EXPIRED_HOLD'],
+        won: ['MARK_WON', 'CONFIRM_DEPOSIT_DEDUCT'],
+        rating: ['CREATE_QUOTE', 'CREATE_QUOTE_HOLD'],
+        reply: ['CREATE_QUOTE', 'CREATE_QUOTE_HOLD'],
+        reserve: ['CREATE_QUOTE_HOLD'],
+        confirm: ['CONFIRM_DEPOSIT_DEDUCT'],
+        payment: ['CONFIRM_DEPOSIT_DEDUCT']
+      };
       const chats = getState().chats;
-      const idx = chats.findIndex(c => c.extActionType === typeFor[key]);
+      const types = typesFor[key] || [];
+      let idx = -1;
+      for (const t of types) { idx = chats.findIndex(c => c.extActionType === t); if (idx >= 0) break; }
       if (idx >= 0) selectChat(idx);
 
       const targets = {
         reply: '.ext-adjust',
+        quote: '#ext-primary-action-btn',
+        counter: '#ext-primary-action-btn',
+        followup: '#ext-primary-action-btn',
+        won: '#ext-primary-action-btn',
         reserve: '#ext-primary-action-btn',
         confirm: '#ext-primary-action-btn',
         payment: '#ext-payment',

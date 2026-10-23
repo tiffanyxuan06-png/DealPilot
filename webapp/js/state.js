@@ -793,8 +793,8 @@ let currentRole = 'OWNER';
         backendOnline = true;
         const pill = document.getElementById('backend-status-pill');
         if (pill) {
-          pill.className = 'mt-1 inline-block px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-[11px] font-semibold text-emerald-800';
-          pill.textContent = '● Backend Connected · Port 8000';
+          pill.className = 'cc-status mt-1 is-ok';
+          pill.textContent = 'Backend connected';
         }
         const signature = backendSignature(data);
         if (signature === lastBackendSignature) return;
@@ -808,8 +808,8 @@ let currentRole = 'OWNER';
         backendOnline = false;
         const pill = document.getElementById('backend-status-pill');
         if (pill) {
-          pill.className = 'mt-1 inline-block px-2 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-[11px] font-semibold text-amber-900';
-          pill.textContent = '○ Backend Offline · Run python run_server.py';
+          pill.className = 'cc-status mt-1 is-off';
+          pill.textContent = 'Backend offline · run python run_server.py';
         }
       }
     }

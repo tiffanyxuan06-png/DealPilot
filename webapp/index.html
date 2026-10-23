@@ -8,9 +8,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    // If a picture fails from /img/ (e.g. a server started before /img existed),
+    // retry it once from /static/img/, which every server version serves
+    (function () {
+      function retry(img) {
+        if (img.dataset.imgRetry) return;
+        var src = img.getAttribute('src') || '';
+        var m = src.match(/^(?:\.\/|\/)?img\/(.+)$/);
+        if (!m || location.protocol === 'file:') return;
+        img.dataset.imgRetry = '1';
+        img.src = '/static/img/' + m[1];
+      }
+      document.addEventListener('error', function (e) {
+        if (e.target && e.target.tagName === 'IMG') retry(e.target);
+      }, true);
+      document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('img').forEach(function (img) {
+          if (img.complete && img.naturalWidth === 0) retry(img);
+        });
+      });
+    })();
+  </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261022" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_4" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -184,6 +206,10 @@
       <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
       <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+      <symbol id="i-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 19 9-7-9-7v14z"/><path d="m2 19 9-7-9-7v14z"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
       <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
       <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
@@ -219,7 +245,7 @@
             <span id="badge-deals" class="nav-badge">0</span>
           </button>
           <button id="nav-catalog" onclick="switchPage('catalog')" class="nav-item i-hop">
-            <svg><use href="#i-box"/></svg><span class="nav-text">Product Catalog</span>
+            <svg><use href="#i-box"/></svg><span class="nav-text">Price list</span>
             <span id="badge-catalog" class="nav-badge">0</span>
           </button>
           <button id="nav-customers" onclick="switchPage('customers')" class="nav-item i-flip">
@@ -245,7 +271,7 @@
       <div class="cc-card p-4 relative overflow-hidden">
         <img src="img/mascot-idea.png" alt="" width="233" height="231" class="m-idea absolute right-1 -bottom-3 w-20 h-auto" aria-hidden="true" />
         <div class="text-sm font-semibold text-[#042970] pr-16">Need a hand?</div>
-        <p class="text-xs text-[#5B6B85] pr-16 mt-0.5">Ask about cash, stock or who still owes you.</p>
+        <p class="text-xs text-[#5B6B85] pr-16 mt-0.5">Ask which deals to chase, or who won the most.</p>
         <button onclick="openCompanyAgentModal()" class="cc-btn cc-btn-primary mt-3 !min-h-[34px] !px-3">Ask AI</button>
       </div>
 
@@ -267,9 +293,9 @@
     <header class="cc-header px-5 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="min-w-0">
         <div class="text-base font-bold text-[#042970] truncate" id="top-company-title">Sejuk Jaya Aircond Sdn Bhd</div>
-        <div class="text-xs text-[#5B6B85]">Live cash and stock, in one place</div>
-        <div id="backend-status-pill" class="mt-1 inline-block px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-[11px] font-semibold text-emerald-800">
-          ● Checking backend connection...
+        <div class="text-xs text-[#5B6B85]">WhatsApp sales, quotes and follow-ups</div>
+        <div id="backend-status-pill" class="cc-status mt-1" role="status">
+          Checking backend…
         </div>
       </div>
 
@@ -299,261 +325,309 @@
       <!-- PAGE 1: DASHBOARD                                                 -->
       <!-- ================================================================= -->
       <div id="page-pipeline" class="space-y-6">
-      <!-- Pipeline Header -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-[#042970]">WhatsApp Sales CRM & Pipeline</h2>
-          <p class="text-xs text-[#5B6B85] mt-1">Live quotations, automatic follow-up tracking, and deal conversion.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary">
-            <svg class="w-4 h-4"><use href="#i-plus"/></svg>
-            <span>Log Inquiry / Deal</span>
-          </button>
-        </div>
-      </div>
 
-      <!-- Owner KPI Grid -->
-      <div id="pipeline-owner-view" class="space-y-6">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Active Pipeline</div>
-            <div class="text-2xl font-black text-[#042970] mt-1" id="kpi-pipeline-val">RM 0</div>
-            <div class="text-[11px] text-[#5B6B85] mt-1">Open deals (New & Follow-up)</div>
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span id="pipeline-hero-pill" class="cc-pill cc-pill-cyan">Pipeline</span>
+            <h1 id="pipeline-hero-title" class="cc-h1 mt-2">Every deal, from chat to order.</h1>
+            <p id="pipeline-hero-sub" class="cc-sub mt-1">See what is quoted, what needs a follow-up and what you won this month.</p>
+            <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Won This Month</div>
-            <div class="text-2xl font-black text-emerald-600 mt-1" id="kpi-won-month">RM 0</div>
-            <div class="text-[11px] text-[#5B6B85] mt-1">Closed deals ready for delivery</div>
+          <img src="img/mascot-wave.png" alt="" width="295" height="320" class="cc-hero-art m-wave" aria-hidden="true" />
+        </section>
+
+        <!-- Owner approvals: Staff requests the Owner set to "Needs approval" (shared by both roles) -->
+        <section id="ov-approvals-card" class="hidden cc-card p-5 md:p-6" aria-labelledby="ov-approvals-title">
+          <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="flex items-start gap-3">
+              <span class="cc-stat-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-shield"/></svg></span>
+              <div>
+                <h2 id="ov-approvals-title" class="cc-h2">Owner approvals</h2>
+                <p id="ov-approvals-sub" class="cc-sub"></p>
+              </div>
+            </div>
+            <span id="ov-approvals-count" class="cc-pill cc-pill-warn" aria-live="polite"></span>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Win Rate</div>
-            <div class="text-2xl font-black text-[#0152FC] mt-1" id="kpi-win-rate">0%</div>
-            <div class="text-[11px] text-[#5B6B85] mt-1">Won / Total Closed</div>
+          <div id="ov-approvals-list" class="space-y-2"></div>
+        </section>
+
+        <!-- Owner view -->
+        <div id="pipeline-owner-view" class="space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="cc-card cc-stat reveal i-hop" style="--d:0ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">Open pipeline</span>
+                <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-file"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-pipeline-val">RM 0</div>
+              <div class="text-xs text-[#5B6B85] mt-1">New and follow-up deals</div>
+            </div>
+            <div class="cc-card cc-stat reveal i-pulse" style="--d:100ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">Won this month</span>
+                <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-won-month">RM 0</div>
+              <div class="text-xs text-[#5B6B85] mt-1">Orders ready to deliver</div>
+            </div>
+            <div class="cc-card cc-stat reveal i-hop" style="--d:200ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">Win rate</span>
+                <span class="cc-stat-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-trend"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-win-rate">0%</div>
+              <div class="text-xs text-[#5B6B85] mt-1">Won out of all closed deals</div>
+            </div>
+            <div class="cc-card cc-stat reveal i-hop !bg-[#042970] !border-[#042970]" style="--d:300ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-white/75">Follow-ups overdue</span>
+                <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-clock"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="kpi-overdue-count">0</div>
+              <div class="text-xs text-white/70 mt-1">Quotes waiting for a reminder</div>
+            </div>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Follow-ups Overdue</div>
-            <div class="text-2xl font-black text-rose-600 mt-1" id="kpi-overdue-count">0</div>
-            <div class="text-[11px] text-[#5B6B85] mt-1">Quotes needing prompt touchpoint</div>
+
+          <section class="cc-card p-5 md:p-6 reveal">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 class="cc-h2">Deals by stage</h2>
+                <p class="cc-sub">Tap a stage to open those deals.</p>
+              </div>
+            </div>
+            <div id="pipeline-stage-cards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+          </section>
+
+          <section class="cc-card p-5 md:p-6 reveal">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div class="flex items-start gap-3">
+                <span class="cc-stat-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-alert"/></svg></span>
+                <div>
+                  <h2 class="cc-h2">Needs attention</h2>
+                  <p class="cc-sub">Paused deals and quotes with no reply after several follow-ups.</p>
+                </div>
+              </div>
+              <button onclick="switchPage('deals')" class="text-sm font-semibold text-[#0152FC] hover:underline">All deals</button>
+            </div>
+            <div id="pipeline-at-risk-list" class="space-y-3"></div>
+          </section>
+
+          <section class="cc-card p-5 md:p-6 reveal">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 class="cc-h2">Sales reps</h2>
+                <p class="cc-sub">Won sales and commission this month.</p>
+              </div>
+              <button onclick="switchPage('commission')" class="text-sm font-semibold text-[#0152FC] hover:underline">Commission</button>
+            </div>
+            <div id="pipeline-reps-snippet" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+          </section>
+        </div>
+
+        <!-- Staff "My day" view -->
+        <div id="pipeline-staff-view" class="hidden space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="cc-card cc-stat reveal">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">My follow-ups due</span>
+                <span class="cc-stat-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-clock"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-followups">0</div>
+            </div>
+            <div class="cc-card cc-stat reveal" style="--d:100ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">Commission if quotes close</span>
+                <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-trend"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-potential">RM 0</div>
+            </div>
+            <div class="cc-card cc-stat reveal" style="--d:200ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">My won sales</span>
+                <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-won">RM 0</div>
+            </div>
+            <div class="cc-card cc-stat reveal !bg-[#042970] !border-[#042970]" style="--d:300ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-white/75">My commission</span>
+                <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-wallet"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="staff-kpi-comm">RM 0</div>
+            </div>
+          </div>
+
+          <section class="cc-card p-5 md:p-6 reveal">
+            <h2 class="cc-h2">Today's follow-ups</h2>
+            <p class="cc-sub mb-4">Send a reminder, or mark the deal won.</p>
+            <div id="staff-followups-list" class="space-y-3"></div>
+          </section>
+
+          <section class="cc-card p-5 md:p-6 reveal">
+            <h2 class="cc-h2">Recent wins</h2>
+            <p class="cc-sub mb-4">Your latest orders and the commission each one adds.</p>
+            <div id="staff-recent-wins" class="space-y-2"></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- DEALS                                                             -->
+      <!-- ================================================================= -->
+      <div id="page-deals" class="hidden space-y-6">
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">Deals</span>
+            <h1 class="cc-h1 mt-2">One next step per deal.</h1>
+            <p class="cc-sub mt-1">Send the quote, follow up, or close it. Discounts below your margin go to the Owner.</p>
+            <div class="flex flex-wrap gap-2 mt-4">
+              <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
+              <button onclick="downloadWonOrdersCsv()" class="cc-btn cc-btn-ghost i-hop"><svg><use href="#i-download"/></svg>Won orders CSV</button>
+            </div>
+          </div>
+          <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="cc-hero-art m-laptop" aria-hidden="true" />
+        </section>
+
+        <div class="cc-card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div id="deals-filter-bar" class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter deals by stage">
+            <button onclick="setDealFilter('ALL')" id="filter-stage-all" data-stage="ALL" class="cc-chip is-active">All</button>
+            <button onclick="setDealFilter('INQUIRY')" id="filter-stage-inquiry" data-stage="INQUIRY" class="cc-chip"><span class="cc-dot" style="background:#0152FC"></span>New inquiry</button>
+            <button onclick="setDealFilter('QUOTED')" id="filter-stage-quoted" data-stage="QUOTED" class="cc-chip"><span class="cc-dot" style="background:#01AAFC"></span>Quoted</button>
+            <button onclick="setDealFilter('FOLLOW_UP')" id="filter-stage-followup" data-stage="FOLLOW_UP" class="cc-chip"><span class="cc-dot" style="background:#F79009"></span>Follow-up due</button>
+            <button onclick="setDealFilter('WON')" id="filter-stage-won" data-stage="WON" class="cc-chip"><span class="cc-dot" style="background:#12B76A"></span>Won</button>
+            <button onclick="setDealFilter('LOST')" id="filter-stage-lost" data-stage="LOST" class="cc-chip"><span class="cc-dot" style="background:#98A2B3"></span>Lost</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="deals-rep-select" class="text-sm font-medium text-[#5B6B85]">Rep</label>
+            <select id="deals-rep-select" onchange="setDealRepFilter(this.value)" class="cc-input !w-auto !min-h-[38px]">
+              <option value="ALL">All reps</option>
+            </select>
           </div>
         </div>
 
-        <!-- Stage Cards -->
-        <div class="cc-card p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-bold text-[#042970]">Sales Stages Breakdown</h3>
-            <span class="text-xs text-[#5B6B85]">Click any stage to filter Deals</span>
+        <div id="deals-list-container" class="space-y-3"></div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- PRICE LIST                                                        -->
+      <!-- ================================================================= -->
+      <div id="page-catalog" class="hidden space-y-6">
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">Price list</span>
+            <h1 class="cc-h1 mt-2">Prices the AI quotes from.</h1>
+            <p class="cc-sub mt-1">Every quote uses these prices, so the totals are always right.</p>
+            <button id="catalog-add-btn" onclick="openEditProductModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Add a product</button>
           </div>
-          <div id="pipeline-stage-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
-        </div>
+          <img src="img/mascot-chart.png" alt="" width="288" height="215" class="cc-hero-art m-chart" aria-hidden="true" />
+        </section>
 
-        <!-- At Risk / Overdue Deals -->
-        <div class="cc-card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-bold text-[#042970] flex items-center gap-2">
-              <span>⚠️ Overdue Follow-ups & Stalled Quotes</span>
-            </h3>
-            <button onclick="switchPage('deals')" class="text-xs text-[#0152FC] font-semibold hover:underline">View All Deals →</button>
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Product</th>
+                  <th class="text-right">Selling price</th>
+                  <th class="text-right">Unit cost</th>
+                  <th class="text-right">Margin</th>
+                  <th class="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
+            </table>
           </div>
-          <div id="pipeline-at-risk-list" class="space-y-2"></div>
-        </div>
+        </section>
+      </div>
 
-        <!-- Reps Snippet -->
-        <div class="cc-card p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-bold text-[#042970]">Sales Reps Performance</h3>
-            <button onclick="switchPage('commission')" class="text-xs text-[#0152FC] font-semibold hover:underline">Full Commission Ledger →</button>
+      <!-- ================================================================= -->
+      <!-- CUSTOMERS                                                         -->
+      <!-- ================================================================= -->
+      <div id="page-customers" class="hidden space-y-6">
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">Customers</span>
+            <h1 class="cc-h1 mt-2">Who buys, and who looks after them.</h1>
+            <p class="cc-sub mt-1">WhatsApp contacts, their rep, open deals and LHDN TIN for e-Invoices.</p>
           </div>
-          <div id="pipeline-reps-snippet" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
-        </div>
-      </div>
+          <img src="img/mascot-happy.png" alt="" width="293" height="232" class="cc-hero-art m-float" aria-hidden="true" />
+        </section>
 
-      <!-- Staff 'My Day' View -->
-      <div id="pipeline-staff-view" class="hidden space-y-6">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">My Follow-ups Due</div>
-            <div class="text-2xl font-black text-rose-600 mt-1" id="staff-kpi-followups">0</div>
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>WhatsApp</th>
+                  <th>LHDN TIN</th>
+                  <th>Rep</th>
+                  <th class="text-right">Open deals</th>
+                  <th class="text-right">Won orders</th>
+                  <th class="text-right">Total won</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customers-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
+            </table>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">My Potential Deals</div>
-            <div class="text-2xl font-black text-[#042970] mt-1" id="staff-kpi-potential">RM 0</div>
+        </section>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- COMMISSION                                                        -->
+      <!-- ================================================================= -->
+      <div id="page-commission" class="hidden space-y-6">
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">Commission</span>
+            <h1 class="cc-h1 mt-2">Paid on won orders only.</h1>
+            <p class="cc-sub mt-1">Each rep's sales and commission, worked out from the deals they closed.</p>
+            <button onclick="promptAddNewRep()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Add a rep</button>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">My Won Sales</div>
-            <div class="text-2xl font-black text-emerald-600 mt-1" id="staff-kpi-won">RM 0</div>
+          <img src="img/mascot-cheer.png" alt="" width="227" height="216" class="cc-hero-art m-wave" aria-hidden="true" />
+        </section>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="cc-card cc-stat reveal">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-[#5B6B85]">Won sales</span>
+              <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
+            </div>
+            <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="comm-total-won">RM 0</div>
+            <div class="text-xs text-[#5B6B85] mt-1">All won deals added together</div>
           </div>
-          <div class="cc-card p-4">
-            <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">My Commission Earned</div>
-            <div class="text-2xl font-black text-[#0152FC] mt-1" id="staff-kpi-comm">RM 0</div>
+          <div class="cc-card cc-stat reveal !bg-[#042970] !border-[#042970]" style="--d:100ms">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-white/75">Commission to pay</span>
+              <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-wallet"/></svg></span>
+            </div>
+            <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="comm-total-payout">RM 0</div>
+            <div class="text-xs text-white/70 mt-1">Owed across all reps</div>
           </div>
         </div>
 
-        <div class="cc-card p-5">
-          <h3 class="text-sm font-bold text-[#042970] mb-3">🎯 Your Action List for Today</h3>
-          <div id="staff-followups-list" class="space-y-2"></div>
-        </div>
-
-        <div class="cc-card p-5">
-          <h3 class="text-sm font-bold text-[#042970] mb-3">🎉 Recent Wins</h3>
-          <div id="staff-recent-wins" class="space-y-2"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2. DEALS VIEW -->
-    <div id="page-deals" class="hidden space-y-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-[#042970]">Deals & Quotations</h2>
-          <p class="text-xs text-[#5B6B85] mt-1">Filter, manage stages, issue discounts, pause for aftersales, and generate quotes/invoices.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button onclick="downloadWonOrdersCsv()" class="cc-btn cc-btn-secondary">
-            <svg class="w-4 h-4"><use href="#i-download"/></svg>
-            <span>Export Won Orders CSV</span>
-          </button>
-          <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary">
-            <svg class="w-4 h-4"><use href="#i-plus"/></svg>
-            <span>➕ Log Inquiry</span>
-          </button>
-        </div>
+        <section class="cc-card p-5 md:p-6 reveal">
+          <div class="cc-table-wrap">
+            <table class="cc-table">
+              <thead>
+                <tr>
+                  <th>Rep</th>
+                  <th class="text-right">Rate</th>
+                  <th class="text-right">Won sales</th>
+                  <th class="text-right">Commission</th>
+                  <th class="text-right">Open deals</th>
+                  <th class="text-right">Overdue</th>
+                  <th class="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="commission-tbody" class="divide-y divide-[#D5DFEE]"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
-      <!-- Filters -->
-      <div class="cc-card p-4 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs font-semibold text-[#5B6B85]">Filter by Stage:</span>
-          <button onclick="setDealFilter('ALL')" id="filter-stage-all" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#0152FC] text-white">All Deals</button>
-          <button onclick="setDealFilter('INQUIRY')" id="filter-stage-inquiry" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#F2F6FF] text-[#042970] hover:bg-[#E6EEFF]">New Inquiry</button>
-          <button onclick="setDealFilter('QUOTED')" id="filter-stage-quoted" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#F2F6FF] text-[#042970] hover:bg-[#E6EEFF]">Quoted</button>
-          <button onclick="setDealFilter('FOLLOW_UP')" id="filter-stage-followup" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#F2F6FF] text-[#042970] hover:bg-[#E6EEFF]">Follow-up Due</button>
-          <button onclick="setDealFilter('WON')" id="filter-stage-won" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#F2F6FF] text-[#042970] hover:bg-[#E6EEFF]">Won</button>
-          <button onclick="setDealFilter('LOST')" id="filter-stage-lost" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#F2F6FF] text-[#042970] hover:bg-[#E6EEFF]">Lost</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="text-xs font-semibold text-[#5B6B85]">Sales Rep:</label>
-          <select id="deals-rep-select" onchange="setDealRepFilter(this.value)" class="bg-[#F2F6FF] border border-[#D5DFEE] rounded-lg px-2.5 py-1 text-xs font-semibold text-[#042970]">
-            <option value="ALL">All Reps</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Deals List Container -->
-      <div id="deals-list-container" class="space-y-3"></div>
-    </div>
-
-    <!-- 3. CATALOG VIEW -->
-    <div id="page-catalog" class="hidden space-y-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-[#042970]">Product Price List & Catalog</h2>
-          <p class="text-xs text-[#5B6B85] mt-1">Pre-approved SKUs, selling prices and unit costs used for instant WhatsApp quoting.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="catalog-add-btn" onclick="openEditProductModal()" class="cc-btn cc-btn-primary">
-            <svg class="w-4 h-4"><use href="#i-plus"/></svg>
-            <span>Add Product SKU</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="cc-card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-[#F8FAFC] border-b border-[#D5DFEE] text-[#5B6B85]">
-              <tr>
-                <th class="px-4 py-3 font-semibold">SKU Code</th>
-                <th class="px-4 py-3 font-semibold">Product Name</th>
-                <th class="px-4 py-3 font-semibold text-right">Selling Price (RM)</th>
-                <th class="px-4 py-3 font-semibold text-right">Unit Cost (RM)</th>
-                <th class="px-4 py-3 font-semibold text-right">Gross Margin</th>
-                <th class="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="catalog-tbody" class="divide-y divide-[#EEF2F8]"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. CUSTOMERS VIEW -->
-    <div id="page-customers" class="hidden space-y-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-[#042970]">Customer Directory & CRM Intelligence</h2>
-          <p class="text-xs text-[#5B6B85] mt-1">WhatsApp contacts, buying history, LHDN TIN and payment records.</p>
-        </div>
-      </div>
-
-      <div class="cc-card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-[#F8FAFC] border-b border-[#D5DFEE] text-[#5B6B85]">
-              <tr>
-                <th class="px-4 py-3 font-semibold">Customer Name</th>
-                <th class="px-4 py-3 font-semibold">WhatsApp Phone</th>
-                <th class="px-4 py-3 font-semibold">LHDN TIN</th>
-                <th class="px-4 py-3 font-semibold text-center">Won Orders</th>
-                <th class="px-4 py-3 font-semibold text-right">Total Spend</th>
-                <th class="px-4 py-3 font-semibold text-center">Reliability</th>
-                <th class="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="customers-tbody" class="divide-y divide-[#EEF2F8]"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. COMMISSION VIEW -->
-    <div id="page-commission" class="hidden space-y-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-bold text-[#042970]">Sales Reps & Commission</h2>
-          <p class="text-xs text-[#5B6B85] mt-1">Real-time commission calculated on won orders only. Pay your reps with confidence.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="promptAddNewRep()" class="cc-btn cc-btn-primary">
-            <svg class="w-4 h-4"><use href="#i-plus"/></svg>
-            <span>Add Sales Rep</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="cc-card p-4">
-          <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Total Won Sales Volume</div>
-          <div class="text-2xl font-black text-emerald-600 mt-1" id="comm-total-won">RM 0</div>
-          <div class="text-[11px] text-[#5B6B85] mt-1">Combined total of all closed-won deals</div>
-        </div>
-        <div class="cc-card p-4">
-          <div class="text-xs font-semibold text-[#5B6B85] uppercase tracking-wider">Total Commission Accrued</div>
-          <div class="text-2xl font-black text-[#0152FC] mt-1" id="comm-total-payout">RM 0</div>
-          <div class="text-[11px] text-[#5B6B85] mt-1">Payout owed across all sales representatives</div>
-        </div>
-      </div>
-
-      <div class="cc-card overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-[#F8FAFC] border-b border-[#D5DFEE] text-[#5B6B85]">
-              <tr>
-                <th class="px-4 py-3 font-semibold">Rep Name</th>
-                <th class="px-4 py-3 font-semibold">Phone Number</th>
-                <th class="px-4 py-3 font-semibold text-center">Commission %</th>
-                <th class="px-4 py-3 font-semibold text-center">Won Deals</th>
-                <th class="px-4 py-3 font-semibold text-right">Won Volume</th>
-                <th class="px-4 py-3 font-semibold text-right">Commission Earned</th>
-                <th class="px-4 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="commission-tbody" class="divide-y divide-[#EEF2F8]"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    
     <div id="page-wa" class="hidden space-y-6">
 
         <!-- What the extension does: each card jumps to a live example -->
@@ -562,34 +636,34 @@
             <div class="min-w-0">
               <span class="cc-pill !bg-emerald-50 !text-emerald-800">Demo</span>
               <h1 class="cc-h1 mt-2">AI suggests. Rules check. You decide.</h1>
-              <p class="cc-sub mt-1">The CashChase extension sits beside WhatsApp Web and does five jobs. Tap one to see it.</p>
+              <p class="cc-sub mt-1">The CashChase extension sits beside WhatsApp Web and helps your reps close deals. Tap a job to see it.</p>
             </div>
             <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-20 md:w-24 h-auto m-float shrink-0 hidden sm:block" aria-hidden="true" />
           </div>
 
           <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
-            <button onclick="showCapability('reply')" class="cap-card i-wiggle">
-              <span class="cap-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
-              <span class="cap-title">Change reply</span>
-              <span class="cap-text">Tell AI how to rewrite: discount, terms, language.</span>
+            <button onclick="showCapability('quote')" class="cap-card i-hop">
+              <span class="cap-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-file"/></svg></span>
+              <span class="cap-title">Price a quote</span>
+              <span class="cap-text">From a chat or a photo, priced from your price list.</span>
             </button>
-            <button onclick="showCapability('reserve')" class="cap-card i-hop">
-              <span class="cap-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-box"/></svg></span>
-              <span class="cap-title">Reserve stock</span>
-              <span class="cap-text">A quote holds stock for 48 hours.</span>
+            <button onclick="showCapability('counter')" class="cap-card i-wiggle">
+              <span class="cap-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-sparkle"/></svg></span>
+              <span class="cap-title">"Boss, can less?"</span>
+              <span class="cap-text">Counter-offer inside your margin. Deeper cuts ask the Owner.</span>
             </button>
-            <button onclick="showCapability('confirm')" class="cap-card i-pulse">
+            <button onclick="showCapability('followup')" class="cap-card i-swipe">
+              <span class="cap-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-clock"/></svg></span>
+              <span class="cap-title">Follow up on time</span>
+              <span class="cap-text">No reply in 48 hours? It reminds you what to send.</span>
+            </button>
+            <button onclick="showCapability('won')" class="cap-card i-pulse">
               <span class="cap-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
-              <span class="cap-title">Confirm order</span>
-              <span class="cap-text">Deposit in, stock out, invoice made.</span>
-            </button>
-            <button onclick="showCapability('payment')" class="cap-card i-swipe">
-              <span class="cap-icon bg-purple-50 text-purple-600"><svg><use href="#i-wallet"/></svg></span>
-              <span class="cap-title">Check payment</span>
-              <span class="cap-text">Make sure the money is really in the bank.</span>
+              <span class="cap-title">Close the deal</span>
+              <span class="cap-text">Mark won with the slip ref. Commission adds itself.</span>
             </button>
             <button onclick="showCapability('rating')" class="cap-card i-pulse col-span-2 md:col-span-1">
-              <span class="cap-icon bg-amber-50 text-amber-600"><svg><use href="#i-users"/></svg></span>
+              <span class="cap-icon bg-purple-50 text-purple-600"><svg><use href="#i-users"/></svg></span>
               <span class="cap-title">Rate customer</span>
               <span class="cap-text">AI scores each customer from how they pay and reply.</span>
             </button>
@@ -620,7 +694,7 @@
                 <div class="flex items-center justify-between px-4 py-3 border-b border-[#E3E8EF]">
                   <span class="text-sm font-semibold text-[#042970]">Chats</span>
                   <button type="button" onclick="createNewBlankChat()" class="text-xs font-semibold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer" title="Create empty chat to test live LLM prompts">
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> + New Blank Chat
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> New chat
                   </button>
                 </div>
                 <div id="wa-chat-list" class="p-2 space-y-1"></div>
@@ -637,7 +711,7 @@
                     </div>
                   </div>
                   <div class="flex items-center gap-2">
-                    <span id="wa-strict-badge" class="cc-pill !bg-emerald-50 !text-emerald-700 !text-[11px] font-semibold">⚡ Strict AI Mode</span>
+                    <span id="wa-strict-badge" class="cc-pill !bg-emerald-50 !text-emerald-700 !text-[11px] font-semibold">Strict AI mode</span>
                     <span id="wa-scenario-badge" class="cc-pill">Flow 1</span>
                   </div>
                 </div>
@@ -708,7 +782,7 @@
   <div id="log-inquiry-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4">
     <div class="cc-modal max-w-lg w-full p-6 space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-[#D5DFEE]">
-        <h3 class="text-base font-bold text-[#042970]">➕ Log New Inquiry / Deal</h3>
+        <h3 class="text-base font-bold text-[#042970]">Log an inquiry</h3>
         <button onclick="closeLogInquiryModal()" class="text-[#5B6B85] hover:text-[#042970]">
           <svg class="w-5 h-5"><use href="#i-x"/></svg>
         </button>
@@ -751,7 +825,7 @@
   <div id="edit-product-modal" class="hidden fixed inset-0 z-50 cc-overlay flex items-center justify-center p-4">
     <div class="cc-modal max-w-md w-full p-6 space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-[#D5DFEE]">
-        <h3 class="text-base font-bold text-[#042970]">Product Catalog Item</h3>
+        <h3 class="text-base font-bold text-[#042970]">Product price</h3>
         <button onclick="closeEditProductModal()" class="text-[#5B6B85] hover:text-[#042970]">
           <svg class="w-5 h-5"><use href="#i-x"/></svg>
         </button>
@@ -810,26 +884,40 @@
       </div>
 
       <!-- 60-Second Setup: template or own stock list -> starting cash -> hold time & threshold -->
-      <div class="p-4 rounded-2xl bg-[#ECFDF5] border border-emerald-300 space-y-2.5">
-        <div>
-          <div class="font-semibold text-sm text-[#042970]">60-second setup for a new business</div>
-          <div class="text-xs text-[#5B6B85]">Pick a template, or upload your existing stock list, enter today's cash, and set your hold time and approval threshold.</div>
+      <section class="cc-panel space-y-4" aria-labelledby="onboarding-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-sparkle"/></svg></span>
+          <div>
+            <h3 id="onboarding-title" class="font-semibold text-sm text-[#042970]">Set up your own business in 60 seconds</h3>
+            <p class="text-xs text-[#5B6B85]">Start from a template or your stock list, add today's cash, then set your rules.</p>
+          </div>
         </div>
-        <div id="onboarding-body" class="space-y-2.5"></div>
-      </div>
+        <div id="onboarding-body" class="space-y-4"></div>
+      </section>
 
       <!-- Team & Permissions: Owner decides what Staff can do (enforced by the backend) -->
-      <div class="p-4 rounded-2xl bg-[#F2F6FF] border border-[#DCE4F2] space-y-3">
-        <div>
-          <div class="font-semibold text-sm text-[#042970]">Team &amp; permissions</div>
-          <div class="text-xs text-[#5B6B85]">The Owner always has full access. For each Staff action choose <b>Allowed</b>, <b>Needs Owner approval</b> (goes to Owner approvals on the Dashboard) or <b>Off</b>.</div>
+      <section class="cc-panel space-y-4" aria-labelledby="team-perms-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-users"/></svg></span>
+          <div>
+            <h3 id="team-perms-title" class="font-semibold text-sm text-[#042970]">Team &amp; permissions</h3>
+            <p class="text-xs text-[#5B6B85]">You always have full access. For each Staff action pick <b>Allowed</b>, <b>Needs approval</b> (shows up under Owner approvals on the Dashboard) or <b>Off</b>.</p>
+          </div>
         </div>
         <div id="team-perms-body" class="space-y-3"></div>
-      <div class="mt-4 pt-4 border-t border-[#D5DFEE]">
-        <h3 class="text-xs font-bold text-[#042970] mb-2 uppercase tracking-wide">Activity & Audit Trail</h3>
-        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-[#F8FAFC] p-3 rounded-xl border border-[#D5DFEE]"></div>
-      </div>
-      </div>
+      </section>
+
+      <!-- Activity: every approval, deal change and permission edit -->
+      <section class="cc-panel space-y-3" aria-labelledby="audit-title">
+        <div class="flex items-start gap-3">
+          <span class="cc-stat-icon bg-white text-[#0152FC]"><svg><use href="#i-clock"/></svg></span>
+          <div>
+            <h3 id="audit-title" class="font-semibold text-sm text-[#042970]">Activity &amp; audit trail</h3>
+            <p class="text-xs text-[#5B6B85]">Every approval, deal change and permission edit, newest first.</p>
+          </div>
+        </div>
+        <div id="audit-log-list" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-[#5B6B85] bg-white p-3 rounded-xl border border-[#DCE4F2]"></div>
+      </section>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
@@ -1059,17 +1147,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_3"></script>
-  <script src="js/inspector.js?v=20261023_3"></script>
-  <script src="js/dashboard.js?v=20261023_3"></script>
-  <script src="js/copilot.js?v=20261023_3"></script>
-  <script src="js/company_ai.js?v=20261023_3"></script>
-  <script src="js/pdf_export.js?v=20261023_3"></script>
-  <script src="js/team.js?v=20261023_3"></script>
-  <script src="js/onboarding.js?v=20261023_3"></script>
-  <script src="js/main.js?v=20261023_3"></script>
-  <script src="js/ui.js?v=20261023_3"></script>
-  <script src="js/auth.js?v=20261023_3"></script>
+  <script src="js/state.js?v=20261023_4"></script>
+  <script src="js/inspector.js?v=20261023_4"></script>
+  <script src="js/dashboard.js?v=20261023_4"></script>
+  <script src="js/copilot.js?v=20261023_4"></script>
+  <script src="js/company_ai.js?v=20261023_4"></script>
+  <script src="js/pdf_export.js?v=20261023_4"></script>
+  <script src="js/team.js?v=20261023_4"></script>
+  <script src="js/onboarding.js?v=20261023_4"></script>
+  <script src="js/main.js?v=20261023_4"></script>
+  <script src="js/ui.js?v=20261023_4"></script>
+  <script src="js/auth.js?v=20261023_4"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->
