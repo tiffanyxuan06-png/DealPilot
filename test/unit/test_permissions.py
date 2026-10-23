@@ -17,8 +17,8 @@ def test_missing_role_is_staff(client):
 
 
 def test_staff_routine_action_runs(client):
-    r = client.post("/api/deals/QT-2026-101/action", json={**STAFF, "action": "SEND_FOLLOW_UP"})
-    assert r.status_code == 200 and deal(r.json()["state"], "QT-2026-101")["followUpCount"] == 2
+    r = client.post("/api/deals/QT-2026-103/action", json={**STAFF, "action": "SEND_FOLLOW_UP"})  # Aina's own deal
+    assert r.status_code == 200 and deal(r.json()["state"], "QT-2026-103")["followUpCount"] == 1
 
 
 def test_approval_only_owner_decides_once(client):

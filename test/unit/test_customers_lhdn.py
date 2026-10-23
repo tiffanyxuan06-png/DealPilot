@@ -22,7 +22,7 @@ def test_parse_tin_and_ssm():
 
 
 def test_customers_seeded_with_tins(client):
-    s = client.get("/api/state").json()
+    s = client.get("/api/state?role=OWNER").json()
     assert customer(s, "Restoran Selera Kampung")["tin"] == "C20449102"
     ah_seng = customer(s, "Kedai Runcit Ah Seng")
     assert ah_seng["tin"] == "" and "LHDN e-Invoicing" in ah_seng["tinRequestText"]
@@ -41,7 +41,7 @@ def test_customer_sends_tin_on_whatsapp(client):
         a = client.post("/api/whatsapp/analyze", json={**STAFF, "customer": "Kedai Runcit Ah Seng",
                                                        "message": "Ok boss, TIN C2588190021, SSM 202401009921"}).json()["analysis"]
     assert (a["intent"], a["extActionType"], a["tin"], a["ssmBrn"]) == ("SAVE_LHDN_TIN", "SAVE_LHDN_TIN", "C2588190021", "202401009921")
-    r = client.post("/api/whatsapp/execute", json={**STAFF, "customer": "Kedai Runcit Ah Seng", "actionType": "SAVE_LHDN_TIN",
+    r = client.post("/api/whatsapp/execute", json={**OWNER, "customer": "Kedai Runcit Ah Seng", "actionType": "SAVE_LHDN_TIN",
                                                    "tin": a["tin"], "ssmBrn": a["ssmBrn"]}).json()
     s = r["state"]
     assert customer(s, "Kedai Runcit Ah Seng")["tin"] == "C2588190021"

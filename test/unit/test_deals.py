@@ -31,7 +31,7 @@ def test_inquiry_then_quote(client):
 
 
 def test_follow_up_and_suggest_lost(client):
-    d = deal(act(client, "QT-2026-101", STAFF, action="SEND_FOLLOW_UP").json()["state"], "QT-2026-101")
+    d = deal(act(client, "QT-2026-101", OWNER, action="SEND_FOLLOW_UP").json()["state"], "QT-2026-101")
     assert (d["stage"], d["followUpCount"], d["suggestLost"]) == ("QUOTED", 2, False)
     for _ in range(3):
         s = act(client, "QT-2026-102", action="SEND_FOLLOW_UP").json()["state"]
@@ -48,8 +48,8 @@ def test_mark_won_and_commission(client):
 
 
 def test_mark_lost_needs_reason(client):
-    assert act(client, "QT-2026-102", STAFF, action="MARK_LOST").status_code == 400
-    d = deal(act(client, "QT-2026-102", STAFF, action="MARK_LOST", reason="Competitor price").json()["state"], "QT-2026-102")
+    assert act(client, "QT-2026-102", OWNER, action="MARK_LOST").status_code == 400
+    d = deal(act(client, "QT-2026-102", OWNER, action="MARK_LOST", reason="Competitor price").json()["state"], "QT-2026-102")
     assert (d["stage"], d["lossReason"]) == ("LOST", "Competitor price")
 
 

@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_7" />
+  <link rel="stylesheet" href="css/style.css?v=20261023_9" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -241,7 +241,7 @@
             <span id="badge-pipeline" class="nav-badge">0</span>
           </button>
           <button id="nav-deals" onclick="switchPage('deals')" class="nav-item i-flip">
-            <svg><use href="#i-file"/></svg><span class="nav-text">Deals & Quotes</span>
+            <svg><use href="#i-file"/></svg><span id="nav-text-deals" class="nav-text">Deals & Quotes</span>
             <span id="badge-deals" class="nav-badge">0</span>
           </button>
           <button id="nav-catalog" onclick="switchPage('catalog')" class="nav-item i-hop">
@@ -331,7 +331,7 @@
             <span id="pipeline-hero-pill" class="cc-pill cc-pill-cyan">Pipeline</span>
             <h1 id="pipeline-hero-title" class="cc-h1 mt-2">Every deal, from chat to order.</h1>
             <p id="pipeline-hero-sub" class="cc-sub mt-1">See what is quoted, what needs a follow-up and what you won this month.</p>
-            <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
+            <button id="pipeline-log-btn" onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
           </div>
           <img src="img/mascot-wave.png" alt="" width="295" height="320" class="cc-hero-art m-wave" aria-hidden="true" />
         </section>
@@ -351,116 +351,126 @@
           <div id="ov-approvals-list" class="space-y-2"></div>
         </section>
 
-        <!-- Owner view -->
+        <!-- Owner view: results only (paid orders, open deals, each rep's won and commission) -->
         <div id="pipeline-owner-view" class="space-y-6">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="cc-card cc-stat reveal i-hop" style="--d:0ms">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="cc-card cc-stat reveal i-pulse" style="--d:0ms">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">Open pipeline</span>
-                <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-file"/></svg></span>
-              </div>
-              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-pipeline-val">RM 0</div>
-              <div class="text-xs text-[#5B6B85] mt-1">New and follow-up deals</div>
-            </div>
-            <div class="cc-card cc-stat reveal i-pulse" style="--d:100ms">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">Won this month</span>
+                <span class="text-sm font-medium text-[#5B6B85]">Paid orders this month</span>
                 <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
               </div>
               <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-won-month">RM 0</div>
-              <div class="text-xs text-[#5B6B85] mt-1">Orders ready to deliver</div>
+              <div class="text-xs text-[#5B6B85] mt-1" id="kpi-won-note">Marked won with the customer's payment slip</div>
             </div>
-            <div class="cc-card cc-stat reveal i-hop" style="--d:200ms">
+            <div class="cc-card cc-stat reveal i-hop" style="--d:100ms">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">Win rate</span>
+                <span class="text-sm font-medium text-[#5B6B85]">Won of closed</span>
                 <span class="cc-stat-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-trend"/></svg></span>
               </div>
-              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-win-rate">0%</div>
-              <div class="text-xs text-[#5B6B85] mt-1">Won out of all closed deals</div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="kpi-win-rate">0 of 0</div>
+              <div class="text-xs text-[#5B6B85] mt-1" id="kpi-win-note">Won out of all closed deals</div>
             </div>
-            <div class="cc-card cc-stat reveal i-hop !bg-[#042970] !border-[#042970]" style="--d:300ms">
+            <div class="cc-card cc-stat reveal i-hop !bg-[#042970] !border-[#042970]" style="--d:200ms">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-white/75">Follow-ups overdue</span>
-                <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-clock"/></svg></span>
+                <span class="text-sm font-medium text-white/75">Commission to pay</span>
+                <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-wallet"/></svg></span>
               </div>
-              <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="kpi-overdue-count">0</div>
-              <div class="text-xs text-white/70 mt-1">Quotes waiting for a reminder</div>
+              <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="kpi-comm-pay">RM 0</div>
+              <div class="text-xs text-white/70 mt-1" id="kpi-comm-note">This month, all reps</div>
             </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section class="cc-card p-5 md:p-6 reveal" aria-labelledby="chart-paid-title">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h2 id="chart-paid-title" class="cc-h2">Paid orders this month</h2>
+                  <p class="cc-sub">Running total. A price question never counts here.</p>
+                </div>
+              </div>
+              <div id="pipeline-paid-chart"></div>
+            </section>
+            <section class="cc-card p-5 md:p-6 reveal" aria-labelledby="chart-open-title">
+              <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h2 id="chart-open-title" class="cc-h2">Open deals by stage</h2>
+                  <p class="cc-sub">Possible sales, not money in yet. Tap a stage to open those deals.</p>
+                </div>
+                <span id="pipeline-open-total" class="text-sm font-semibold text-[#042970] tabular-nums"></span>
+              </div>
+              <div id="pipeline-stage-cards" class="space-y-2.5"></div>
+            </section>
           </div>
 
           <section class="cc-card p-5 md:p-6 reveal">
             <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
               <div>
-                <h2 class="cc-h2">Deals by stage</h2>
-                <p class="cc-sub">Tap a stage to open those deals.</p>
-              </div>
-            </div>
-            <div id="pipeline-stage-cards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
-          </section>
-
-          <section class="cc-card p-5 md:p-6 reveal">
-            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <div class="flex items-start gap-3">
-                <span class="cc-stat-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-alert"/></svg></span>
-                <div>
-                  <h2 class="cc-h2">Needs attention</h2>
-                  <p class="cc-sub">Paused deals and quotes with no reply after several follow-ups.</p>
-                </div>
-              </div>
-              <button onclick="switchPage('deals')" class="text-sm font-semibold text-[#0152FC] hover:underline">All deals</button>
-            </div>
-            <div id="pipeline-at-risk-list" class="space-y-3"></div>
-          </section>
-
-          <section class="cc-card p-5 md:p-6 reveal">
-            <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 class="cc-h2">Sales reps</h2>
-                <p class="cc-sub">Won sales and commission this month.</p>
+                <h2 class="cc-h2">Team this month</h2>
+                <p class="cc-sub">Each rep's won sales and commission.</p>
               </div>
               <button onclick="switchPage('commission')" class="text-sm font-semibold text-[#0152FC] hover:underline">Commission</button>
             </div>
-            <div id="pipeline-reps-snippet" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+              <div class="lg:col-span-3 overflow-x-auto">
+                <table class="cc-table w-full">
+                  <thead><tr><th class="px-4 text-left">Rep</th><th class="px-4 text-right">Won</th><th class="px-4 text-right">Commission</th></tr></thead>
+                  <tbody id="pipeline-reps-snippet"></tbody>
+                </table>
+              </div>
+              <div id="pipeline-loss-reasons" class="lg:col-span-2 loss-box"></div>
+            </div>
           </section>
         </div>
 
-        <!-- Staff "My day" view -->
+        <!-- Staff "My day" view: only this rep's own customers, deals and pay -->
         <div id="pipeline-staff-view" class="hidden space-y-6">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="cc-card cc-stat reveal">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">My follow-ups due</span>
-                <span class="cc-stat-icon bg-[#FEF0C7] text-[#B54708]"><svg><use href="#i-clock"/></svg></span>
+                <span class="text-sm font-medium text-[#5B6B85]">Your rank</span>
+                <span class="cc-stat-icon bg-[#E3F6FF] text-[#01AAFC]"><svg><use href="#i-trend"/></svg></span>
               </div>
-              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-followups">0</div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-rank">-</div>
+              <div class="text-xs text-[#5B6B85] mt-1">By sales this month</div>
             </div>
             <div class="cc-card cc-stat reveal" style="--d:100ms">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">Commission if quotes close</span>
-                <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-trend"/></svg></span>
-              </div>
-              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-potential">RM 0</div>
-            </div>
-            <div class="cc-card cc-stat reveal" style="--d:200ms">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5B6B85]">My won sales</span>
+                <span class="text-sm font-medium text-[#5B6B85]">You closed</span>
                 <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
               </div>
               <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-won">RM 0</div>
             </div>
+            <div class="cc-card cc-stat reveal" style="--d:200ms">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-[#5B6B85]">If your quotes close</span>
+                <span class="cc-stat-icon bg-[#E6EEFF] text-[#0152FC]"><svg><use href="#i-file"/></svg></span>
+              </div>
+              <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="staff-kpi-potential">RM 0</div>
+            </div>
             <div class="cc-card cc-stat reveal !bg-[#042970] !border-[#042970]" style="--d:300ms">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-white/75">My commission</span>
+                <span class="text-sm font-medium text-white/75">Your commission</span>
                 <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-wallet"/></svg></span>
               </div>
               <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="staff-kpi-comm">RM 0</div>
             </div>
           </div>
 
+          <section id="staff-reengage-card" class="hidden cc-card p-5 md:p-6 reveal" aria-labelledby="staff-reengage-title">
+            <div class="flex items-start gap-3 mb-4">
+              <span class="cc-stat-icon bg-[#FEE4E2] text-[#B42318]"><svg><use href="#i-alert"/></svg></span>
+              <div>
+                <h2 id="staff-reengage-title" class="cc-h2">Re-engage</h2>
+                <p class="cc-sub">These customers were about to buy and went quiet.</p>
+              </div>
+            </div>
+            <div id="staff-reengage-list" class="space-y-3"></div>
+          </section>
+
           <section class="cc-card p-5 md:p-6 reveal">
-            <h2 class="cc-h2">Today's follow-ups</h2>
-            <p class="cc-sub mb-4">Send a reminder, or mark the deal won.</p>
-            <div id="staff-followups-list" class="space-y-3"></div>
+            <h2 class="cc-h2">Next up for you</h2>
+            <p class="cc-sub mb-4">Most likely to close first: follow-ups due, then new questions. Three at most.</p>
+            <ol id="staff-followups-list" class="space-y-3"></ol>
           </section>
 
           <section class="cc-card p-5 md:p-6 reveal">
@@ -477,11 +487,11 @@
       <div id="page-deals" class="hidden space-y-6">
         <section class="cc-card cc-hero reveal">
           <div class="min-w-0">
-            <span class="cc-pill">Deals</span>
-            <h1 class="cc-h1 mt-2">One next step per deal.</h1>
-            <p class="cc-sub mt-1">Send the quote, follow up, or close it. Discounts below your margin go to the Owner.</p>
+            <span id="deals-hero-pill" class="cc-pill">Deals</span>
+            <h1 id="deals-hero-title" class="cc-h1 mt-2">One next step per deal.</h1>
+            <p id="deals-hero-sub" class="cc-sub mt-1">Send the quote, follow up, or close it. Discounts below your margin go to the Owner.</p>
             <div class="flex flex-wrap gap-2 mt-4">
-              <button onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
+              <button id="deals-log-btn" onclick="openLogInquiryModal()" class="cc-btn cc-btn-primary"><svg><use href="#i-plus"/></svg>Log an inquiry</button>
               <button onclick="downloadWonOrdersCsv()" class="cc-btn cc-btn-ghost i-hop"><svg><use href="#i-download"/></svg>Won orders CSV</button>
             </div>
           </div>
@@ -497,7 +507,7 @@
             <button onclick="setDealFilter('WON')" id="filter-stage-won" data-stage="WON" class="cc-chip"><span class="cc-dot" style="background:#12B76A"></span>Won</button>
             <button onclick="setDealFilter('LOST')" id="filter-stage-lost" data-stage="LOST" class="cc-chip"><span class="cc-dot" style="background:#98A2B3"></span>Lost</button>
           </div>
-          <div class="flex items-center gap-2">
+          <div id="deals-rep-filter" class="flex items-center gap-2">
             <label for="deals-rep-select" class="text-sm font-medium text-[#5B6B85]">Rep</label>
             <select id="deals-rep-select" onchange="setDealRepFilter(this.value)" class="cc-input !w-auto !min-h-[38px]">
               <option value="ALL">All reps</option>
@@ -583,8 +593,8 @@
           <div class="min-w-0">
             <span class="cc-pill">Commission</span>
             <h1 class="cc-h1 mt-2">Paid on won orders only.</h1>
-            <p class="cc-sub mt-1">Each rep's sales and commission, worked out from the deals they closed.</p>
-            <button onclick="promptAddNewRep()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Add a rep</button>
+            <p id="comm-hero-sub" class="cc-sub mt-1">Each rep's sales and commission, worked out from the deals they closed.</p>
+            <button id="comm-add-rep" onclick="promptAddNewRep()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-plus"/></svg>Add a rep</button>
           </div>
           <img src="img/mascot-cheer.png" alt="" width="227" height="216" class="cc-hero-art m-wave" aria-hidden="true" />
         </section>
@@ -592,19 +602,19 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="cc-card cc-stat reveal">
             <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-[#5B6B85]">Won sales</span>
+              <span id="comm-won-label" class="text-sm font-medium text-[#5B6B85]">Won sales</span>
               <span class="cc-stat-icon bg-emerald-50 text-emerald-600"><svg><use href="#i-check"/></svg></span>
             </div>
             <div class="text-2xl font-bold text-[#042970] mt-2 tabular-nums" id="comm-total-won">RM 0</div>
-            <div class="text-xs text-[#5B6B85] mt-1">All won deals added together</div>
+            <div id="comm-won-note" class="text-xs text-[#5B6B85] mt-1">All won deals added together</div>
           </div>
           <div class="cc-card cc-stat reveal !bg-[#042970] !border-[#042970]" style="--d:100ms">
             <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-white/75">Commission to pay</span>
+              <span id="comm-pay-label" class="text-sm font-medium text-white/75">Commission to pay</span>
               <span class="cc-stat-icon bg-white/15 text-[#01E3FB]"><svg><use href="#i-wallet"/></svg></span>
             </div>
             <div class="text-2xl font-bold text-white mt-2 tabular-nums" id="comm-total-payout">RM 0</div>
-            <div class="text-xs text-white/70 mt-1">Owed across all reps</div>
+            <div id="comm-pay-note" class="text-xs text-white/70 mt-1">Owed across all reps</div>
           </div>
         </div>
 
@@ -1189,17 +1199,17 @@
 
   <!-- CashChase modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/state.js?v=20261023_7"></script>
-  <script src="js/inspector.js?v=20261023_7"></script>
-  <script src="js/dashboard.js?v=20261023_7"></script>
-  <script src="js/copilot.js?v=20261023_7"></script>
-  <script src="js/company_ai.js?v=20261023_7"></script>
-  <script src="js/pdf_export.js?v=20261023_7"></script>
-  <script src="js/team.js?v=20261023_7"></script>
-  <script src="js/onboarding.js?v=20261023_7"></script>
-  <script src="js/main.js?v=20261023_7"></script>
-  <script src="js/ui.js?v=20261023_7"></script>
-  <script src="js/auth.js?v=20261023_7"></script>
+  <script src="js/state.js?v=20261023_9"></script>
+  <script src="js/inspector.js?v=20261023_9"></script>
+  <script src="js/dashboard.js?v=20261023_9"></script>
+  <script src="js/copilot.js?v=20261023_9"></script>
+  <script src="js/company_ai.js?v=20261023_9"></script>
+  <script src="js/pdf_export.js?v=20261023_9"></script>
+  <script src="js/team.js?v=20261023_9"></script>
+  <script src="js/onboarding.js?v=20261023_9"></script>
+  <script src="js/main.js?v=20261023_9"></script>
+  <script src="js/ui.js?v=20261023_9"></script>
+  <script src="js/auth.js?v=20261023_9"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

@@ -853,3 +853,38 @@ body.is-locked { overflow: hidden; }
   .set-panels { padding: 1rem; }
 }
 @media (prefers-reduced-motion: reduce) { .set-panel:not([hidden]) { animation: none; } .set-tab { transition: none; } }
+
+/* ---- Owner results: paid-orders line, open-deal bars, why we lose ---- */
+.paid-chart { width: 100%; height: auto; display: block; }
+.paid-chart .pc-grid { stroke: var(--line-soft); stroke-width: 1; }
+.paid-chart .pc-axis { font-size: 10px; fill: #5B6B85; font-family: inherit; }
+.paid-chart .pc-area { fill: var(--blue); fill-opacity: .12; }
+.paid-chart .pc-line { fill: none; stroke: var(--blue); stroke-width: 2; stroke-linejoin: round; }
+.paid-chart .pc-pt { cursor: pointer; outline: none; }
+.paid-chart .pc-pt circle { fill: var(--blue); stroke: #fff; stroke-width: 2; transition: r .15s ease; }
+.paid-chart .pc-pt.is-on circle, .paid-chart .pc-pt:focus-visible circle { r: 6.5; }
+.stage-bar { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 7rem; align-items: center; gap: .75rem; width: 100%; padding: .375rem .5rem; border-radius: 10px; background: transparent; border: 0; text-align: left; cursor: pointer; transition: background .15s ease; }
+.stage-bar:hover { background: var(--surface-1); }
+.stage-bar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.sb-label { font-size: .8125rem; color: #5B6B85; }
+.sb-track { height: 1.75rem; border-radius: 6px; background: var(--surface-1); overflow: hidden; }
+.sb-fill { display: block; height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; transition: width .4s ease; }
+.sb-value { font-size: .8125rem; font-weight: 600; color: var(--navy); text-align: right; line-height: 1.2; }
+.sb-value small { display: block; font-weight: 400; font-size: .75rem; color: #5B6B85; }
+.loss-box { padding: 1rem; border-radius: 14px; background: var(--surface-1); color: #324564; }
+
+/* ---- Staff day: buying level and customer health tags, re-engage cards, ranked next up ---- */
+.lvl-tag { display: inline-flex; align-items: center; padding: .125rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.lvl-tag.is-bad { background: #FEE4E2; color: #A3201B; }
+.lvl-tag.is-warn { background: #FEF0C7; color: #93370D; }
+.lvl-tag.is-ok { background: #DCFAE6; color: #085D3A; }
+.lvl-tag.is-info { background: #fff; color: var(--navy); border-color: var(--line-soft); }
+.reengage { padding: 1rem; border-radius: 14px; border: 1px solid #FECDCA; background: #FFFBFA; }
+.reengage-said { margin: .75rem 0; padding: .75rem; border-radius: 10px; background: #fff; border: 1px solid var(--line-soft); font-size: .875rem; color: var(--navy); }
+.reengage-said span { display: block; margin-top: .25rem; font-size: .75rem; color: #5B6B85; }
+.next-up { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .875rem 1rem; border-radius: 14px; border: 1px solid var(--line-soft); background: #fff; }
+.next-up-n { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--surface-1); color: var(--blue); font-weight: 700; font-size: .8125rem; flex-shrink: 0; }
+@media (max-width: 639px) {
+  .stage-bar { grid-template-columns: 5.5rem minmax(0, 1fr) 5.5rem; gap: .5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .sb-fill, .paid-chart .pc-pt circle, .stage-bar { transition: none; } }
