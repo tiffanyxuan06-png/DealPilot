@@ -16,6 +16,11 @@ os.environ["DATABASE_URL"] = "sqlite:///" + (Path(tempfile.mkdtemp()) / "test.db
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from backend.config import AppSettings  # noqa: E402
+
+# Tests never read your own .env (e.g. AI_PROVIDER=runpod with a real key): only the environment set here or by a test.
+AppSettings.model_config["env_file"] = None
+
 from backend.app import app  # noqa: E402
 from backend.db import init_database  # noqa: E402
 

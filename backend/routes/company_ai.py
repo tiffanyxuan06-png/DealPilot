@@ -63,7 +63,7 @@ def api_company_agent_ask(req: CompanyAgentAskRequest) -> AgentAnswer:
         )
 
 
-OFFLINE_NOTE = "⚠️ The AI model is offline (LM Studio isn't reachable), so this comes straight from your live sales data."
+OFFLINE_NOTE = "⚠️ The AI model isn't reachable right now, so this comes straight from your live sales data."
 
 
 def _offline_answer(question: str, st, reps, summary_lines: str, rep_lines: str, product_lines: str) -> str:

@@ -29,6 +29,7 @@ class FakeRunPod(BaseHTTPRequestHandler):
         return self.headers.get("Authorization") == f"Bearer {KEY}"
 
     def do_GET(self):
+        FakeRunPod.calls.append({"path": self.path, "method": "GET"})
         if not self._authorised():
             return self._send(401, {"error": "bad key"})
         self._send(200, {"data": [{"id": "Qwen/Qwen3-4B"}]})
@@ -99,3 +100,17 @@ def test_runpod_down_falls_back(client, monkeypatch):
     monkeypatch.setenv("RUNPOD_API_KEY", KEY)
     r = client.post("/api/whatsapp/analyze", json={**OWNER, "customer": "Tan Bros Trading", "message": "need 2 units Daikin 1.5HP"}).json()
     assert r["source"] == "deterministic_fallback" and r["analysis"]["extActionType"] in ("OFFER_QUOTE", "CREATE_QUOTE")
+
+
+def test_named_model_sends_one_request_without_a_models_check(client, runpod):
+    """Each RunPod request is a queued job: a named model goes straight to chat/completions (no GET /models first)."""
+    r = client.post("/api/agent/ask", json={**OWNER, "question": "Who is winning?"}).json()
+    assert r["lmstudio_connected"] is True
+    assert [c["path"] for c in FakeRunPod.calls] == ["/v1/chat/completions"]
+
+
+def test_probe_waits_longer_for_cloud_than_for_this_pc():
+    from backend.services.lmstudio import probe_timeout
+
+    assert probe_timeout("http://127.0.0.1:1234/v1") < 1 and probe_timeout("http://localhost:1234/v1") < 1
+    assert probe_timeout("https://api.runpod.ai/v2/abc/openai/v1") >= 5

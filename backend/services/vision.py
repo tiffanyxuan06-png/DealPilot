@@ -68,9 +68,14 @@ def extract_items_from_image(image_base64: str, file_name: str = "order.jpg") ->
 
     # If image base64, attempt vision chat completions
     if image_base64 and image_base64.startswith("data:image/"):
-        health = check_lmstudio_health(lm_url, api_key=lm_key)
-        if health.get("connected") and health.get("models"):
-            vision_model = select_best_lmstudio_model(health["models"], task="vision")
+        named = ai.get("vision_model") or ""
+        if named and named not in ("local-model", "auto"):
+            # A named vision model (e.g. RUNPOD_VISION_MODEL) needs no /models check, which on RunPod is another queued job.
+            vision_model = named
+        else:
+            health = check_lmstudio_health(lm_url, api_key=lm_key)
+            vision_model = select_best_lmstudio_model(health["models"], task="vision") if health.get("connected") and health.get("models") else ""
+        if vision_model:
             url = lm_url.rstrip("/") + "/chat/completions"
             payload = {
                 "model": vision_model,

@@ -1,7 +1,15 @@
 import json
 import re
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
+
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def probe_timeout(base_url: str) -> float:
+    """LM Studio on this PC answers at once, so fail fast when it is off; a cloud endpoint (RunPod) needs longer."""
+    return 0.8 if (urllib.parse.urlparse(base_url).hostname or "") in LOCAL_HOSTS else 5.0
 
 
 def check_lmstudio_health(base_url: str, api_key: str = "") -> Dict[str, Any]:
@@ -11,7 +19,7 @@ def check_lmstudio_health(base_url: str, api_key: str = "") -> Dict[str, Any]:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
-        with urllib.request.urlopen(req, timeout=0.8) as resp:
+        with urllib.request.urlopen(req, timeout=probe_timeout(base_url)) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             models = [m.get("id", "unknown") for m in data.get("data", [])]
             return {"connected": True, "url": base_url, "models": models}
@@ -69,12 +77,17 @@ def call_lmstudio_chat(
     timeout: float = 60.0,
     max_tokens: int = 600,
 ) -> Dict[str, Any]:
-    health = check_lmstudio_health(base_url, api_key=api_key)
-    if not health.get("connected"):
-        raise ConnectionError(health.get("error") or "LM Studio server unreachable")
-    active_model = select_best_lmstudio_model(
-        health.get("models", []), configured_model=model, task="text"
-    )
+    if model and model not in ("local-model", "auto"):
+        # A named model needs no discovery: send the question straight away. On RunPod every request is a queued
+        # job, so a /models check first would double the queue and can time out while the worker is busy.
+        active_model = model
+    else:
+        health = check_lmstudio_health(base_url, api_key=api_key)
+        if not health.get("connected"):
+            raise ConnectionError(health.get("error") or "LM Studio server unreachable")
+        active_model = select_best_lmstudio_model(
+            health.get("models", []), configured_model=model, task="text"
+        )
 
     url = base_url.rstrip("/") + "/chat/completions"
     payload = {
