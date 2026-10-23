@@ -35,9 +35,6 @@ class AppSettings(BaseSettings):
     runpod_vision_model: str = ""
 
     supabase_url: str = ""  # login is on when this is set
-    # Privacy guard: the WhatsApp copilot only reads chats from customers on the list.
-    # CUSTOMERS_ONLY=false is for demos: any chat that is analysed is added to the customer list.
-    customers_only: bool = True
     supabase_anon_key: str = ""
 
     @field_validator("runpod_base_url", "runpod_endpoint_id", "runpod_api_key", "runpod_model", "runpod_vision_model")

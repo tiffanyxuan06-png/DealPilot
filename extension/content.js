@@ -35,7 +35,6 @@ let knownCustomers = null; // customers from GET /api/state; null = not loaded (
 let knownDeals = []; // deals and reps from GET /api/state (for the follow-ups card and the deal line)
 let knownReps = [];
 let knownProducts = []; // the price list (sku, name, sellPrice) from GET /api/state; the offline guess prices only from this
-let customersOnly = true; // company.customersOnly from GET /api/state; false = demo mode, every chat is read
 let gateState = ""; // "not_customer" | "offline" while the panel shows a blocked contact
 let isAddingCustomer = false;
 
@@ -208,11 +207,6 @@ function updateAddCustomerBtn(title) {
 
 // Customers only: true (and the "Not a customer" / offline state is drawn) when this contact must not be analysed.
 function blockIfNotCustomer(title) {
-  // Demo mode (backend CUSTOMERS_ONLY=false): every chat is read; the backend adds the contact as a customer.
-  if (knownCustomers && !customersOnly) {
-    gateState = "";
-    return false;
-  }
   if (knownCustomers && !backendDenied.has(title) && isKnownCustomer(title)) {
     gateState = "";
     updateAddCustomerBtn(title);
@@ -1505,7 +1499,6 @@ async function refreshStateFromBackend() {
     knownDeals = Array.isArray(state && state.deals) ? state.deals : [];
     knownReps = Array.isArray(state && state.reps) ? state.reps : [];
     knownProducts = Array.isArray(state && state.products) ? state.products : [];
-    customersOnly = !(state && state.company && state.company.customersOnly === false);
     ok = true;
     renderSalesCard();
     if (lastAnalysis && !gateState) renderDealContext(lastAnalysis);   // the deal may have just changed
