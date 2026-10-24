@@ -96,7 +96,7 @@ def extract_items_from_image(image_base64: str, file_name: str = "order.jpg") ->
                 http_req = urllib.request.Request(
                     url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
                 )
-                with urllib.request.urlopen(http_req, timeout=15.0) as resp:
+                with urllib.request.urlopen(http_req, timeout=30.0) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
                     content = resp_data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     items = extract_json_from_llm(content)

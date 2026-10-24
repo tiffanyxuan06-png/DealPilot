@@ -644,7 +644,6 @@
               try { renderAgentInspector(); } catch(e){}
             }
           }
-          showToast(`🤖 Live reply generated via LM Studio (${data.model_used || 'qwen2.5-3b-instruct'}) in ${elapsedSec}s!`);
         } else {
           const errData = await res.json().catch(() => ({}));
           showToast(`⚠️ AI Service: ${errData.detail || 'Could not generate reply'}`);
