@@ -23,7 +23,7 @@
 | Live Demo         | https://deal-pilot.replit.app                  |
 | RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
 | Slide Deck        | [Canva](https://canva.link/hcyqxtvc61qz2xj) · [PDF](submission/SDC2026_bug+work=feature_SlideDeck.pdf) |
-| Demo Video        | [Link to Demo Video]                           |
+| Demo Video        | https://youtu.be/hQxgxu_mduc                           |
 
 ---
 
