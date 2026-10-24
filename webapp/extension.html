@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Get the extension · CashChase</title>
+  <style>
+    :root {
+      --navy: #042970; --blue: #0152FC; --text: #24324A; --muted: #5B6B85;
+      --line: #DCE4F2; --bg: #F4F7FD; --card: #FFFFFF; --code: #EEF3FC; --on-blue: #FFFFFF;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --navy: #C9D8FF; --blue: #7FA6FF; --text: #DCE3F0; --muted: #9AA8C0;
+        --line: #2A3754; --bg: #0E1626; --card: #152036; --code: #1D2A44; --on-blue: #0E1626;
+      }
+    }
+    a { color: var(--blue); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { color: var(--navy); font-size: 28px; line-height: 1.2; margin: 0 0 8px; }
+    h2 { color: var(--navy); font-size: 18px; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    .meta { color: var(--muted); font-size: 15px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-top: 20px; }
+    .btn { display: inline-block; background: var(--blue); color: var(--on-blue); text-decoration: none; font-weight: 600; padding: 12px 20px; border-radius: 10px; }
+    .btn:hover { filter: brightness(1.08); }
+    ol { margin: 0; padding-left: 22px; }
+    li { margin-bottom: 10px; }
+    code { background: var(--code); padding: 1px 6px; border-radius: 5px; font-size: 14px; }
+    .note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Closiq for WhatsApp Web</h1>
+  <p class="meta">The CashChase sales assistant beside your WhatsApp Web chats: it drafts replies, quotes from your price list and tracks follow-ups and commission.</p>
+
+  <div class="card">
+    <a class="btn" href="/download/closiq-extension.zip" download>Download the extension (.zip)</a>
+    <p class="note">For Google Chrome or Microsoft Edge on a computer. It is already set to use this server.</p>
+  </div>
+
+  <div class="card">
+    <h2>Install it (about 1 minute)</h2>
+    <ol>
+      <li>Unzip <code>closiq-extension.zip</code>. You get a folder called <code>closiq-extension</code>.</li>
+      <li>Open <code>chrome://extensions</code> (in Edge: <code>edge://extensions</code>) and turn on <strong>Developer mode</strong>.</li>
+      <li>Click <strong>Load unpacked</strong> and choose the <code>closiq-extension</code> folder.</li>
+      <li>Open <code>web.whatsapp.com</code> and sign in on the Closiq panel on the right.</li>
+    </ol>
+    <p class="note">Keep the folder after installing: Chrome loads the extension from it. To update, download again, replace the folder and click the reload icon on the extension in <code>chrome://extensions</code>.</p>
+  </div>
+
+  <p class="note" style="margin-top:20px;"><a href="/static/privacy.html">Privacy Notice</a></p>
+</main>
+</body>
+</html>
