@@ -439,16 +439,16 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/complet
 
 ## Submission Checklist
 
-- [ ] Team name, domain (Domain 2) and SDG track filled in
+- [x] Team name, domain (Domain 2) and SDG track filled in
 - [x] Slide deck link added
-- [ ] Demo video link added
-- [ ] Replit used, with proof of use in `submission/`
-- [ ] RunPod used, with proof of use in `submission/`
-- [ ] Preliminary submission completed (`SDC2026_bug+work=feature_Preliminary.pdf`)
-- [ ] Technology declaration completed (`SDC2026_bug+work=feature_TechDeclaration.pdf`)
+- [x] Demo video link added
+- [x] Replit used, with proof of use in `submission/`
+- [x] RunPod used, with proof of use in `submission/`
+- [x] Preliminary submission completed (`SDC2026_bug+work=feature_Preliminary.pdf`)
+- [x] Technology declaration completed (`SDC2026_bug+work=feature_TechDeclaration.pdf`)
 - [x] Submission files renamed with your team name (`bug+work=feature`)
-- [ ] "How to Run" steps verified
-- [ ] No API keys or secrets committed to the repository
+- [x] "How to Run" steps verified
+- [x] No API keys or secrets committed to the repository
 
 ## License
 
