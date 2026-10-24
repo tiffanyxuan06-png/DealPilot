@@ -22,7 +22,7 @@
 | GitHub Repository | https://github.com/tiffanyxuan06-png/DealPilot  |
 | Live Demo         | https://deal-pilot.replit.app                  |
 | RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
-| Slide Deck        | [Link to Slide Deck]                           |
+| Slide Deck        | https://canva.link/hcyqxtvc61qz2xj             |
 | Demo Video        | [Link to Demo Video]                           |
 
 ---
@@ -440,7 +440,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/complet
 ## Submission Checklist
 
 - [ ] Team name, domain (Domain 2) and SDG track filled in
-- [ ] Slide deck link added
+- [x] Slide deck link added
 - [ ] Demo video link added
 - [ ] Replit used, with proof of use in `submission/`
 - [ ] RunPod used, with proof of use in `submission/`
