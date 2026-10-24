@@ -1,6 +1,6 @@
-# CashChase — Old vs. New Plan: Team Briefing Guide
+# DealPilot — Old vs. New Plan: Team Briefing Guide
 
-Use this document to brief your teammates and get their feedback on why we simplified and refocused the old `.md` files into the new CashChase design.
+Use this document to brief your teammates and get their feedback on why we simplified and refocused the old `.md` files into the new DealPilot design.
 
 ---
 
@@ -21,7 +21,7 @@ When we reviewed the official **Domain 2 Rubric (`Copy of Domain 2 (1).pdf`)**, 
 
 ## 2. Side-by-Side Comparison: Old Plan vs. New Plan
 
-| Area | Old `.md` Plan (`old md/`) | New CashChase Plan (`docs/`) | Why the New Plan is Better |
+| Area | Old `.md` Plan (`old md/`) | New DealPilot Plan (`docs/`) | Why the New Plan is Better |
 |---|---|---|---|
 | **One-Sentence Pitch** | *"Collect · Care · Stock · Ledger — 4 agents checked by Guard for service jobs"* | **"WhatsApp Extension + 1-Page Stock & Invoice Hub that tracks Stock Holds, CashFlow, and Company Net Worth (`Cash + Stock`) in 1 click."** | Anyone can explain it back in 10 seconds. |
 | **Target User** | Admin + Owner + Service Technicians | **Owner + Sales/Admin Staff** at 3–20 person micro-SMEs (currently using WhatsApp + Excel). | Focused user persona; zero HR/technician overlap with Orbyte. |
@@ -53,7 +53,7 @@ When explaining the new flow to your team, walk through these **4 scenarios**:
    - Customer **calls on the phone** instead of WhatsApp → Type 1 sentence in the **Phone Call Quick Key-In bar** on the WebApp to create a Quote & Stock Hold immediately.
 4. **Flow 4 — Customer Complains About a Faulty Item (`Money-First Aftersales`):**
    - Customer messages on WhatsApp: *"1 bottle R32 leaking, I hold balance payment first."*
-   - CashChase **auto-pauses payment chasing** on that invoice (`Aftersales Paused`).
+   - DealPilot **auto-pauses payment chasing** on that invoice (`Aftersales Paused`).
    - Owner clicks **1 button** right on the invoice: either **`Replace -1 Stock`** (deducts 1 unit from Stock Count as warranty cost, updating Net Worth) OR **`Apply -RM Discount`**, then clicks **`Mark Resolved ✓`** to resume normal invoice status.
 
 ---

@@ -1,6 +1,6 @@
-# CashChase — Pitch, Selling Points & Judge Q&A Playbook
+# DealPilot — Pitch, Selling Points & Judge Q&A Playbook
 
-Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and **SME owners**. Everything here is aligned directly with the **Domain 2 Marking Rubric (`Copy of Domain 2 (1).pdf`)**.
+Use this playbook to pitch DealPilot to **hackathon judges**, **mentors**, and **SME owners**. Everything here is aligned directly with the **Domain 2 Marking Rubric (`Copy of Domain 2 (1).pdf`)**.
 
 ---
 
@@ -8,33 +8,33 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 
 > *"In Malaysia, 80% of micro and small businesses run their sales on WhatsApp and track their stock and invoices in messy spreadsheets. Accounting software like AutoCount is blind to WhatsApp chats, while WhatsApp chatbots are blind to warehouse stock and unpaid invoices.*
 >
-> *We built **CashChase for Orbyte**: a **WhatsApp Web Extension Sidebar** connected to an **All-in-One Stock & CashFlow Hub**. When a customer asks for stock on WhatsApp, CashChase checks live inventory, drafts the quote, and locks those units **On Hold for 48 hours**—only deducting physical stock once the deposit is confirmed. And when staff drop in a supplier bill or customer receipt, CashChase automatically updates **Company Net Worth (`Cash + Stock Value`)** in one click with zero manual data entry."*
+> *We built **DealPilot for Orbyte**: a **WhatsApp Web Extension Sidebar** connected to an **All-in-One Stock & CashFlow Hub**. When a customer asks for stock on WhatsApp, DealPilot checks live inventory, drafts the quote, and locks those units **On Hold for 48 hours**—only deducting physical stock once the deposit is confirmed. And when staff drop in a supplier bill or customer receipt, DealPilot automatically updates **Company Net Worth (`Cash + Stock Value`)** in one click with zero manual data entry."*
 
 ---
 
-## 2. How We Sell CashChase (The 4 Core Selling Points)
+## 2. How We Sell DealPilot (The 4 Core Selling Points)
 
 ### Selling Point #1: Solves "Ghost Quotes" vs. "Oversold Stock" Automatically
 - **The Pain:** When Customer A asks for 5 units on WhatsApp, staff send a quote. Ten minutes later, Customer B asks for the same item. Either the staff oversells stock they don't have, or they hold stock for Customer A who ghosts them for a week.
-- **How CashChase Solves It:** Clicking **Approve Quote** in our WhatsApp Extension puts those units **`On Hold for 48 hours`** without deducting physical stock.
+- **How DealPilot Solves It:** Clicking **Approve Quote** in our WhatsApp Extension puts those units **`On Hold for 48 hours`** without deducting physical stock.
   - If Customer A pays the deposit → Owner clicks **Confirm Deposit**, converting `On Hold` into **`Deducted Physical Stock`** and **`+Cash on Hand`**.
   - If Customer A ghosts for 48 hours → The stock hold **auto-releases** back to `Available Stock` so Customer B can buy!
 
 ### Selling Point #2: Zero-Friction for Sales & Admin (No Manual Data Entry)
 - **The Pain:** Admin and sales staff hate switching tabs and typing invoice rows into forms.
-- **How CashChase Solves It:**
+- **How DealPilot Solves It:**
   - **On WhatsApp Web:** Our Chrome Extension Sidebar lives right inside `web.whatsapp.com`. One click reads the chat, checks stock, holds inventory, and inserts the reply into the WhatsApp message box.
   - **On the WebApp:** Staff just drag-and-drop any **Supplier Stock Bill PDF** (`+Stock, -Cash`), **Operating Expense Bill** (`-Cash`), or **Customer Receipt** (`+Cash`)—or type a 1-line note when a customer calls on the phone.
 
 ### Selling Point #3: Money-First Aftersales Guardrail (Right on the Invoice)
 - **The Pain:** A customer texts in Manglish: *"Boss, 1 bottle R32 leaking la, I hold the RM 4,800 balance until you replace it."* In normal SMEs, nobody updates the spreadsheet, and an admin embarrassingly sends them a payment reminder the next day.
-- **How CashChase Solves It:** CashChase detects the complaint on WhatsApp, **automatically pauses payment reminders** on that invoice, and gives the Owner two 1-click resolutions right on the invoice row:
+- **How DealPilot Solves It:** DealPilot detects the complaint on WhatsApp, **automatically pauses payment reminders** on that invoice, and gives the Owner two 1-click resolutions right on the invoice row:
   1. **`Replace -1 Stock`** (deducts 1 unit from Physical Stock as warranty cost, keeping Company Net Worth accurate), OR
   2. **`Apply -RM Discount`** (reduces the invoice balance), followed by a 1-click **`Mark Resolved ✓`** button.
 
 ### Selling Point #4: Plain-English Live Company Net Worth (`Cash + Stock`)
 - **The Pain:** Micro-SME owners don't understand accounting Debit/Credit balance sheets. They wake up asking: *"How much Cash and Stock do I actually have today?"*
-- **How CashChase Solves It:** The Net Worth figures on our WebApp translates every WhatsApp order and uploaded bill into two crystal-clear numbers:
+- **How DealPilot Solves It:** The Net Worth figures on our WebApp translates every WhatsApp order and uploaded bill into two crystal-clear numbers:
   - **Core Net Worth** = `Cash on Hand + Physical Stock Value`
   - **Full Net Position** = `Core Net Worth + Pending Customer Invoices − Pending Supplier Bills`
 
@@ -43,21 +43,21 @@ Use this playbook to pitch CashChase to **hackathon judges**, **mentors**, and *
 ## 3. How We Answer the Tough Judge Questions
 
 ### Q1: "What if the SME already has accounting software, or what if they only use Excel?"
-> **Answer:** *"Our target market is the 3-to-20 person Malaysian micro-SME (contractors, spare-parts shops, small wholesalers) who currently use **WhatsApp + Excel** and hand a folder of bills to an external bookkeeper once a month. CashChase replaces their messy daily Excel sheet with zero setup, and gives them a **1-Click Monthly Excel Export (including LHDN Buyer TINs)** to hand straight to their bookkeeper or import into their accountant's software."*
+> **Answer:** *"Our target market is the 3-to-20 person Malaysian micro-SME (contractors, spare-parts shops, small wholesalers) who currently use **WhatsApp + Excel** and hand a folder of bills to an external bookkeeper once a month. DealPilot replaces their messy daily Excel sheet with zero setup, and gives them a **1-Click Monthly Excel Export (including LHDN Buyer TINs)** to hand straight to their bookkeeper or import into their accountant's software."*
 
 ### Q2: "How does a new SME set this up without spending days typing in their inventory?"
-> **Answer:** *"We built **60-Second Zero-Typing Onboarding**. When an SME enables CashChase inside Orbyte, they just drop their existing Excel stock list or their last 3 Supplier Invoices into the upload box, type 1 number for their starting bank balance, and AI auto-populates their Stock Catalogue (`SKU, Unit Cost, Selling Price, Opening Stock`)."*
+> **Answer:** *"We built **60-Second Zero-Typing Onboarding**. When an SME enables DealPilot inside Orbyte, they just drop their existing Excel stock list or their last 3 Supplier Invoices into the upload box, type 1 number for their starting bank balance, and AI auto-populates their Stock Catalogue (`SKU, Unit Cost, Selling Price, Opening Stock`)."*
 
 ### Q3: "How does this fit into Orbyte without duplicating Orbyte's existing features?"
-> **Answer:** *"Orbyte manages **internal HR and team operations** (`eLeave`, `eClaim`, `Attendance`). Orbyte does not have a customer-facing WhatsApp sales, stock-hold, and cashflow engine. CashChase plugs into Orbyte as the **Commercial & Stock Module**, reusing Orbyte's Role Permissions (`Owner` vs. `Sales/Admin`) and Immutable Activity Log."*
+> **Answer:** *"Orbyte manages **internal HR and team operations** (`eLeave`, `eClaim`, `Attendance`). Orbyte does not have a customer-facing WhatsApp sales, stock-hold, and cashflow engine. DealPilot plugs into Orbyte as the **Commercial & Stock Module**, reusing Orbyte's Role Permissions (`Owner` vs. `Sales/Admin`) and Immutable Activity Log."*
 
 ### Q4: "Where do you use AI vs. Rules, and how do people stay in control?"
 > **Answer:** *"We follow a strict rule: **AI reads and drafts; deterministic code does all the math; humans approve every action.** Our Local LLM (`Qwen3` via LM Studio on the laptop, with a built-in fallback when it is offline) only extracts structured JSON from messy Malay/Manglish WhatsApp chats and uploaded invoice PDFs. Deterministic TypeScript code calculates stock availability, 48-hour hold timers, and Company Net Worth. Nothing is ever sent or deducted without a human click—and high-impact actions like confirming payments or deducting warranty stock require the **Owner** role."*
 
-### Q5: "How would Orbyte monetize CashChase as a startup product?"
+### Q5: "How would Orbyte monetize DealPilot as a startup product?"
 > **Answer:**
 > - **Freemium (Included in Orbyte Core):** Stock & Net Worth Tracker WebApp + Manual Phone Order Key-In + 30 AI WhatsApp/Invoice scans per month.
-> - **CashChase Pro Module (RM 49 / month per SME):** Unlimited WhatsApp Extension Sidebar AI scans, Unlimited 1-Drop Invoice OCR Uploads, 48h Auto-Release Stock Holds, and 1-Click Bookkeeper/LHDN Excel Exports.
+> - **DealPilot Pro Module (RM 49 / month per SME):** Unlimited WhatsApp Extension Sidebar AI scans, Unlimited 1-Drop Invoice OCR Uploads, 48h Auto-Release Stock Holds, and 1-Click Bookkeeper/LHDN Excel Exports.
 
 ---
 

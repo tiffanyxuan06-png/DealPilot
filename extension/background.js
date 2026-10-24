@@ -1,5 +1,5 @@
 /**
- * CashChase Orbyte SME Copilot — Background Service Worker (Manifest V3)
+ * DealPilot Orbyte SME Copilot — Background Service Worker (Manifest V3)
  * Proxies API calls from https://web.whatsapp.com content script to
  * http://127.0.0.1:8000 and http://localhost:8000 without Mixed-Content,
  * Private Network Access (PNA), or WhatsApp Web CSP restrictions.
@@ -81,7 +81,7 @@ async function handleAuth(message) {
   }
   if (message.type === "CC_AUTH_LOGIN") {
     const config = await getAuthConfig(message.backend);
-    if (!config || !config.url) return { ok: false, error: "Cannot reach the CashChase backend." };
+    if (!config || !config.url) return { ok: false, error: "Cannot reach the DealPilot backend." };
     try {
       const session = await supabaseToken(config, "password", { email: message.email, password: message.password });
       await saveSession(session);

@@ -52,7 +52,7 @@ async function askCompanyAgent(questionText) {
   renderCompanyAgentMessages();
 
   // The backend answers every question: with the AI model when it is running, from the live data when it is not.
-  let text = '⚠️ Could not reach the CashChase backend. Start it with python run_server.py and ask again.';
+  let text = '⚠️ Could not reach the DealPilot backend. Start it with python run_server.py and ask again.';
   try {
     const res = await fetch(`${BACKEND_API_BASE}/api/agent/ask`, {
       method: 'POST',

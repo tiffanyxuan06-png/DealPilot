@@ -1,4 +1,4 @@
-# CashChase — Problems To Solve
+# DealPilot — Problems To Solve
 
 Checked against the code on `main` (FastAPI + SQLite backend, `webapp/`, `extension/`). Effort is a rough guess.
 Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team decision).
@@ -44,7 +44,7 @@ Status key: ⬜ open · ✅ fixed · ⚠️ partly fixed · ⏭️ skipped (team
 | 16 | No Owner approval for bills over RM 1,000. **Fixed:** mandatory threshold rule (Owner can change the amount) | `backend/services/permissions.py` | 30 min | ✅ |
 | 17 | 48h holds never really expire. **Fixed:** real expiry time per quote; expired quotes release their stock automatically (quote kept for follow-up, logged); live countdown; Owner sets the hold length; Owner-only demo clock (+24h / +48h) | `backend/database.py`, `backend/routes/team.py` | 1 h | ✅ |
 | 18 | No fake-receipt check. **Fixed:** payee ≠ company, reference already used, or amount ≠ balance → "Receipt needs checking", always sent to the Owner | `backend/services/permissions.py`, `/api/ocr/extract` | 1 h | ✅ |
-| 19 | AI replies not checked. **Fixed:** every RM amount in an AI reply must be one CashChase calculated, and pressure / threat wording is blocked; a failing reply is swapped for the code-built one and labelled "corrected by CashChase". Quote items and amount come from code | `backend/services/prompts.py` (`check_ai_replies`) | 1 h | ✅ |
+| 19 | AI replies not checked. **Fixed:** every RM amount in an AI reply must be one DealPilot calculated, and pressure / threat wording is blocked; a failing reply is swapped for the code-built one and labelled "corrected by DealPilot". Quote items and amount come from code | `backend/services/prompts.py` (`check_ai_replies`) | 1 h | ✅ |
 | 20 | Audit log can be edited / deleted. **Fixed:** SQLite triggers block UPDATE / DELETE | `audit_logs` | 20 min | ✅ |
 
 ## P2 — setup and config

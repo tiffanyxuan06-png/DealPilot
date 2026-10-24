@@ -113,9 +113,9 @@ function renderPipelineView() {
 
   // Update header text
   const navText = document.getElementById('nav-text-pipeline');
-  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My Day';
+  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My day';
   const navDeals = document.getElementById('nav-text-deals');
-  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals & Quotes';
+  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals';
 
   const badgePipeline = document.getElementById('badge-pipeline');
   if (badgePipeline) {
@@ -344,7 +344,7 @@ function renderStaffDay(st, deals, reps) {
         ? `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send follow-up</button>`
         : d && d.stage === 'INQUIRY'
           ? `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary">Send quote</button>`
-          : `<button onclick="switchPage('wa')" class="cc-btn ${d ? 'cc-btn-ghost' : 'cc-btn-primary'}"><svg aria-hidden="true"><use href="#i-chat"/></svg>Open chat</button>`;
+          : `<button onclick="openCustomerChat(${escapeHtmlText(JSON.stringify(it.name))})" class="cc-btn ${d ? 'cc-btn-ghost' : 'cc-btn-primary'}"><svg aria-hidden="true"><use href="#i-chat"/></svg>Open chat</button>`;
       return `
         <li class="next-up">
           <span class="next-up-n tabular-nums">${i + 1}</span>
@@ -381,17 +381,32 @@ function renderStaffDay(st, deals, reps) {
   }
 }
 
+// Opens WhatsApp Web (one reused tab, where the extension runs): the customer's chat when we have their number,
+// otherwise WhatsApp Web itself. Local numbers (012-...) are taken as Malaysian. Returns false when there is no number.
+function openWhatsAppChat(phone, text) {
+  const digits = (phone || '').split(' · ')[0].replace(/\D/g, '').replace(/^0/, '60');
+  window.open(digits ? `https://web.whatsapp.com/send?phone=${digits}${text ? '&text=' + encodeURIComponent(text) : ''}` : 'https://web.whatsapp.com/', 'dealpilot-whatsapp');
+  return !!digits;
+}
+
+// Open chat: the number comes from the customer's deal or customer record
+function openCustomerChat(name, text) {
+  const st = getState();
+  const key = (name || '').toLowerCase();
+  const rec = [...(st.deals || []), ...(st.customers || [])].find(r => (r.customer || r.name || '').toLowerCase() === key && r.phone);
+  if (!openWhatsAppChat(rec && rec.phone, text)) showToast(`Opened WhatsApp Web: search for ${name}. Save their number on the Customers page to open the chat directly.`);
+}
+
 // Send opens WhatsApp with the edited message. With an open deal it also counts as a follow-up (logged and the
 // timer resets); otherwise it is logged on its own.
 function sendReengage(i) {
   const a = (window.__reengage || [])[i];
   if (!a) return;
   const text = (document.getElementById(`reengage-msg-${i}`) || {}).value || a.suggestedMessage;
-  const digits = (a.phone || '').replace(/\D/g, '');
-  if (digits) window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  openWhatsAppChat(a.phone, text);
   hideReengage(a);
   if (a.dealId) {
-    sendFollowUpDeal(a.dealId);
+    logFollowUp(a.dealId);   // WhatsApp is already open with the rep's edited message
   } else {
     backendAction('/api/reengage', { customer: a.customer, action: 'SENT' }, `Re-engaged ${a.customer}.`);
   }
@@ -575,8 +590,16 @@ function sendQuoteDeal(dealId) {
   backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_QUOTE' }, `Quote #${dealId} sent to customer!`);
 }
 
+// Follow up: opens the customer's WhatsApp chat with a follow-up typed in (the rep presses send), and records it
+// so the timer resets.
 function sendFollowUpDeal(dealId) {
-  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_FOLLOW_UP' }, `Follow-up sent on #${dealId}!`);
+  const d = (getState().deals || []).find(x => x.id === dealId);
+  if (d) openCustomerChat(d.customer, `Hi ${d.customer}, just checking in on quotation #${d.id} (${RM(d.amount)}). Would you like to go ahead, or is there anything I can help with?`);
+  logFollowUp(dealId);
+}
+
+function logFollowUp(dealId) {
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_FOLLOW_UP' }, `Follow-up on #${dealId} opened in WhatsApp.`);
 }
 
 function markWonDeal(dealId) {

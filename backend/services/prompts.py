@@ -171,7 +171,7 @@ def build_company_agent_system_prompt(
     deal_lines: str,
     product_lines: str,
 ) -> str:
-    return f"""You are the CashChase sales assistant for {company_name}.
+    return f"""You are the DealPilot sales assistant for {company_name}.
 Answer the user's question concisely and accurately using ONLY the live sales data below.
 Commission figures are estimates; the Owner decides actual pay.
 
@@ -195,7 +195,7 @@ def _ensure_disclaimer(text: str) -> str:
     stripped = (text or "").strip()
     if not stripped:
         return f"({DISCLAIMER})"
-    if stripped.endswith("."):
+    if stripped.endswith((".", "?", "!")):   # no "proceed?." before the disclaimer
         return f"{stripped} ({DISCLAIMER})"
     return f"{stripped}. ({DISCLAIMER})"
 
@@ -349,32 +349,37 @@ def deterministic_fallback_analysis(
 
     # 2. Deposit / Payment / Bank-in Confirmation detection
     if any(k in msg_lower for k in ["bank in", "bank-in", "deposit", "duitnow", "receipt", "resit", "paid", "transfer", "ref", "bayar", "sudah bayar"]):
-        amt_match = re.search(r"rm\s*([\d,]+)", msg_lower)
-        claimed_amt = int(amt_match.group(1).replace(",", "")) if amt_match else 2000
-        ref_match = re.search(r"(dn-[\w-]+)", msg_lower)
-        ref_no = ref_match.group(1).upper() if ref_match else f"DN-{datetime.now().strftime('%Y%m%d')}-99281"
-        opt1 = f"Thanks {clean_cust}! Received RM {claimed_amt:,} deposit (Ref: {ref_no}). Your order is confirmed and scheduled for delivery!"
-        opt2 = f"Thanks Boss! Received your RM {claimed_amt:,} DuitNow deposit already. Arranging earliest dispatch for your team!"
-        opt3 = f"Terima kasih {clean_cust}! Deposit RM {claimed_amt:,} (Rujukan: {ref_no}) telah diterima. Pesanan anda sudah disahkan dan penghantaran akan diuruskan."
+        # Only what the customer wrote: "RM 920" as a whole word (not the "rm" in "confirm"), and a DN- reference.
+        # Nothing is made up when either is missing; the deal can still be marked won.
+        amt_match = re.search(r"\brm\s*(\d[\d,]*)", msg_lower)
+        claimed_amt = int(amt_match.group(1).replace(",", "")) if amt_match else None
+        ref_match = re.search(r"\b(dn-[\w-]+)", msg_lower)
+        ref_no = ref_match.group(1).upper() if ref_match else None
+        amt_txt = f"RM {claimed_amt:,} " if claimed_amt else ""
+        ref_txt = f" (Ref: {ref_no})" if ref_no else ""
+        opt1 = f"Thanks {clean_cust}! Received your {amt_txt}deposit{ref_txt}. Your order is confirmed and scheduled for delivery!"
+        opt2 = f"Thanks Boss! Received your {amt_txt}DuitNow deposit already. Arranging earliest dispatch for your team!"
+        opt3 = f"Terima kasih {clean_cust}! Deposit {amt_txt}{('(Rujukan: ' + ref_no + ') ') if ref_no else ''}telah diterima. Pesanan anda sudah disahkan dan penghantaran akan diuruskan."
+        claim_line = (f"💵 Claimed Amount: RM {claimed_amt:,}" if claimed_amt else "💵 No amount in the message") + (f" (Ref: {ref_no})" if ref_no else "")
         return {
             "intent": "CUSTOMER_CONFIRMED",
             "badge": "💰 Payment Received",
             "extTitle": "💰 Payment / Deposit Sent → Mark Deal Won",
-            "extCheck": f"💵 Claimed Amount: RM {claimed_amt:,} (Ref: {ref_no})\n✅ Action: Mark deal WON and record slip reference",
-            "extActionDesc": "Marks the deal as Won, records the deposit reference for the accountant, and inserts confirmation reply.",
+            "extCheck": f"{claim_line}\n✅ Action: Mark the deal won and send a thank you",
+            "extActionDesc": "Marks the deal as won and inserts a thank-you reply. A slip reference in the message is saved too.",
             "extDraft": opt1,
             "replyOptions": [
                 {"label": "✅ Option 1: Confirm Deposit & Schedule Delivery", "text": opt1},
                 {"label": "🚚 Option 2: Friendly Boss Style", "text": opt2},
                 {"label": "🇲🇾 Option 3: Bahasa Melayu (Pengesahan Deposit)", "text": opt3},
             ],
-            "extBtnLabel": "✅ Mark Won & Log Slip",
+            "extBtnLabel": "✅ Mark won & send thank you",
             "extActionType": "MARK_WON",
             "depositRef": ref_no,
             "depositAmount": claimed_amt,
             "sku": primary_item["sku"],
             "qty": 1,
-            "amount": claimed_amt,
+            "amount": claimed_amt or 0,
         }
 
     # 3. Follow-up Due detection
@@ -606,7 +611,7 @@ def reply_problem(text: str, allowed: set) -> Optional[str]:
             return f"pressure wording '{w}'"
     for v in _rm_values(text):
         if not any(abs(v - a) <= 1 for a in allowed):
-            return f"RM {v:,} is not an amount CashChase calculated"
+            return f"RM {v:,} is not an amount DealPilot calculated"
     return None
 
 
@@ -625,7 +630,7 @@ def check_ai_replies(merged: Dict[str, Any], fallback: Dict[str, Any], state: Di
             if problem:
                 replacement = fb_options[i] if i < len(fb_options) else {"label": opt.get("label", ""), "text": fallback.get("extDraft", "")}
                 fixed.append({"field": f"replyOptions[{i}]", "reason": problem})
-                opt = {**opt, "text": replacement.get("text", ""), "label": "✏️ " + str(opt.get("label", "")) + " (corrected by CashChase)"}
+                opt = {**opt, "text": replacement.get("text", ""), "label": "✏️ " + str(opt.get("label", "")) + " (corrected by DealPilot)"}
             new_options.append(opt)
         merged["replyOptions"] = new_options
     problem = reply_problem(merged.get("extDraft", ""), allowed)

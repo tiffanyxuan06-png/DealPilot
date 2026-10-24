@@ -1,4 +1,4 @@
-# CashChase for Orbyte — Master PRD (Redesigned v7.0)
+# DealPilot for Orbyte — Master PRD (Redesigned v7.0)
 
 **Event:** SDC Hackathon 2026 · Domain 2: Orbyte Smart SME Challenge ("Less Busywork, Better Business")  
 **Sponsor:** Alpha Red Solutions Sdn Bhd  
@@ -10,7 +10,7 @@
 
 ## 1. One-Sentence Pitch (Explain-It-Back Test)
 
-> **"Small businesses run sales on WhatsApp and track stock & invoices in messy spreadsheets. CashChase connects a WhatsApp Web Extension Sidebar to an All-in-One Stock & Invoice Hub—so SME staff can quote, hold stock, upload supplier/cost bills, handle aftersales replacements, and track live Company Net Worth (`Cash + Stock`) in one click with zero manual data entry."**
+> **"Small businesses run sales on WhatsApp and track stock & invoices in messy spreadsheets. DealPilot connects a WhatsApp Web Extension Sidebar to an All-in-One Stock & Invoice Hub—so SME staff can quote, hold stock, upload supplier/cost bills, handle aftersales replacements, and track live Company Net Worth (`Cash + Stock`) in one click with zero manual data entry."**
 
 ---
 
@@ -25,9 +25,9 @@ In 80% of micro and small businesses (air-cond contractors, spare-parts supplier
 
 ---
 
-## 3. What Makes CashChase Special (Our 3 Unfair Advantages)
+## 3. What Makes DealPilot Special (Our 3 Unfair Advantages)
 
-| Existing Market Tool | Why It Fails Micro-SMEs | What CashChase Does Differently |
+| Existing Market Tool | Why It Fails Micro-SMEs | What DealPilot Does Differently |
 |---|---|---|
 | **1. Spreadsheets + WhatsApp** | High manual friction; no live link between a WhatsApp quote and available warehouse stock. | **Chat-Triggered 48h Stock Hold & Auto-Release:** Quoting from the WhatsApp Extension locks stock **`On Hold for 48h`** without deducting physical stock. If unconfirmed after 48h, it **auto-releases** for other customers. Physical stock only deducts when the order & deposit are confirmed. |
 | **2. Accounting ERPs** *(AutoCount, SQL, Bukku)* | Built for accountants, not frontline sales; blind to WhatsApp chats; requires heavy setup and manual data entry. | **1-Drop Bill Upload & Live Company Net Worth (`Cash + Stock`):** Drop any Supplier Stock Bill, Cost Bill, or Customer Receipt into the single-page WebApp to update Stock Count and Net Worth automatically—plus a 1-click Monthly Excel export for their bookkeeper. |
@@ -37,7 +37,7 @@ In 80% of micro and small businesses (air-cond contractors, spare-parts supplier
 
 ## 4. The Core Automated Journey (Domain 2 Rubric Alignment)
 
-Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 rubric:
+Every flow in DealPilot follows the 5 mandatory steps required by the Domain 2 rubric:
 
 ```
 [1. Trigger] ──► [2. Connected Data] ──► [3. Decision Logic (AI + Rules)] ──► [4. Human Approval] ──► [5. Visible Outcome + Audit Log]
@@ -48,7 +48,7 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
    - Customer calls on the phone (staff types a 1-line note in the WebApp), **OR**
    - Staff drags & drops a Supplier Stock Invoice, Operating Expense Bill, or Payment Receipt PDF into the WebApp.
 2. **Connected Data:**
-   - CashChase pulls together **Customer Profile (including LHDN TIN status)** + **Live Stock Count (`Physical On Hand`, `On Hold`, `Available`)** + **CashFlow & Pending Invoices**.
+   - DealPilot pulls together **Customer Profile (including LHDN TIN status)** + **Live Stock Count (`Physical On Hand`, `On Hold`, `Available`)** + **CashFlow & Pending Invoices**.
 3. **Decision Logic (AI Proposes, Rules Decide):**
    - **AI (LM Studio local LLM, e.g. `qwen3-vl-4b-instruct`; RunPod planned, not yet wired in code):** Reads unstructured WhatsApp chats (English, Malay, Manglish) and OCRs uploaded PDF/image bills into a strict JSON schema.
    - **Deterministic Rules (Code):** Checks `Available = On Hand - On Hold`, calculates exact prices from the catalogue, sets the 48-hour hold expiry timer, enforces role limits, and computes **Company Net Worth**.
@@ -103,7 +103,7 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 3. Discounts and rebates are set by the Owner; Staff can only request them.
 4. Staff money-out above the approval threshold (default **RM 1,000**: bills, payments, paid restock) always needs approval.
 5. Receipts that fail checks (paid to someone other than the company, reference already used on another invoice, amount does not match the balance) always need the Owner. Worded "Receipt needs checking", never "fraud".
-8. AI replies are checked by code before they reach WhatsApp: every RM amount must be one CashChase calculated and threat wording is blocked; a failing reply is replaced by the code-built reply.
+8. AI replies are checked by code before they reach WhatsApp: every RM amount must be one DealPilot calculated and threat wording is blocked; a failing reply is replaced by the code-built reply.
 9. A quote holds stock for the Owner-set time (default 48h). When it runs out, the stock goes back to Available automatically; a late deposit only goes through if the units are still free.
 6. Stock can never be held beyond what is available; physical stock is only deducted on a confirmed deposit, sale or replacement.
 7. The activity log is append-only (database triggers block edits and deletes).
@@ -112,11 +112,11 @@ Every flow in CashChase follows the 5 mandatory steps required by the Domain 2 r
 
 ---
 
-## 6. How CashChase Fits Orbyte & Scales Across SMEs
+## 6. How DealPilot Fits Orbyte & Scales Across SMEs
 
-1. **Complements Orbyte Without Overlap:** Orbyte manages **internal HR & team workflows** (`eLeave`, `eClaim`, `Attendance`). CashChase adds the **external Commercial, Stock & CashFlow loop**, plugging into Orbyte's simulated Role Switcher, Approval Inbox, and Audit Log.
+1. **Complements Orbyte Without Overlap:** Orbyte manages **internal HR & team workflows** (`eLeave`, `eClaim`, `Attendance`). DealPilot adds the **external Commercial, Stock & CashFlow loop**, plugging into Orbyte's simulated Role Switcher, Approval Inbox, and Audit Log.
 2. **60-Second Zero-Typing Setup for Any SME:**
-   - Any SME (the repo ships 3 profiles: Air-cond contractor *Sejuk Jaya*, Software Studio *NexaByte IT*, Wholesale F&B *Kopi & Bakery*) sets up CashChase in 3 steps:
+   - Any SME (the repo ships 3 profiles: Air-cond contractor *Sejuk Jaya*, Software Studio *NexaByte IT*, Wholesale F&B *Kopi & Bakery*) sets up DealPilot in 3 steps:
      1. Pick an industry template **or** drop their existing `Stock_List.xlsx` / past 3 Supplier Invoices into the upload box (AI auto-builds their catalogue).
      2. Enter 1 number: **Starting Cash on Hand**.
      3. Set their **Quote Hold Timer** (default `48h`) and **Owner Approval Threshold** (default `RM 1,000`).

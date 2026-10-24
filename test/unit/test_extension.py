@@ -319,9 +319,9 @@ def test_ask_ai_and_enter_each_send_one_analyze(via):
 
 
 @pytest.mark.parametrize("title, name, phone", [
-    ("Mum", "Mum", ""),
-    ("Mum (Friend)", "Mum", ""),
-    ("Mum!", "Mum", ""),
+    ("Mum", "Mum", "60123456789"),  # a saved contact's title is a name: the number comes from the chat's message ids
+    ("Mum (Friend)", "Mum", "60123456789"),
+    ("Mum!", "Mum", "60123456789"),
     ("+60 19-888 7766", "+60 19-888 7766", "60198887766"),
 ])
 def test_add_as_customer_posts_once_then_analyses(title, name, phone):
@@ -397,11 +397,13 @@ def test_rescan_on_not_a_customer_rereads_the_list_without_analysing():
     result = out["result"]
     assert out["errors"] == []
     assert result["blocked"]["badge"] == "Not a customer"
-    assert paths(result["afterFirstRescan"]) == [("GET", STATE)]  # list read only: no analyze, no client memory
+    # list read, and Mum (added in the webapp without a number) gets the chat's number once; no analyze, no client memory
+    assert paths(result["afterFirstRescan"]) == [("GET", STATE), ("POST", CUSTOMERS)]
+    assert posts(result["afterFirstRescan"], CUSTOMERS)[0]["body"] == {"name": "Mum", "phone": "60123456789", "role": "OWNER"}
     assert result["idle"]["badge"] != "Not a customer"
     assert "photo" in result["idle"]["title"]  # newest message is a photo: offer Quote from photo, don't analyse the text
     assert result["banner"] == "block"  # the photo button is back now that Mum is a customer
-    assert paths(result["final"]) == [("GET", STATE), ("GET", "/api/client/memory?customer=Mum"), ("POST", ANALYZE), ("GET", STATE)]
+    assert paths(result["final"]) == [("GET", STATE), ("POST", CUSTOMERS), ("GET", "/api/client/memory?customer=Mum"), ("POST", ANALYZE), ("GET", STATE)]
 
 
 # ---- sales sidebar (docs/11 §5, docs/08 §1): no stock anywhere, follow-ups + commission, deal line, execute body
@@ -530,7 +532,7 @@ def test_offline_guess_for_casual_chat_has_no_quote_and_no_stock_wording():
     ({"extActionType": "SEND_COUNTER_OFFER", "discount": 300, "amount": 6350, "sku": "ACN-DAI-15", "qty": 5, "extraSku": "GAS-R32",
       "extraQty": 5, "quotePreview": {"items": [{"sku": "OLD", "qty": 9}]}},
      {"actionType": "SEND_COUNTER_OFFER", "dealId": "QT-1", "items": [{"sku": "ACN-DAI-15", "qty": 5}], "discount": 300}),
-    # slip reference box
+    # won: the slip reference and amount go along when the message has them
     ({"extActionType": "MARK_WON", "depositRef": "DN-123", "depositAmount": 2000},
      {"actionType": "MARK_WON", "dealId": "QT-1", "items": [{"sku": "ACN-DAI-15", "qty": 5}], "discount": 0,
       "depositRef": "DN-123", "depositAmount": 2000}),
@@ -649,24 +651,19 @@ def test_create_quote_items_fall_back_to_the_preview_then_the_analysis_sku_and_q
     assert sent[0]["body"]["actionType"] == "CREATE_QUOTE"
 
 
-def test_mark_won_waits_for_the_payment_check():
-    analysis = quote_analysis(extActionType="MARK_WON", depositRef="DN-20261023-55190", depositAmount=920)
-    out = run_scenario("sales_execute", state=STATE_STUB, unticked=1, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
+@pytest.mark.parametrize("extra", [
+    {"depositRef": "DN-20261023-55190", "depositAmount": 920},
+    {},  # no slip reference or amount in the message: still marked won, nothing made up
+])
+def test_mark_won_goes_straight_through_with_the_thank_you(extra):
+    analysis = quote_analysis(extActionType="MARK_WON", **extra)
+    out = run_scenario("sales_execute", state=STATE_STUB, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
     result = out["result"]
     assert out["errors"] == []
-    assert result["paymentShown"] is True
-    assert posts(result["sent"], EXECUTE) == [] and result["boxText"] == ""  # nothing recorded or inserted
-    assert "Tick the payment check first" in result["button"]
-    ticked = run_scenario("sales_execute", state=STATE_STUB, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
-    assert len(posts(ticked["result"]["sent"], EXECUTE)) == 1
-
-
-def test_mark_won_without_a_slip_reference_posts_nothing_and_says_so():
-    out = run_scenario("sales_execute", state=STATE_STUB, responses={
-        ANALYZE: quote_analysis(extActionType="MARK_WON"), EXECUTE: {"ok": True, "data": {"status": "ok"}}})
-    result = out["result"]
-    assert posts(result["sent"], EXECUTE) == []
-    assert "Add the slip reference first" in result["button"]
+    sent = posts(result["sent"], EXECUTE)
+    assert len(sent) == 1 and sent[0]["body"]["actionType"] == "MARK_WON"
+    assert sent[0]["body"].get("depositRef") == extra.get("depositRef")
+    assert result["boxText"]  # the thank-you reply went into WhatsApp
 
 
 # ---- re-review: the quantity must be a clear whole number, else no RM total (the rep Rescans)

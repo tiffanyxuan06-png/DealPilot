@@ -31,7 +31,7 @@ A **WhatsApp sales agent** for Malaysian SMEs. It quotes from the company's own 
 | Complaints | Polite reply + note on the customer + pause that customer's follow-ups until a rep clears it. |
 | Demo businesses | Aircond (main) and F&B. Software studio removed. |
 | Database | `backend/cashchase.db` is reset and reseeded (demo data only). |
-| Name | Rename this week if the team agrees, otherwise keep CashChase. |
+| Name | Rename this week if the team agrees, otherwise keep DealPilot. |
 
 ### Out of scope (parked) / 暂不做
 Accounting API · MCP server · direct Bukku sync · order-change deposit recalculation · customer tier pricing · repeat-order reminders · voice note → quote · festive greetings.
@@ -66,7 +66,7 @@ Accounting API · MCP server · direct Bukku sync · order-change deposit recalc
 
 - [ ] Tag the current demo so the old version is recoverable: `git tag v7-cash-stock-demo` on `main`.
 - [ ] Work on `reposition-sales-crm`; each person uses their own branch or worktree off it, then merges.
-- [ ] Decide the product name, or confirm we keep CashChase for the hackathon.
+- [ ] Decide the product name, or confirm we keep DealPilot for the hackathon.
 - [ ] Agree the state JSON shape in section 4.1 before anyone writes UI.
 
 ---

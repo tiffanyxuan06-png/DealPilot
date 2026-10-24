@@ -1,4 +1,4 @@
-# CashChase — 5-Day Phased Build Plan
+# DealPilot — 5-Day Phased Build Plan
 
 This roadmap breaks the entire build into **4 clean phases (~12–14 hours total work)** so you and your team can build, test, and polish without stress before the deadline.
 
@@ -55,7 +55,7 @@ Shared backend state so both the **WebApp** and the **WhatsApp Chrome Extension*
 
 ---
 
-## Phase 2: The CashChase WebApp (Hours 4–7) ✅
+## Phase 2: The DealPilot WebApp (Hours 4–7) ✅
 
 > The aircond profile loads from `GET /api/state` and every button calls its backend route (`webapp/js/state.js`: `syncFromBackend()`, `backendAction()`); the page re-checks the backend every 4 s, so actions taken in the WhatsApp extension appear in the WebApp. The same applies to whichever SME profile the Owner has loaded (Air-cond, Software Studio or F&B).
 

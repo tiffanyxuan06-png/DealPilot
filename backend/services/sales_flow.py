@@ -398,8 +398,8 @@ def next_best_action(
     elif stage == "AWAITING_PAYMENT":
         intent = "CUSTOMER_CONFIRMED"
         action_type = "MARK_WON"
-        btn_label = "✅ Verify Deposit & Mark Won"
-        coach_tip = "Customer sent payment confirmation. Check bank slip and mark deal as Won."
+        btn_label = "✅ Mark won & send thank you"
+        coach_tip = "Customer says they paid. Mark the deal won and thank them."
         chips = [
             {"id": "mark_won", "label": "✅ Mark Won"},
             {"id": "send_receipt", "label": "🧾 Acknowledge payment"},

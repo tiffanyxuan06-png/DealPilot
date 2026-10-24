@@ -18,7 +18,7 @@
 | **Category** | Cash, stock and invoice tool (close to light accounting) | Sales assistant / mini-CRM |
 | **Relationship to accounting software** | Replaces the daily Excel and does bookkeeping-like work (cash, payables, net worth) | Doesn't touch the books; only hands over a CSV |
 | **Main user** | Owner + Sales/Admin staff | Salesperson first, then the owner; the accountant only receives a file |
-| **Name** | CashChase | Rename this week if the team agrees (SalesKaki, QuoteBoss, Kejar), otherwise CashChase |
+| **Name** | DealPilot | Rename this week if the team agrees (SalesKaki, QuoteBoss, Kejar), otherwise DealPilot |
 | **Why it changed** | — | The mentor said accountants resist tools that touch their books; a sales tool avoids that |
 
 ## 2. Features / 功能

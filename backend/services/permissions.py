@@ -59,7 +59,7 @@ MANDATORY_RULES: List[str] = [
     "A price or discount below the margin floor always needs Owner approval for Staff, whatever the setting.",
     "Only the Owner can reassign customers and download the won-orders CSV.",
     "Only the Owner can cancel a won order. Cancelling it reverses that order's commission.",
-    "Every RM amount in an AI reply must be one CashChase calculated; quotes always say 'subject to stock availability'.",
+    "Every RM amount in an AI reply must be one DealPilot calculated; quotes always say 'subject to stock availability'.",
     "The activity log is append-only and records every action, request, decision and permission change.",
 ]
 

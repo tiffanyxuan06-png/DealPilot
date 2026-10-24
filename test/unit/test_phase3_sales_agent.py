@@ -201,3 +201,16 @@ def test_quote_picks_only_the_named_model(client):
     a = r["analysis"]
     assert a["amount"] == 3 * 980 + 2 * 150
     assert a["qty"] == 3
+
+
+def test_payment_message_marks_won_with_only_what_the_customer_wrote(client):
+    # "confirm," has "rm" in it: the amount is read only from a real "RM 920", and nothing is made up when it is missing
+    def analyse(message):
+        r = client.post("/api/whatsapp/analyze", json={**STAFF, "customer": "Wisma Perdana Sdn Bhd", "message": message, "strictAi": False})
+        assert r.status_code == 200
+        return r.json()["analysis"]
+    a = analyse("Ok boss confirm, deposit done. Ref: DN-20261023-55190 RM 920")
+    assert (a["intent"], a["extActionType"], a["depositRef"], a["depositAmount"]) == ("CUSTOMER_CONFIRMED", "MARK_WON", "DN-20261023-55190", 920)
+    bare = analyse("Boss already bank in the deposit")
+    assert bare["extActionType"] == "MARK_WON" and bare.get("depositRef") is None and bare.get("depositAmount") is None
+    assert "RM" not in bare["extDraft"]

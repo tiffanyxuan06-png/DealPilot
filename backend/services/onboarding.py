@@ -1,4 +1,4 @@
-"""60-second setup: read a business's own price list (.xlsx / .csv) and start CashChase with it.
+"""60-second setup: read a business's own price list (.xlsx / .csv) and start DealPilot with it.
 
 Column names are matched in code (no AI): SKU / item code, item name, unit cost, selling price.
 A quantity column is ignored: quotes are "subject to stock availability".

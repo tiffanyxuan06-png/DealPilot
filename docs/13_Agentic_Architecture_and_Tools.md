@@ -1,7 +1,7 @@
 # 13. WhatsApp Sales Sidekick: Practical Agentic Architecture & Tool Registry
 
 ## Executive Summary
-This document specifies the practical agentic architecture and tool registry for the CashChase WhatsApp Sales Sidekick.
+This document specifies the practical agentic architecture and tool registry for the DealPilot WhatsApp Sales Sidekick.
 
 > **Design Core:** *What can a salesperson do in WhatsApp in 10 seconds that currently takes 2 minutes, requires switching apps, or is easily forgotten?*
 
