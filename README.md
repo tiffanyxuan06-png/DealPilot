@@ -20,7 +20,7 @@
 | Resource          | Link                                           |
 | ----------------- | ---------------------------------------------- |
 | GitHub Repository | https://github.com/tiffanyxuan06-png/DealPilot  |
-| Live Demo         | https://dealpilot.replit.app                   |
+| Live Demo         | https://deal-pilot.replit.app                  |
 | RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
 | Slide Deck        | [Link to Slide Deck]                           |
 | Demo Video        | [Link to Demo Video]                           |

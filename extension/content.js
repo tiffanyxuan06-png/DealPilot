@@ -1352,7 +1352,7 @@ function applyWhatsAppLayoutResize(isCollapsed) {
 }
 
 // ============================================================================
-// CLOSIQ PANEL HELPERS (layout states, rating card, closed circle)
+// DEALPILOT PANEL HELPERS (layout states, rating card, closed circle)
 // ============================================================================
 // Brand images ship inside the extension (web_accessible_resources)
 function ccAsset(name) {
