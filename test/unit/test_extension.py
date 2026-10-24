@@ -112,6 +112,9 @@ def test_server_address_can_point_at_replit():
     assert r["refused"]["calls"] == 0 and r["refused"]["saved"] is None and "Replit address" in r["refused"]["msg"]
     assert r["accepted"] == {"input": "https://closiq-demo.replit.app", "saved": "https://closiq-demo.replit.app",
                              "msg": "Connected to closiq-demo.replit.app.", "allToReplit": True}
+    # The Privacy Notice link follows the server the sidebar uses.
+    assert r["privacyBefore"] == "http://127.0.0.1:8000/static/privacy.html"
+    assert r["privacyAfter"] == "https://closiq-demo.replit.app/static/privacy.html"
 
 
 def test_manifest_allows_replit_backends():

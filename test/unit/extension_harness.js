@@ -537,6 +537,7 @@ scenarios.server_address = async (env) => {
   const d = env.document;
   const input = d.getElementById("cc-server-input");
   const before = input.value;
+  const privacyBefore = d.getElementById("cc-privacy-link").href;
   const urls = () => env.network.filter((n) => n.message && n.message.url).map((n) => n.message.url);
   input.value = "http://evil.example.com:8000";
   env.network.length = 0;
@@ -549,7 +550,7 @@ scenarios.server_address = async (env) => {
     msg: d.getElementById("cc-server-msg").textContent,
     allToReplit: urls().length > 0 && urls().every((u) => u.startsWith("https://closiq-demo.replit.app/"))
   };
-  return { before, refused, accepted };
+  return { before, refused, accepted, privacyBefore, privacyAfter: d.getElementById("cc-privacy-link").href };
 };
 
 /** Login off: demo sign-in sets the role sent to the backend; sign-out shows the form again. */

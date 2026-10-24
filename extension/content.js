@@ -193,6 +193,8 @@ function showCcAuth(status) {
   loginBox.style.display = signedIn ? "none" : "block";
   const root = document.getElementById("cashchase-wa-ext-root");
   if (root) root.setAttribute("data-auth", signedIn ? "in" : "out");   // signed out: only the sign-in form shows
+  const privacy = document.getElementById("cc-privacy-link");
+  if (privacy) privacy.href = `${BACKEND_URL}/static/privacy.html`;   // served by whichever server the sidebar uses
   const sub = document.getElementById("cc-login-sub");
   if (sub) sub.textContent = ccLoginEnabled ? "Same email and password as the WebApp." : "Demo: pick an account below, or admin@cashchase.my / admin1234.";
   const demo = document.getElementById("cc-login-demo");
@@ -1583,6 +1585,7 @@ function createSidebar() {
         <div id="cc-login-error" role="alert" class="cc-error" style="display:none;"></div>
         <button id="cc-login-submit" type="submit" class="cc-big-btn">Sign in</button>
       </form>
+      <a id="cc-privacy-link" class="cc-state-text" href="#" target="_blank" rel="noopener">Privacy Notice</a>
     </div>
 
     <div class="cc-body">
