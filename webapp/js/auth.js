@@ -224,6 +224,8 @@ function enterApp(session, remember) {
     hideLoginScreen();
     screen.classList.remove('is-leaving');
     showToast(`Welcome back, ${session.name}.`);
+    // First thing after signing in: the step-by-step walkthrough (unless they turned it off)
+    if (typeof openHowItWorksTour === 'function') openHowItWorksTour({ auto: true });
   };
   if (reduce) return finish();
   screen.classList.add('is-leaving');
