@@ -404,11 +404,14 @@ def deterministic_fallback_analysis(
 
     # 4. Discount Request detection
     if any(k in msg_lower for k in ["discount", "diskaun", "cheaper", "murah", "kurang", "best price", "harga kawan", "offer", "potong"]):
+        # The product and quantity the customer named; never a made-up "2 units" of the first item on the list.
+        named = match_price_list_lines(msg_lower, products)
+        primary_item = named[0]["item"] if named else primary_item
+        qty = named[0]["qty"] if named else 1
         p_price = primary_item.get("sellPrice", primary_item.get("sell_price", 1000))
-        qty = 2
         total_rm = p_price * qty
         opt1 = f"Hi {clean_cust}! For {qty}x {primary_item['name']}, best price is RM {total_rm:,}. We can include free site delivery for you! ({DISCLAIMER})"
-        opt2 = f"Boss, our margins are very tight, but if you take 2 units today we can waive the delivery charges! Total RM {total_rm:,}."
+        opt2 = f"Boss, our margins are very tight, but we can waive the delivery charges for this order! Total RM {total_rm:,}."
         opt3 = f"Salam {clean_cust}, harga kami adalah harga kilang RM {total_rm:,} untuk {qty} unit. Kami boleh berikan penghantaran percuma ya."
         return {
             "intent": "DISCOUNT_REQUEST",

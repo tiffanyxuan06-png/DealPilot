@@ -132,3 +132,33 @@ def test_no_hallucinated_prices_in_replies(catalog_products):
         for m in matches:
             val = int(m.replace(",", ""))
             assert val in allowed_prices, f"Found unauthorized price RM {val} in reply: {r['text']}"
+
+
+# ---- signals in Malay and Manglish (each pattern once silently matched nothing: a literal backspace replaced \b)
+
+def test_sales_flow_source_has_no_control_characters():
+    import pathlib
+    import backend.services.sales_flow as sf
+    assert bytes([8]) not in pathlib.Path(sf.__file__).read_bytes()
+
+
+@pytest.mark.parametrize("message, signal", [
+    ("Nak dapat 30% diskaun boleh tak", "DISCOUNT_REQUEST"),
+    ("can give best price?", "DISCOUNT_REQUEST"),
+    ("tak nak lah, mahal sangat", "DECLINE"),
+    ("Dah bank in, ni slip", "PAYMENT_PROOF"),
+    ("Aircond bocor air", "COMPLAINT"),
+    ("TIN: C21884920000", "LHDN_TIN"),
+])
+def test_signals_are_detected(catalog_products, message, signal):
+    assert signal in build_deal_context("Ali", "", [], message, catalog_products).signals
+
+
+def test_boleh_tak_is_a_question_not_a_yes_or_a_no(catalog_products):
+    quote = {"sender": "ME", "text": "Quotation for 3x Daikin 1.5HP Inverter Unit is RM 3,450. Would you like to proceed?"}
+    ctx = build_deal_context("Ali", "", [quote], "Nak dapat 30% diskaun boleh tak", catalog_products,
+                             open_deal={"id": "QT-1", "stage": "QUOTED"})
+    assert ctx.signals == ["DISCOUNT_REQUEST"]
+    assert ctx.stage == "NEGOTIATING"  # not "awaiting payment" (a yes) and not "lost" (a no)
+    assert "AFFIRMATIVE" not in build_deal_context("Ali", "", [], "Boleh tak hantar esok", catalog_products).signals
+    assert "AFFIRMATIVE" in build_deal_context("Ali", "", [], "Ok boleh, proceed", catalog_products).signals

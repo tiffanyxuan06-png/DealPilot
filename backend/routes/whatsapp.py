@@ -236,7 +236,12 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
     )
 
     # Build deal context from complete chat history
-    recent_msgs = [{"sender": m.sender, "text": m.text} for m in (req.recent_messages or [])]
+    # The extension labels lines "You" / "Client (name)" with isMe; the WebApp uses "ME" / "Them". Normalise both,
+    # or the history is ignored and the quote the rep already sent is never seen.
+    recent_msgs = [
+        {"sender": "ME" if (m.is_me or m.sender.strip().lower() in ("me", "you")) else "Them", "text": m.text}
+        for m in (req.recent_messages or [])
+    ]
     deal_ctx = build_deal_context(
         customer=customer,
         phone=phone,
@@ -280,6 +285,22 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
         if deal_action.get("quotePreview"):
             fallback["amount"] = deal_action["quotePreview"]["total"]
             fallback["items"] = deal_action["quotePreview"]["items"]
+        if deal_action["stage"] == "NEGOTIATING":
+            # Talk about the quote this customer actually has (from the chat), not a stock example.
+            wants = deal_action.get("wants") or "this order"
+            total = (deal_action.get("quotePreview") or {}).get("total")
+            on = f"{wants} (RM {total:,})" if total else wants
+            fallback["extTitle"] = f"🤝 Discount request on {on}"
+            fallback["extCheck"] = (
+                f"🛡️ They want a lower price on {on}.\n"
+                "Offer a value-add (free piping or delivery) instead of cutting the unit price. "
+                "A discount below the margin floor needs the Owner's approval."
+            )
+            disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
+            fallback["replyOptions"] = [
+                {**o, "text": o["text"] if "Subject to stock" in o["text"] else o["text"] + disclaimer_str} for o in sales_replies
+            ]
+            fallback["extDraft"] = fallback["replyOptions"][0]["text"]
 
     elif deal_action["actionType"] == "OFFER_QUOTE":
         fallback["intent"] = "BUYING_INQUIRY"

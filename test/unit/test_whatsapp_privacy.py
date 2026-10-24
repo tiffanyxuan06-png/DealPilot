@@ -288,3 +288,20 @@ def test_memory_lookup_only_rates_registered_customers(client, ai):
     assert stranger["intent"] == "NOT_A_CUSTOMER" and stranger["clientMemory"]["tier"] == "NEW_CLIENT"
     real = client.get("/api/client/memory", params={"customer": TAN_PHONE, "phone": "60123456789"}).json()
     assert real["tier"] == memory_row(TAN)[0] and real["customer"] == TAN
+
+
+def test_discount_request_uses_the_quote_in_the_extension_chat(client):
+    """The extension labels lines "You" / "Client (name)"; the history must still count, so a discount request
+    talks about the 3 units the rep quoted, not a made-up 2 units of the first product."""
+    quote = "Hi Tan Bros! Quotation for 3x Daikin 1.5HP Inverter Unit is RM 3,450 in total. Would you like to proceed?"
+    who = "Client (Tan Bros Trading)"
+    a = client.post("/api/whatsapp/analyze", json={
+        "role": "STAFF", "customer": "Tan Bros Trading", "message": "Nak dapat 30% diskaun boleh tak",
+        "recentMessages": [
+            {"sender": who, "text": "Hello bos nak 3 aircond daikin 1.5hp", "isMe": False},
+            {"sender": "You", "text": quote, "isMe": True},
+            {"sender": who, "text": "Nak dapat 30% diskaun boleh tak", "isMe": False},
+        ]}).json()["analysis"]
+    assert a["intent"] == "DISCOUNT_REQUEST" and a["stage"] == "NEGOTIATING"
+    assert [(i["qty"], i["sku"]) for i in a["items"]] == [(3, "ACN-DAI-15")]
+    assert "3x Daikin 1.5HP" in a["extCheck"] and "2x" not in a["extDraft"]

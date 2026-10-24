@@ -32,32 +32,38 @@ EXPLICIT_QUOTE_RE = re.compile(
     re.IGNORECASE
 )
 
+# "boleh tak?", "ok tak", "dapat tak", "can or not": a yes/no question in Malay and Manglish, neither a yes nor a no
+QUESTION_TAG_RE = re.compile(
+    r"\b(?:boleh|bole|ok|okay|nak|ada|dapat|mahu|can|bagi|jadi)\s+(?:tak|x|ke)\b|\bcan\s+or\s+not\b",
+    re.IGNORECASE
+)
+
 # Decline must use strict word boundary so 'tak' doesn't match 'take'
-DECLINE_WORDS = ["no", "tak", "tak nak", "cancel", "mahal sangat", "dont want", "tak jadi", "batal", "not interested"]
+DECLINE_WORDS =["no", "tak", "tak nak", "cancel", "mahal sangat", "dont want", "tak jadi", "batal", "not interested"]
 DECLINE_RE = re.compile(
-    r"(?:" + "|".join(re.escape(w) for w in DECLINE_WORDS) + r")",
+    r"\b(?:" + "|".join(re.escape(w) for w in DECLINE_WORDS) + r")\b",
     re.IGNORECASE
 )
 
 DISCOUNT_RE = re.compile(
-    r"(discount|diskaun|murah\s*sikit|best\s*price|cheaper|less|kurang|potong|nego|kurangkan)",
+    r"\b(discount|diskaun|murah\s*sikit|best\s*price|cheaper|less|kurang|potong|nego|kurangkan)\b",
     re.IGNORECASE
 )
 
 PAYMENT_RE = re.compile(
-    r"(bank\s*in|bank-in|transferred|transfer|dah\s*bayar|dah\s*transfer|resit|receipt|slip|duitnow|paid|settle)",
+    r"\b(bank\s*in|bank-in|transferred|transfer|dah\s*bayar|dah\s*transfer|resit|receipt|slip|duitnow|paid|settle)\b",
     re.IGNORECASE
 )
 
 COMPLAINT_RE = re.compile(
-    r"(rosak|bocor|leaking|not\s*cold|tak\s*sejuk|bising|noise|complaint|komplain|marah|problem|issue|masalah|pecah)",
+    r"\b(rosak|bocor|leaking|not\s*cold|tak\s*sejuk|bising|noise|complaint|komplain|marah|problem|issue|masalah|pecah)\b",
     re.IGNORECASE
 )
 
-TIN_RE = re.compile(r"(TIN[:\s]+[A-Z0-9]+|SSM[:\s]+[A-Z0-9\-]+|C\d{10})", re.IGNORECASE)
+TIN_RE = re.compile(r"\b(TIN[:\s]+[A-Z0-9]+|SSM[:\s]+[A-Z0-9\-]+|C\d{10})\b", re.IGNORECASE)
 
 COMPARE_RE = re.compile(
-    r"(compare|versus|vs|mana\s*lagi\s*(?:elok|bagus)|which\s*is\s*better|difference|beza|apa\s*beza)",
+    r"\b(compare|versus|vs|mana\s*lagi\s*(?:elok|bagus)|which\s*is\s*better|difference|beza|apa\s*beza)\b",
     re.IGNORECASE
 )
 
@@ -145,15 +151,16 @@ def build_deal_context(
 
     # Detect signals in latest customer message
     signals = []
-    if AFFIRMATIVE_RE.search(latest_msg):
+    # A question ("boleh tak?") or a discount request is neither a yes nor a no to the quote.
+    question_tag = bool(QUESTION_TAG_RE.search(latest_msg))
+    discount = bool(DISCOUNT_RE.search(latest_msg))
+    if AFFIRMATIVE_RE.search(latest_msg) and not question_tag and not discount:
         signals.append("AFFIRMATIVE")
     if EXPLICIT_QUOTE_REQUEST := EXPLICIT_QUOTE_RE.search(latest_msg):
         signals.append("EXPLICIT_QUOTE_REQUEST")
-    if DECLINE_RE.search(latest_msg):
-        # Ensure decline isn't triggered if sentence is asking a positive question
-        if not latest_msg.endswith("?"):
-            signals.append("DECLINE")
-    if DISCOUNT_RE.search(latest_msg):
+    if DECLINE_RE.search(latest_msg) and not latest_msg.endswith("?") and not question_tag and not discount:
+        signals.append("DECLINE")
+    if discount:
         signals.append("DISCOUNT_REQUEST")
     if PAYMENT_RE.search(latest_msg):
         signals.append("PAYMENT_PROOF")
@@ -165,7 +172,7 @@ def build_deal_context(
         signals.append("COMPARING")
 
     # Detect installation
-    install_needed = bool(re.search(r"(install|pasang|siap\s*pasang|installation)", full_chat_text, re.I))
+    install_needed = bool(re.search(r"\b(install|pasang|siap\s*pasang|installation)\b", full_chat_text, re.I))
     if install_needed:
         signals.append("INSTALL_MENTIONED")
 
