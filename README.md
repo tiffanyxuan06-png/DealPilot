@@ -189,19 +189,24 @@ Every interaction in DealPilot strictly fulfills the 5-phase automated journey r
 │       ├── sales_flow.py                          # Multi-step sales qualification flow
 │       └── vision.py                              # Receipt & invoice OCR verification engine
 ├── docs/                                          # Architecture specifications, PRDs & user flow guides
+│   └── dealpilot_architecture.png                 # System block diagram
 ├── extension/                                     # DealPilot WhatsApp Web Chrome Extension (MV3)
 │   ├── manifest.json                              # Chrome Extension Manifest V3 configuration
 │   ├── content.js                                 # In-page DOM observer, message scraper & sidebar UI
 │   ├── sidebar.css                                # Extension styling, theme tokens & responsive layout
 │   ├── background.js                              # Service worker handling cross-origin requests
 │   └── img/                                       # Extension logo, avatars & mascot assets
+├── runpod/                                        # RunPod serverless worker (GPU workload)
+│   ├── handler.py                                 # Qwen3-VL-8B-Instruct on vLLM, OpenAI-compatible routes
+│   ├── requirements.txt                           # Worker dependencies (runpod, vllm)
+│   └── Dockerfile                                 # Worker image for RunPod Serverless
 ├── submission/                                    # Required SDC Hackathon 2026 submission documents
 │   ├── SDC2026_bug+work=feature_Preliminary.pdf           # Preliminary submission form
 │   ├── SDC2026_bug+work=feature_TechDeclaration.pdf       # Technology declaration
 │   ├── SDC2026_bug+work=feature_Replit_POU.pdf            # Replit proof of use
 │   └── SDC2026_bug+work=feature_Runpod_POU.pdf            # RunPod proof of use
 ├── test/                                          # Automated testing suite
-│   ├── unit/                                      # Pytest unit tests (272 test suites)
+│   ├── unit/                                      # Pytest unit tests (278 tests)
 │   │   ├── test_deals.py                          # Deal transitions & pipeline state machine
 │   │   ├── test_extension.py                      # Extension mock DOM & harness tests
 │   │   ├── test_permissions.py                    # RBAC Owner/Staff permission checks
@@ -233,6 +238,8 @@ Every interaction in DealPilot strictly fulfills the 5-phase automated journey r
 ```
 
 ### Architecture
+
+![DealPilot system block diagram](docs/dealpilot_architecture.png)
 
 ```
                                   ┌────────────────────────────────────────────────────────┐
@@ -333,7 +340,7 @@ Execute the automated test suite with pytest:
 pip install -r requirements-dev.txt
 python -m pytest test/unit -q
 ```
-> **Test Suite Highlights:** All 272 automated unit tests run against an isolated SQLite memory database with full isolation from production data. LM Studio and RunPod calls are cleanly mocked to allow offline CI/CD execution without latency or token usage.
+> **Test Suite Highlights:** All 278 automated unit tests run against an isolated SQLite memory database with full isolation from production data. LM Studio and RunPod calls are cleanly mocked to allow offline CI/CD execution without latency or token usage.
 
 ---
 
@@ -353,8 +360,22 @@ python -m pytest test/unit -q
 - **Fast Multilingual Parsing:** Frontline chats in Malaysia blend English, Malay, and Chinese dialects ("Manglish"). RunPod GPU acceleration enables sub-second extraction of customer intent, product quantities, and delivery constraints.
 - **Backend Architecture Integration:** All RunPod communications are routed securely through `backend/services/ai_provider.py` and `backend/services/lmstudio.py` using standard OpenAI-compatible endpoints (`/v1/chat/completions`).
 - **Cold-Start Resilience:** If the RunPod endpoint is cold-starting or temporarily unreachable, DealPilot's built-in **Deterministic Fallback Engine** seamlessly serves structured rules-based replies, ensuring zero failure during live sales conversations.
+- **Worker (`runpod/handler.py`):** our serverless worker loads `Qwen/Qwen3-VL-8B-Instruct` with vLLM and answers RunPod's OpenAI-compatible routes (`/v1/chat/completions`, `/v1/models`), so the backend calls it without any change. It also accepts a plain job: `{"input": {"prompt": "..."}}` on `/runsync`. The handler is covered by `test/unit/test_runpod_handler.py` (fake model, no GPU needed).
 
-Example Request:
+Deploy the worker:
+1. Build and push the image: `docker build -t <dockerhub-user>/dealpilot-runpod:latest runpod/` then `docker push <dockerhub-user>/dealpilot-runpod:latest` (or connect this GitHub repo in RunPod and point it at `runpod/Dockerfile`).
+2. In RunPod → **Serverless → New Endpoint**, use that image on a 24 GB+ GPU and set `MODEL_NAME=Qwen/Qwen3-VL-8B-Instruct` (optional: `MAX_MODEL_LEN`, `GPU_MEMORY_UTILIZATION`).
+3. Put the endpoint ID and API key in Replit Secrets as `RUNPOD_ENDPOINT_ID` and `RUNPOD_API_KEY`, and set `AI_PROVIDER=runpod`.
+
+Plain job example:
+```bash
+curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/runsync \
+  -H "Authorization: Bearer $RUNPOD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input": {"prompt": "Boss, 3 unit Daikin 1.5HP how much?"}}'
+```
+
+Example Request (OpenAI-compatible, as the backend sends it):
 ```bash
 curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/completions \
   -H "Authorization: Bearer $RUNPOD_API_KEY" \
