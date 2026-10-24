@@ -281,7 +281,7 @@ function loadContent(opts = {}) {
   };
 
   const sandbox = {
-    document, Event, InputEvent, KeyboardEvent, MouseEvent, console,
+    document, Event, InputEvent, KeyboardEvent, MouseEvent, console, URL,
     localStorage: {
       getItem: (k) => (k in store ? store[k] : null),
       setItem: (k, v) => { store[k] = String(v); },
@@ -529,6 +529,27 @@ scenarios.price_list_quote_stranger = async (env) => {
   env.network.length = 0;
   await env.click("cc-pl-create");
   return { msg: d.getElementById("cc-pl-msg").textContent, network: env.network.length };
+};
+
+/** The server field: a Replit address is saved and every later call goes there; a host the extension can't reach is refused. */
+scenarios.server_address = async (env) => {
+  await env.bootSidebar();
+  const d = env.document;
+  const input = d.getElementById("cc-server-input");
+  const before = input.value;
+  const urls = () => env.network.filter((n) => n.message && n.message.url).map((n) => n.message.url);
+  input.value = "http://evil.example.com:8000";
+  env.network.length = 0;
+  await env.click("cc-server-save");
+  const refused = { msg: d.getElementById("cc-server-msg").textContent, calls: urls().length, saved: env.ctx.localStorage.getItem("cashchase_backend") };
+  input.value = "https://closiq-demo.replit.app/docs";
+  await env.click("cc-server-save");
+  const accepted = {
+    input: input.value, saved: env.ctx.localStorage.getItem("cashchase_backend"),
+    msg: d.getElementById("cc-server-msg").textContent,
+    allToReplit: urls().length > 0 && urls().every((u) => u.startsWith("https://closiq-demo.replit.app/"))
+  };
+  return { before, refused, accepted };
 };
 
 /** Login off: demo sign-in sets the role sent to the backend; sign-out shows the form again. */

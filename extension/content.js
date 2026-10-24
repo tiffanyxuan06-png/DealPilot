@@ -5,7 +5,55 @@
  * ultra-clean 1-Page Copilot (Zero tab/menu bloat, Cross-Chat Client Memory, Auto PDF/Receipt OCR).
  */
 
-const BACKEND_URL = "http://127.0.0.1:8000";
+// The backend this sidebar talks to: this computer by default, or a Replit address set on the sign-in screen.
+const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
+let BACKEND_URL = (() => {
+  try {
+    return localStorage.getItem("cashchase_backend") || DEFAULT_BACKEND_URL;
+  } catch (e) {
+    return DEFAULT_BACKEND_URL;
+  }
+})();
+
+// Only hosts the manifest lets the extension reach: this computer, or Replit (https). Returns "" if not allowed.
+function normalizeBackendUrl(value) {
+  let url;
+  try {
+    url = new URL(String(value || "").trim());
+  } catch (e) {
+    return "";
+  }
+  const local = ["localhost", "127.0.0.1"].includes(url.hostname);
+  const replit = url.protocol === "https:" && /\.(replit\.app|replit\.dev|repl\.co)$/.test(url.hostname);
+  if (!(local && url.protocol === "http:") && !replit) return "";
+  return url.origin;
+}
+
+async function connectBackend() {
+  const input = document.getElementById("cc-server-input");
+  const msg = document.getElementById("cc-server-msg");
+  const url = normalizeBackendUrl(input.value);
+  if (!url) {
+    msg.textContent = "Use this computer (http://127.0.0.1:8000) or a Replit address (https://….replit.app).";
+    return;
+  }
+  BACKEND_URL = url;
+  input.value = url;
+  try {
+    localStorage.setItem("cashchase_backend", url);
+  } catch (e) {
+    // storage blocked: this address lasts until the page reloads
+  }
+  msg.textContent = "Connecting…";
+  try {
+    await ccApiRequest("/api/auth/config", "GET");
+    msg.textContent = `Connected to ${new URL(url).host}.`;
+  } catch (e) {
+    msg.textContent = `Can't reach ${new URL(url).host}. Is the server running?`;
+  }
+  await refreshCcAuth();
+  refreshStateFromBackend();
+}
 
 // Who is using the sidebar. The backend enforces what this role may do (Settings → Team & Permissions).
 function getCcRole() {
@@ -1516,6 +1564,12 @@ function createSidebar() {
     <!-- Sign in (Supabase accounts with login on, demo accounts with login off) -->
     <div id="cc-login" class="cc-state" style="display:none;">
       <div class="cc-state-title">Sign in</div>
+      <label for="cc-server-input" class="cc-field-label">Server</label>
+      <div class="cc-demo-row">
+        <input id="cc-server-input" class="cc-input" type="url" placeholder="http://127.0.0.1:8000 or https://….replit.app" />
+        <button type="button" id="cc-server-save" class="cc-ghost-btn">Connect</button>
+      </div>
+      <div id="cc-server-msg" class="cc-state-text"></div>
       <div id="cc-login-sub" class="cc-state-text">Same login as the web app.</div>
       <div id="cc-login-demo" class="cc-demo-row" style="display:none;">
         <button type="button" id="cc-demo-owner" class="cc-ghost-btn">Owner (Hafiz)</button>
@@ -1677,6 +1731,8 @@ function createSidebar() {
   document.getElementById("cc-pl-search").addEventListener("input", renderPriceList);
   document.getElementById("cc-pl-create").addEventListener("click", createPriceListQuote);
   document.getElementById("cc-pl-pdf").addEventListener("click", downloadQuotePdf);
+  document.getElementById("cc-server-input").value = BACKEND_URL;
+  document.getElementById("cc-server-save").addEventListener("click", connectBackend);
   document.getElementById("cc-demo-owner").addEventListener("click", () => ccDemoLogin("hafiz@sejukjaya.my"));
   document.getElementById("cc-demo-staff").addEventListener("click", () => ccDemoLogin("aina@sejukjaya.my"));
   document.getElementById("cc-login-form").addEventListener("submit", submitCcLogin);

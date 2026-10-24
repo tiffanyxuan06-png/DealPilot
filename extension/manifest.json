@@ -12,6 +12,11 @@
     "http://127.0.0.1:8000/*",
     "http://localhost:1234/*",
     "http://127.0.0.1:1234/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*.replit.app/*",
+    "https://*.replit.dev/*",
+    "https://*.repl.co/*",
     "https://web.whatsapp.com/*",
     "https://*.supabase.co/*"
   ],

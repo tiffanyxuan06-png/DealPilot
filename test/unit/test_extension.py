@@ -103,6 +103,22 @@ def test_sidebar_builds_and_lists_its_boot_network_calls():
     assert boot_calls(result["bootNetwork"]) == [("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]
 
 
+def test_server_address_can_point_at_replit():
+    """The sidebar can talk to a Replit backend; hosts the manifest doesn't allow are refused before any call."""
+    out = run_scenario("server_address")
+    r = out["result"]
+    assert out["errors"] == []
+    assert r["before"] == "http://127.0.0.1:8000"
+    assert r["refused"]["calls"] == 0 and r["refused"]["saved"] is None and "Replit address" in r["refused"]["msg"]
+    assert r["accepted"] == {"input": "https://closiq-demo.replit.app", "saved": "https://closiq-demo.replit.app",
+                             "msg": "Connected to closiq-demo.replit.app.", "allToReplit": True}
+
+
+def test_manifest_allows_replit_backends():
+    hosts = json.loads((ROOT / "extension" / "manifest.json").read_text(encoding="utf-8"))["host_permissions"]
+    assert {"https://*.replit.app/*", "https://*.replit.dev/*", "http://127.0.0.1:8000/*"} <= set(hosts)
+
+
 def test_demo_login_when_login_is_off():
     """Same demo accounts as the WebApp: the account's role is what the backend gets; admin needs its password."""
     out = run_scenario("demo_login")
