@@ -1,5 +1,5 @@
 @echo off
-title CashChase Test Suite (LM Studio + WhatsApp + Stock Hold Flow)
+title DealPilot Test Suite (Fast Rules + WhatsApp Copilot + Stock Hold Flow)
 cd /d "%~dp0"
 
 echo ============================================================================
@@ -12,7 +12,7 @@ python -m pytest -q
 
 echo.
 echo ============================================================================
-echo   RUNNING CASHCHASE END-TO-END FLOW ^& LM STUDIO TEST SUITE (/test)
+echo   RUNNING DEALPILOT END-TO-END FLOW & LM STUDIO TEST SUITE (/test)
 echo ============================================================================
 echo.
 

@@ -27,6 +27,8 @@ venv.bak/
 *.db-shm
 *.sqlite
 *.sqlite3
+*.bak
+*.db.bak*
 backend/cashchase.db
 
 # IDE & Code Editors

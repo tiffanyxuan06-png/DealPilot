@@ -1,5 +1,5 @@
 """
-CashChase Backend & Live WebApp Launcher
+DealPilot Backend & Live WebApp Launcher
 ========================================
 Starts the FastAPI server (database from DATABASE_URL, AI via LM Studio or RunPod) on http://localhost:8000
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     env = get_settings()
     port, lm_url = env.port, env.lmstudio_url
     print("=" * 72)
-    print(f"🚀 Starting CashChase Smart SME Server on http://localhost:{port}")
+    print(f"🚀 Starting DealPilot Smart SME Server on http://localhost:{port}")
     print(f"   - Live Website UI      : http://localhost:{port}/")
     print(f"   - Interactive API Docs : http://localhost:{port}/docs")
     print(f"   - LM Studio Bridge URL : {lm_url}")
