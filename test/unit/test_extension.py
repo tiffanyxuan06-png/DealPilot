@@ -319,9 +319,9 @@ def test_ask_ai_and_enter_each_send_one_analyze(via):
 
 
 @pytest.mark.parametrize("title, name, phone", [
-    ("Mum", "Mum", ""),
-    ("Mum (Friend)", "Mum", ""),
-    ("Mum!", "Mum", ""),
+    ("Mum", "Mum", "60123456789"),  # a saved contact's title is a name: the number comes from the chat's message ids
+    ("Mum (Friend)", "Mum", "60123456789"),
+    ("Mum!", "Mum", "60123456789"),
     ("+60 19-888 7766", "+60 19-888 7766", "60198887766"),
 ])
 def test_add_as_customer_posts_once_then_analyses(title, name, phone):
@@ -397,11 +397,13 @@ def test_rescan_on_not_a_customer_rereads_the_list_without_analysing():
     result = out["result"]
     assert out["errors"] == []
     assert result["blocked"]["badge"] == "Not a customer"
-    assert paths(result["afterFirstRescan"]) == [("GET", STATE)]  # list read only: no analyze, no client memory
+    # list read, and Mum (added in the webapp without a number) gets the chat's number once; no analyze, no client memory
+    assert paths(result["afterFirstRescan"]) == [("GET", STATE), ("POST", CUSTOMERS)]
+    assert posts(result["afterFirstRescan"], CUSTOMERS)[0]["body"] == {"name": "Mum", "phone": "60123456789", "role": "OWNER"}
     assert result["idle"]["badge"] != "Not a customer"
     assert "photo" in result["idle"]["title"]  # newest message is a photo: offer Quote from photo, don't analyse the text
     assert result["banner"] == "block"  # the photo button is back now that Mum is a customer
-    assert paths(result["final"]) == [("GET", STATE), ("GET", "/api/client/memory?customer=Mum"), ("POST", ANALYZE), ("GET", STATE)]
+    assert paths(result["final"]) == [("GET", STATE), ("POST", CUSTOMERS), ("GET", "/api/client/memory?customer=Mum"), ("POST", ANALYZE), ("GET", STATE)]
 
 
 # ---- sales sidebar (docs/11 §5, docs/08 §1): no stock anywhere, follow-ups + commission, deal line, execute body

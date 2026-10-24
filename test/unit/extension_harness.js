@@ -265,7 +265,7 @@ function loadContent(opts = {}) {
   const store = {};
   // Stubbed backend. opts: customers (list GET /api/state returns), state (more /api/state fields: deals, reps), stateFails (fail the first N state reads),
   // responses {"/api/path": reply} per path, backendResponse (every other path). A good POST /api/customers adds to the list.
-  const customers = opts.customers || [{ name: "Tan Bros Trading", phone: "" }, { name: "Ah Seng", phone: "" }];
+  const customers = opts.customers || [{ name: "Tan Bros Trading", phone: "+60 12-345 6789" }, { name: "Ah Seng", phone: "+60 19-221 0091" }];
   let stateFailures = Number(opts.stateFails || 0);
   const replyFor = (msg) => {
     const urlPath = String(msg.url || "").replace("http://127.0.0.1:8000", "");

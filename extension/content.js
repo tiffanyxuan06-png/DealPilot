@@ -384,7 +384,7 @@ async function addCurrentAsCustomer() {
   }
   try {
     const cleanName = cleanCustomerName(title);
-    const digits = titlePhone(title);
+    const digits = titlePhone(title) || getActiveChatPhone();
     const role = getCcRole();
 
 
@@ -643,6 +643,31 @@ function getActiveChatTitle() {
     return (candidate.getAttribute("title") || candidate.textContent || "").trim();
   }
   return "";
+}
+
+// The open chat's phone number from WhatsApp's message ids ("false_60123456789@c.us_..."). A saved contact's title
+// is a name, so this is where the number is. Empty for groups and for contacts behind a private id (@lid).
+function getActiveChatPhone() {
+  const rows = findMessagesContainer()?.querySelectorAll("[data-id]") || [];
+  for (const el of rows) {
+    const m = /^(?:true|false)_(\d{7,15})@c\.us_/.exec(el.getAttribute("data-id") || "");
+    if (m) return m[1];
+  }
+  return "";
+}
+
+// A customer saved without a number gets the one WhatsApp shows (once per chat), so the web app's
+// "Open chat" can open them in WhatsApp Web.
+const phoneFilled = new Set();
+function fillMissingPhone(title) {
+  const key = cleanCustomerName(title).toLowerCase();
+  const cust = (knownCustomers || []).find((c) => String(c.name || "").toLowerCase() === key);
+  if (!cust || phoneDigits(cust.phone) || phoneFilled.has(key)) return;
+  const phone = getActiveChatPhone();
+  if (!phone) return;
+  phoneFilled.add(key);
+  cust.phone = phone;
+  ccApiRequest("/api/customers", "POST", { name: cust.name, phone, role: getCcRole() }).catch(() => phoneFilled.delete(key));
 }
 
 function escapeHtml(str) {
@@ -1061,6 +1086,7 @@ async function scanActiveWhatsAppChat(forceRun = false) {
       }
       return;
     }
+    fillMissingPhone(activeTitle);
     refreshClientMemoryPill(activeTitle, forceRun);
     updateAddCustomerBtn(activeTitle);
     if (!isAnalyzing) setPanelMode("reply");   // a customer's chat is open: show the reply view
