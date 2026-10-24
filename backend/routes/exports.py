@@ -1,13 +1,16 @@
 import csv
 import io
+import re
+import zipfile
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.config import ROOT
 from backend.db import orm, session_scope
 from backend.models.enums import Role, Stage
 from backend.services.business import load_business
@@ -197,3 +200,35 @@ def _generate_document_pdf(doc_id: str) -> Response:
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+
+
+EXTENSION_DIR = ROOT / "extension"
+REPLIT_HOSTS = (".replit.app", ".replit.dev", ".repl.co")
+
+
+@router.get(
+    "/download/closiq-extension.zip",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "The DealPilot Chrome extension, ready to load unpacked"}},
+)
+def download_extension(request: Request) -> Response:
+    """The WhatsApp Web extension as a zip, built from extension/ on each request so it always matches this server.
+    Downloaded from a Replit address, the extension's default server is set to that address (no typing needed)."""
+    host = (request.headers.get("x-forwarded-host") or request.url.netloc).split(",")[0].strip().lower()
+    hostname = host.split(":")[0]
+    server = f"https://{host}" if hostname.endswith(REPLIT_HOSTS) else None
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(EXTENSION_DIR.rglob("*")):
+            if not path.is_file() or path.name.startswith("."):
+                continue
+            data = path.read_bytes()
+            if server and path.name == "content.js":
+                data = re.sub(rb'const DEFAULT_BACKEND_URL = "[^"]*";',
+                              f'const DEFAULT_BACKEND_URL = "{server}";'.encode(), data, count=1)
+            zf.writestr(f"closiq-extension/{path.relative_to(EXTENSION_DIR).as_posix()}", data)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="closiq-extension.zip"'},
+    )
