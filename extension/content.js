@@ -1352,7 +1352,7 @@ function applyWhatsAppLayoutResize(isCollapsed) {
 }
 
 // ============================================================================
-// CLOSIQ PANEL HELPERS (layout states, rating card, closed circle)
+// DEALPILOT PANEL HELPERS (layout states, rating card, closed circle)
 // ============================================================================
 // Brand images ship inside the extension (web_accessible_resources)
 function ccAsset(name) {
@@ -1993,7 +1993,7 @@ function renderAnalysisResult(data, fromCache = false) {
     statusEl.textContent = fromCache
       ? `⚡ Cached (${data.model_used || "Local"})`
       : data.lmstudio_connected
-        ? `🟢 LM Studio (${data.model_used})`
+        ? `🟢 ${(data.provider === "runpod" || (data.model_used && (data.model_used.includes("/") || data.model_used.toLowerCase().includes("runpod")))) ? "RunPod" : "LM Studio"} (${data.model_used})`
         : `🟢 Smart Engine Active`;
   }
 

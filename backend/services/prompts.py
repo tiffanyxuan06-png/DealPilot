@@ -88,37 +88,60 @@ Prices, discounts and actions come ONLY from the price list, pricing framework a
 4. CUSTOMER CONFIRMED / DEPOSIT PAID (e.g. "Ok confirm", "Bank-in already", attaches payment receipt):
    - Thank them enthusiastically, acknowledge the DuitNow reference or amount, and let them know the team will schedule dispatch/installation right away.
    - Intent MUST be "CUSTOMER_CONFIRMED".
+   - Labels for replyOptions should be contextual:
+     Option 1: "✅ Option 1: Confirm Order & Delivery (Recommended)"
+     Option 2: "🤝 Option 2: Friendly Boss Style"
+     Option 3: "⚡ Option 3: Fast Dispatch Scheduling"
+     Option 4: "🇲🇾 Option 4: Bahasa Melayu (Pengesahan Pesanan)"
+   - NEVER say "marked WON", "mark won", or "marked as won"! In customer replies, say "Your order is confirmed!" or "Received your deposit!".
+   - DO NOT append quotation disclaimers ("(Subject to stock availability · prices valid 7 days)") to payment confirmations!
 
 5. CUSTOMER DECLINED ("no", "not now", "tak jadi", "cancel", "no thanks", "pass", "budget tak lepas"):
    - Respond with warmth, zero pressure, and genuine courtesy: "Understood Boss, no problem at all! Thank you for letting us know. Feel free to contact us anytime if you need supply in the future!"
    - Never push aggressively, lecture, or argue. Intent MUST be "CUSTOMER_DECLINED".
 
 6. DEFECT / SERVICE / COMPLAINT ("valve leaking", "rosak", "leaking", "problem", "faulty"):
-   - Show empathy and urgency: reassure them immediately that follow-up chasing is paused and a technician will contact them to replace/inspect. Intent MUST be "COMPLAINT".
+   - Show genuine empathy, urgency, and take responsibility. Offer fast resolution (free 1-to-1 replacement or urgent technician inspection).
+   - NEVER tell the customer that reminders or follow-ups are paused! Pausing reminders is an internal backend action, NOT customer dialogue.
+   - Reply option labels MUST match after-sales service (e.g. "🛠️ Option 1: Free Replacement (Recommended)", "👨‍🔧 Option 2: Technician Inspection", "🇲🇾 Option 3: Bahasa Melayu").
+   - Do NOT append quotation disclaimers to complaints! Intent MUST be "COMPLAINT".
 
 7. LHDN TIN & SSM DETAILS ("Our TIN is C21884920000", "SSM 2024..."):
    - ONLY classify as "SAVE_LHDN_TIN" if the customer EXPLICITLY provides an actual TIN or SSM number. If they ask about products or prices, that is NEVER SAVE_LHDN_TIN!
 
 [COMMUNICATION & PHRASING RULES]:
 - Speak like a real Malaysian merchant: warm, professional, concise, and natural (using terms like "Boss", "lah", or polite Malay).
-- Keep each reply to 1-2 natural sentences. WhatsApp buyers want fast, direct replies, not lengthy corporate essays.
+- STRICT CONCISENESS RULE — KEEP REPLIES SHORT & PUNCHY:
+  WhatsApp buyers want quick, direct answers, not long explanations or formal essays.
+  Keep each reply strictly to 1 or 2 short, crisp sentences (under 25-30 words).
+  Get straight to the point: acknowledge, state price or offer, and ask one simple closing/next-step question.
+- NO REPETITIVE DISCLAIMERS:
+  Do NOT keep telling customers "Subject to stock availability" or "prices valid 7 days" in everyday chat replies. Keep conversation natural, friendly, and human.
 - NEVER leak internal database IDs (e.g. QT-101), internal cost prices, or internal warehouse stock quantities ("available: 10 units"). Just say "Ready stock Boss!".
-- Every quotation or price mention MUST end with: "({DISCLAIMER})" (or for Malay: "(Tertakluk kepada stok sedia ada · harga sah 7 hari)").
+- STRICT PROHIBITION ON INTERNAL BACKEND ACTIONS & CRM JARGON:
+  Every message in `extDraft` and `replyOptions` will be sent directly to the CUSTOMER over WhatsApp.
+  NEVER tell the customer about internal backend actions, system prompts, or CRM statuses:
+  * NEVER say: "we've paused reminders", "paused all reminders", "reminders are paused", "follow-up paused", "invoice chasing paused", "marked WON", "marked LOST", "mark won", "deal won", "stage won", "pipeline", "SLA", "CRM", "auto-pause", "database updated".
+  * NEVER quote backend prompt instructions to the customer!
+  * For complaints/defects: apologize sincerely and offer urgent inspection or replacement (e.g. "So sorry about that Boss! Our technician will drop by ASAP to swap the cylinder at no charge."). Do NOT mention pausing reminders!
+  * For confirmed deposits: say "Your order is confirmed, thank you for the deposit! Delivery is scheduled for you."
+  * For declined quotes: say "Understood Boss, no problem at all! Feel free to reach out anytime."
+  * NEVER leak internal database deal IDs (e.g. QT-2026-101, QT-102, AP-102, SUP-601). If referring to an order, say "your order" or "your quotation".
 
 [THE 4 DISTINCT SALES REPLY OPTIONS — STRICT DIVERSITY REQUIREMENT]:
-Each of the 4 options MUST use a different sales angle and language style so the sales rep has genuine choices:
+Each of the 4 options MUST use a different sales angle and language style so the sales rep has genuine choices (keep all replies short: 1-2 sentences):
 - ⭐ Option 1 (English/Manglish Consultative Sales — Best for Discovery):
-  Professional & consultative. Acknowledges inquiry, quotes 1-2 top models from [PRICE LIST], and asks a qualifying question (e.g. room size, horsepower, how many units).
-  Example: "Hi Boss! Yes, we have ready stock for Daikin 1.5HP (RM 1,150) and Panasonic 1.0HP (RM 980). May I know how many HP or room size you need? I can calculate the best package with installation for you! (Subject to stock availability · prices valid 7 days)"
+  Professional & consultative. Acknowledges inquiry, quotes 1-2 top models from [PRICE LIST], and asks room size or horsepower needed.
+  Example: "Hi Boss! Yes, Daikin 1.5HP is RM 1,150 ready stock. May I know your room size so I can calculate the package with installation for you?"
 - 🤝 Option 2 (English/Manglish Friendly Boss Style — Fast Turnaround):
   Energetic Malaysian business merchant tone. Emphasizes ready stock and fast delivery/installation.
-  Example: "Ready stock Boss! For standard rooms, Daikin 1.0HP (RM 950) and 1.5HP (RM 1,150) are our top sellers. How many units do you need? Can arrange installation this week! (Subject to stock availability · prices valid 7 days)"
+  Example: "Ready stock Boss! Daikin 1.5HP is RM 1,150. How many units do you need? Can arrange installation this week!"
 - ⚡ Option 3 (English/Manglish Fast-Close / Value-Add Hook):
   Commercial hook offering an incentive (free delivery on 2+ units, bundle installation, or priority dispatch).
-  Example: "Hi Boss! We have a promo bundle for aircond units with installation. If you take 2 units or more, can do free delivery! Where is your site located? (Subject to stock availability · prices valid 7 days)"
+  Example: "Hi Boss! If you take 2 units or more, can do free delivery to your site! Where are you located?"
 - 🇲🇾 Option 4 (Authentic Malaysian Bahasa Melayu):
   Polite, natural Malay for local buyers. Greet as Salam Boss, mention top models & prices, and ask room size.
-  Example: "Salam Boss! Ya, kami ada stok Daikin 1.5HP (RM 1,150) dan Panasonic 1.0HP (RM 980) sedia ada. Boss cari untuk ruang saiz apa? Boleh kami cadangkan pakej terbaik sekali pemasangan. (Tertakluk kepada stok sedia ada · harga sah 7 hari)"
+  Example: "Salam Boss! Daikin 1.5HP ada stok sedia ada, RM 1,150. Boss cari untuk bilik saiz apa? Boleh kami cadangkan pakej siap pasang."
 
 CRITICAL: Option 1, Option 2, and Option 3 MUST be written in English/Manglish. Option 4 MUST be written in Bahasa Melayu. Do NOT copy the same sentence across options!
 
@@ -131,9 +154,9 @@ Return ONLY a valid JSON object with these keys:
   "extActionDesc": "1-sentence explanation of what clicking the primary button will do",
   "extDraft": "Primary WhatsApp reply adapted to this client's relationship & tone",
   "replyOptions": [
-    {{"label": "⭐ Option 1: Consultative Quote (Recommended)", "text": "..."}},
+    {{"label": "Short scenario-relevant label (Recommended)", "text": "..."}},
     {{"label": "🤝 Option 2: Friendly Boss Style", "text": "..."}},
-    {{"label": "⚡ Option 3: Fast-Close / Value-Add", "text": "..."}},
+    {{"label": "⚡ Option 3: Quick Action / Help", "text": "..."}},
     {{"label": "🇲🇾 Option 4: Bahasa Melayu", "text": "..."}}
   ],
   "extBtnLabel": "📄 Send Quote & Start 2h Follow-up",
@@ -324,9 +347,9 @@ def deterministic_fallback_analysis(
             if p["sku"].lower() in msg_lower or any(t in msg_lower for t in tokens):
                 issue_item = p
                 break
-        opt1 = f"Sorry about the issue {clean_cust}! We have paused follow-ups and our team will arrange a free 1-to-1 replacement for {issue_item['name']} today."
-        opt2 = f"Hi {clean_cust}, apologies for the trouble! We are looking into this right away and will resolve it promptly."
-        opt3 = f"Maaf atas masalah itu {clean_cust}! Kami telah tangguhkan susulan dan akan hantar penggantian bagi {issue_item['name']} secepat mungkin."
+        opt1 = f"So sorry about the issue {clean_cust}! Our technician will arrange an urgent 1-to-1 replacement for {issue_item['name']} at no charge today."
+        opt2 = f"Hi {clean_cust}, sincere apologies for the trouble! Our technician is looking into this right away and will contact you promptly."
+        opt3 = f"Maaf atas masalah yang berlaku {clean_cust}! Kami akan uruskan penggantian 1-ke-1 untuk {issue_item['name']} secara percuma hari ini juga."
         return {
             "intent": "COMPLAINT",
             "badge": "⚠️ Customer Complaint",
@@ -604,8 +627,45 @@ def allowed_reply_amounts(fallback: Dict[str, Any], state: Dict[str, Any], custo
     return allowed
 
 
+FORBIDDEN_CRM_WORDS = [
+    "marked won", "mark won", "marked as won", "deal won", "deal marked won", "stage won",
+    "marked lost", "mark lost", "marked as lost", "deal lost", "deal marked lost", "stage lost",
+    "pause reminder", "paused reminder", "paused all reminder", "pause all reminder",
+    "paused follow-up", "paused follow up", "paused invoice chasing", "auto-pause",
+    "pipeline", "follow-up sla", "sla reached",
+]
+
+
+def sanitize_customer_reply_text(text: str, intent: Optional[str] = None) -> str:
+    if not text:
+        return ""
+    t = text
+    # Clean up internal CRM terms if the LLM leaked them into customer text
+    t = re.sub(r"(?i)\b(?:order\s+[a-z0-9-_]+\s+)?marked\s+(?:as\s+)?won\b\.?", "Order is confirmed.", t)
+    t = re.sub(r"(?i)\b(?:deal\s+[a-z0-9-_]+\s+)?marked\s+(?:as\s+)?won\b\.?", "Order is confirmed.", t)
+    t = re.sub(r"(?i)\bmarked\s+(?:as\s+)?won\b\.?", "confirmed.", t)
+    t = re.sub(r"(?i)\b(?:order\s+[a-z0-9-_]+\s+)?marked\s+(?:as\s+)?lost\b\.?", "Order cancelled.", t)
+    t = re.sub(r"(?i)\bmarked\s+(?:as\s+)?lost\b\.?", "closed.", t)
+
+    # Clean up pause reminder leaks so internal actions are not told to customers
+    t = re.sub(r"(?i)(?:,\s*)?(?:no\s+need\s+to\s+worry,?\s*)?(?:we(?:'ve|\s+have)?\s+)?paused?\s+(?:all\s+)?(?:reminders?|follow-?ups?|invoice\s+chasing)(?:\s+for\s+now)?\b\.?", "", t)
+    t = re.sub(r"(?i)\b(?:auto-?)?paused?\s+(?:reminders?|follow-?ups?|chasing)\b\.?", "", t)
+
+    # Strip repetitive disclaimers so WhatsApp replies stay short and natural
+    t = re.sub(r"\s*\(?\s*Subject to stock availability\s*[-·]\s*prices valid 7 days(?:\s*from\s*(?:the\s*)?quote\s*date)?\s*\)?\.?", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*\(?\s*Tertakluk kepada stok sedia ada\s*[-·]\s*harga sah 7 hari\s*\)?\.?", "", t, flags=re.IGNORECASE)
+
+    # Normalize double spaces and punctuation
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r"\s+([.,!?])", r"\1", t)
+    return t.strip()
+
+
 def reply_problem(text: str, allowed: set) -> Optional[str]:
     low = (text or "").lower()
+    for w in FORBIDDEN_CRM_WORDS:
+        if w in low:
+            return f"internal CRM wording '{w}'"
     for w in PRESSURE_WORDS:
         if re.search(rf"\b{re.escape(w)}\b", low):
             return f"pressure wording '{w}'"
@@ -616,11 +676,28 @@ def reply_problem(text: str, allowed: set) -> Optional[str]:
 
 
 def check_ai_replies(merged: Dict[str, Any], fallback: Dict[str, Any], state: Dict[str, Any], customer: str) -> Dict[str, Any]:
-    """Replaces any AI reply with a wrong amount or pressure wording by the code-built reply, and records what changed."""
+    """Sanitizes CRM leaks, replaces invalid AI replies with code-built replies, and enforces disclaimers."""
     allowed = allowed_reply_amounts(fallback, state, customer)
+    intent = merged.get("intent") or fallback.get("intent")
     fixed = []
     fb_options = [o for o in fallback.get("replyOptions", []) if isinstance(o, dict)]
+
+    # Pre-sanitize text fields to strip accidental CRM jargon and reminder leaks
+    if merged.get("extDraft"):
+        merged["extDraft"] = sanitize_customer_reply_text(merged["extDraft"], intent)
     options = merged.get("replyOptions")
+    if isinstance(options, list):
+        for opt in options:
+            if isinstance(opt, dict):
+                if opt.get("text"):
+                    opt["text"] = sanitize_customer_reply_text(opt["text"], intent)
+                # Ensure labels don't inappropriately say "Consultative Quote" for complaints or deposits
+                lbl = opt.get("label") or ""
+                if intent == "COMPLAINT" and "quote" in lbl.lower():
+                    opt["label"] = "🛠️ Option 1: Free Replacement (Recommended)"
+                elif intent == "CUSTOMER_CONFIRMED" and "quote" in lbl.lower():
+                    opt["label"] = "✅ Option 1: Confirm Order & Delivery (Recommended)"
+
     if isinstance(options, list):
         new_options = []
         for i, opt in enumerate(options):
@@ -638,30 +715,15 @@ def check_ai_replies(merged: Dict[str, Any], fallback: Dict[str, Any], state: Di
         fixed.append({"field": "extDraft", "reason": problem})
         merged["extDraft"] = fallback.get("extDraft", "")
 
-    # Re-append disclaimer to quote and discount replies so AI cannot drop it (docs/11 §4.2)
-    if merged.get("intent") in ("BUYING_INQUIRY", "DISCOUNT_REQUEST"):
-        draft = (merged.get("extDraft") or "").strip()
-        if not draft or draft in (".", "...", "(", ")", DISCLAIMER):
-            draft = fallback.get("extDraft", "")
-        if "prices valid 7 days" not in draft.lower() and "sah 7 hari" not in draft.lower():
-            draft = ((draft or "").rstrip(". ") + ". " + DISCLAIMER).strip()
-        merged["extDraft"] = draft
-
-        if isinstance(merged.get("replyOptions"), list):
-            for i, opt in enumerate(merged["replyOptions"]):
-                if not isinstance(opt, dict):
-                    continue
-                txt = (opt.get("text") or "").strip()
-                if not txt or txt in (".", "...", "(", ")", DISCLAIMER):
-                    fb_txt = fb_options[i].get("text", "") if i < len(fb_options) else fallback.get("extDraft", "")
-                    txt = fb_txt
-                is_malay = any(w in (opt.get("label", "") + " " + txt).lower() for w in ["melayu", "salam", "sebut harga", "terima kasih"])
-                if "prices valid 7 days" not in txt.lower() and "sah 7 hari" not in txt.lower():
-                    if is_malay:
-                        txt = f"{txt.rstrip('. ')} (Tertakluk kepada stok sedia ada · harga sah 7 hari)"
-                    else:
-                        txt = ((txt or "").rstrip(". ") + ". " + DISCLAIMER).strip()
-                opt["text"] = txt
+    # Ensure draft and options are not empty
+    draft = (merged.get("extDraft") or "").strip()
+    if not draft or draft in (".", "..."):
+        merged["extDraft"] = fallback.get("extDraft", "")
+    if isinstance(merged.get("replyOptions"), list):
+        for i, opt in enumerate(merged["replyOptions"]):
+            if isinstance(opt, dict) and not (opt.get("text") or "").strip():
+                fb_txt = fb_options[i].get("text", "") if i < len(fb_options) else fallback.get("extDraft", "")
+                opt["text"] = fb_txt
 
     merged["replyCheck"] = {"checked": True, "fixed": fixed}
     return merged

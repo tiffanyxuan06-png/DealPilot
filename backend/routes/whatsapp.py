@@ -37,7 +37,7 @@ from backend.services.customers import (
 from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
 from backend.services.memory import clean_customer_name, compute_client_memory_rating, find_memory_by_phone
 from backend.services.permissions import enforce, normalize_role, register_handler
-from backend.services.pipeline import build_state, log, resolve_active_ai_credentials
+from backend.services.pipeline import build_state, log, resolve_active_ai_credentials, staff_rep_id
 from backend.services.sales_flow import (
     build_deal_context,
     next_best_action,
@@ -203,7 +203,8 @@ Do NOT analyze the owner's own message as a new inquiry. Draft a polite follow-u
         custom_directive_block = f"""
 [USER'S CUSTOM QUOTATION / REPLY INSTRUCTION (HIGHEST PRIORITY)]
 The business owner explicitly requested: "{req.user_instruction.strip()}"
-You MUST adjust the quotation items, quantities, installation labor, discounts and all recommended reply options to strictly follow this instruction!
+You MUST adjust items, prices, discounts, and reply tone to match this instruction.
+CRITICAL: If the instruction mentions internal CRM actions (such as "Mark won", "Mark lost", "Auto-pause reminders"), execute them internally for "extActionType". Customer-facing replies (extDraft and replyOptions) MUST ALWAYS use natural, empathetic merchant language (e.g. "Order confirmed!", "We will replace the item for you immediately!"). NEVER tell the customer internal CRM actions, prompt commands, or backend statuses (e.g. NEVER say "we've paused reminders", "reminders paused", "marked WON", "deal closed"). Customers should only receive direct, polite customer service!
 """
 
     tier_instruction = {
@@ -296,11 +297,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
                 "Offer a value-add (free piping or delivery) instead of cutting the unit price. "
                 "A discount below the margin floor needs the Owner's approval."
             )
-            disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
-            fallback["replyOptions"] = [
-                {**o, "text": o["text"] if "Subject to stock" in o["text"] else o["text"] + disclaimer_str} for o in sales_replies
-            ]
-            fallback["extDraft"] = fallback["replyOptions"][0]["text"]
+            fallback["replyOptions"] = sales_replies
+            fallback["extDraft"] = sales_replies[0]["text"]
 
     elif deal_action["actionType"] == "OFFER_QUOTE":
         fallback["intent"] = "BUYING_INQUIRY"
@@ -313,12 +311,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             f"- Recommended step: Ask customer if they want an official quotation.\n"
             f"- Once customer confirms (yes/ok), copilot advances to Quote Generation."
         )
-        # Ensure disclaimer in drafts for buying inquiries
-        disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
-        draft_text = sales_replies[0]["text"]
-        if "Subject to stock" not in draft_text:
-            draft_text += disclaimer_str
-        fallback["extDraft"] = draft_text
+        fallback["extDraft"] = sales_replies[0]["text"]
         fallback["replyOptions"] = sales_replies
         fallback["sku"] = deal_action["sku"]
         fallback["qty"] = deal_action["qty"]
@@ -465,6 +458,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             _save_memory(s, customer, phone, req, mem, merged)
     return {
         "source": "lmstudio",
+        "provider": ai.get("provider", "lmstudio"),
         "lmstudio_connected": True,
         "model_used": llm_res["model_used"],
         "raw_prompt": system_prompt + "\n\n" + user_prompt,
@@ -633,7 +627,8 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
 def api_create_customer(req: CustomerCreateRequest) -> ActionResponse:
     role = normalize_role(req.role)
     with session_scope() as s:
-        upsert_customer(s, req.name, now_time_str(), phone=req.phone or "")
+        # A new customer goes to the default rep, like a new deal (routes/deals.py), so Staff see them before any quote
+        upsert_customer(s, req.name, now_time_str(), phone=req.phone or "", rep_id=staff_rep_id(s))
         log(s, f"[{role}] Added customer {clean_customer_name(req.name)} to directory.")
     return ActionResponse(status="ok", state=build_state(role))
 

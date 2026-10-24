@@ -1,5 +1,6 @@
 import json
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
@@ -110,16 +111,32 @@ def call_lmstudio_chat(
         headers=headers,
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw_body = json.loads(resp.read().decode("utf-8"))
-        content = raw_body["choices"][0]["message"]["content"]
-        clean_content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        return {
-            "connected": True,
-            "model_used": active_model,
-            "raw_content": content,
-            "clean_content": clean_content,
-        }
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw_body = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if active_model != active_model.lower() and e.code in (400, 404, 502):
+            payload["model"] = active_model.lower()
+            retry_req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+                method="POST",
+            )
+            with urllib.request.urlopen(retry_req, timeout=timeout) as resp:
+                raw_body = json.loads(resp.read().decode("utf-8"))
+                active_model = active_model.lower()
+        else:
+            raise
+
+    content = raw_body["choices"][0]["message"]["content"]
+    clean_content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    return {
+        "connected": True,
+        "model_used": active_model,
+        "raw_content": content,
+        "clean_content": clean_content,
+    }
 
 
 def extract_json_from_llm(text: str) -> Optional[Dict[str, Any]]:

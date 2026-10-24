@@ -21,6 +21,28 @@ def test_staff_get_only_their_own_deals_customers_and_pay(client):
     assert owner["myRepId"] is None and owner["reengage"] == []
 
 
+def test_a_new_customer_without_a_deal_shows_for_staff(client):
+    """A customer added before any quote gets the default rep (like a new deal), so Staff see them at once."""
+    aina = client.get("/api/state?role=STAFF").json()["myRepId"]
+    for who, name in ((STAFF, "Kedai Baru Staff"), (OWNER, "Kedai Baru Owner")):
+        assert client.post("/api/customers", json={**who, "name": name, "phone": "60123334444"}).status_code == 200
+        staff = {c["name"]: c for c in client.get("/api/state?role=STAFF").json()["customers"]}
+        assert staff[name]["repId"] == aina and staff[name]["openRecords"] == 0
+    # Adding them again (e.g. from another chat) keeps their rep
+    client.post("/api/customers", json={**OWNER, "name": "Kedai Baru Staff", "phone": "60123334444"})
+    assert "Kedai Baru Staff" in {c["name"] for c in client.get("/api/state?role=STAFF").json()["customers"]}
+
+
+def test_reassign_also_moves_customers_without_a_deal(client):
+    client.post("/api/customers", json={**STAFF, "name": "Kedai Baru", "phone": "60123334444"})
+    aina = client.get("/api/state?role=STAFF").json()["myRepId"]
+    to = next(r["id"] for r in client.get("/api/state?role=OWNER").json()["reps"] if r["id"] != aina)
+    client.post(f"/api/reps/{aina}/reassign", json={**OWNER, "toRepId": to})
+    owner = {c["name"]: c for c in client.get("/api/state?role=OWNER").json()["customers"]}
+    assert owner["Kedai Baru"]["repId"] == to
+    assert "Kedai Baru" not in {c["name"] for c in client.get("/api/state?role=STAFF").json()["customers"]}
+
+
 def test_staff_cannot_act_on_another_reps_deal(client):
     r = client.post("/api/deals/QT-2026-101/action", json={**STAFF, "action": "SEND_FOLLOW_UP"})  # Ahmad's deal
     assert r.status_code == 403 and "another rep" in r.json()["detail"]

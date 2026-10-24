@@ -284,7 +284,8 @@ def api_upsert_rep(req: RepUpsertRequest) -> ActionResponse:
 
 @router.post("/api/reps/{rep_id}/reassign", response_model=ActionResponse)
 def api_reassign_rep(rep_id: int, req: ReassignRequest) -> ActionResponse:
-    """Moves a rep's open deals to another rep. Won deals stay, so commission history is kept."""
+    """Moves a rep's open deals, and the customers they look after who have no deal yet, to another rep.
+    Won deals stay, so commission history is kept."""
     require_owner(req.role, "reps.reassign")
     with session_scope() as s:
         src, dst = s.get(orm.Rep, rep_id), s.get(orm.Rep, req.to_rep_id)
@@ -299,6 +300,9 @@ def api_reassign_rep(rep_id: int, req: ReassignRequest) -> ActionResponse:
         ).all()
         for d in moved:
             d.rep_id = dst.id
+        # Customers without a deal follow their stored rep (customers_payload), so move those too
+        for c in s.scalars(select(orm.Customer).where(orm.Customer.rep_id == src.id)):
+            c.rep_id = dst.id
         customers = sorted({d.customer for d in moved})
         log(
             s,

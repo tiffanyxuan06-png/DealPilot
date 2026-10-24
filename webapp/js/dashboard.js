@@ -29,7 +29,7 @@ const STAGE_META = {
 
 function switchPage(page) {
   currentPage = page;
-  const pages = ['pipeline', 'deals', 'catalog', 'customers', 'commission', 'wa'];
+  const pages = ['pipeline', 'deals', 'catalog', 'customers', 'commission', 'wa', 'howitworks'];
   pages.forEach(p => {
     const el = document.getElementById('page-' + p);
     if (el) el.classList.toggle('hidden', p !== page);

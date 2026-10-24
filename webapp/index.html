@@ -33,6 +33,7 @@
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
   <link rel="stylesheet" href="css/style.css?v=20261024_2" />
+  <link rel="stylesheet" href="css/how_it_works.css?v=20261024_2" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -262,6 +263,11 @@
           <button id="nav-wa" onclick="switchPage('wa')" class="nav-item i-wiggle">
             <svg><use href="#i-chat"/></svg><span class="nav-text">WhatsApp CRM</span>
             <span class="nav-badge">Live</span>
+          </button>
+
+          <div class="cc-nav-label hidden md:block mt-5">Help</div>
+          <button id="nav-howitworks" onclick="switchPage('howitworks')" class="nav-item i-hop">
+            <svg><use href="#i-book"/></svg><span class="nav-text">How it works</span>
           </button>
         </nav>
       </div>
@@ -786,6 +792,78 @@
         </div>
       </div>
 
+      <!-- ================================================================= -->
+      <!-- HOW IT WORKS (steps come from js/how_it_works.js)                 -->
+      <!-- ================================================================= -->
+      <div id="page-howitworks" class="hidden space-y-6">
+        <section class="cc-card cc-hero reveal">
+          <div class="min-w-0">
+            <span class="cc-pill">How it works</span>
+            <h1 class="cc-h1 mt-2">DealPilot sits beside your WhatsApp chats.</h1>
+            <p class="cc-sub mt-1">It reads the customer's message, prices a quote from your own price list and writes a reply for you. Nothing is sent until you press Enter.</p>
+            <div class="hiw-motto"><span>AI suggests</span><span>Rules check</span><span>You decide</span></div>
+            <button type="button" onclick="openHowItWorksTour()" class="cc-btn cc-btn-primary mt-4"><svg><use href="#i-undo"/></svg>Show the walkthrough again</button>
+          </div>
+          <img src="img/mascot-chart.png" alt="" width="288" height="215" class="cc-hero-art m-chart" aria-hidden="true" />
+        </section>
+
+        <section class="hiw-sec" aria-labelledby="hiw-h-parts">
+          <h2 id="hiw-h-parts">The three parts</h2>
+          <div class="hiw-parts">
+            <div class="cc-card hiw-part"><span class="hiw-ico" style="background:#E6EEFF;color:var(--blue)"><svg><use href="#i-chat"/></svg></span><span class="hiw-who">Reps and the Owner</span><h3>WhatsApp extension</h3><p>A panel beside WhatsApp Web. It reads the open chat, suggests replies and builds quotes.</p></div>
+            <div class="cc-card hiw-part"><span class="hiw-ico" style="background:#E3F6FF;color:var(--sky)"><svg><use href="#i-home"/></svg></span><span class="hiw-who">Owner and Staff</span><h3>Web app</h3><p>Pipeline, deals, price list, customers and commission. The Owner approves requests here.</p></div>
+            <div class="cc-card hiw-part"><span class="hiw-ico" style="background:#DCFCE7;color:#067647"><svg><use href="#i-shield"/></svg></span><span class="hiw-who">Works in the background</span><h3>Rules and AI</h3><p>The AI understands English, BM and Manglish and writes the words. DealPilot's own code sets every price.</p></div>
+          </div>
+        </section>
+
+        <section class="hiw-sec" aria-labelledby="hiw-h-stages">
+          <h2 id="hiw-h-stages">A deal's journey</h2>
+          <p>Every customer request becomes one deal that moves through these stages.</p>
+          <div class="hiw-track" id="hiw-track"></div>
+        </section>
+
+        <section class="hiw-sec" aria-labelledby="hiw-h-flow">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="hiw-h-flow" class="text-xl font-bold text-[#042970]">Step by step</h2>
+            <div class="hiw-tabs" role="tablist" aria-label="Choose your role">
+              <button type="button" role="tab" id="hiw-tab-owner" aria-selected="true" aria-controls="hiw-flow-owner" onclick="showHowItWorksTab('owner')">I'm the Owner</button>
+              <button type="button" role="tab" id="hiw-tab-staff" aria-selected="false" aria-controls="hiw-flow-staff" onclick="showHowItWorksTab('staff')">I'm a sales rep</button>
+            </div>
+          </div>
+          <div class="cc-card p-5 md:p-6" role="tabpanel" id="hiw-flow-owner" aria-labelledby="hiw-tab-owner"><ol class="hiw-flow" id="hiw-list-owner"></ol></div>
+          <div class="cc-card p-5 md:p-6" role="tabpanel" id="hiw-flow-staff" aria-labelledby="hiw-tab-staff" hidden><ol class="hiw-flow" id="hiw-list-staff"></ol></div>
+        </section>
+
+        <section class="hiw-sec" aria-labelledby="hiw-h-sit">
+          <h2 id="hiw-h-sit">Common situations in WhatsApp</h2>
+          <div class="cc-table-wrap">
+            <table class="cc-table hiw-sit">
+              <thead><tr><th scope="col">The customer…</th><th scope="col">DealPilot</th><th scope="col">You</th></tr></thead>
+              <tbody>
+                <tr><td><b>Asks for a price</b><q>Boss, need 3 units 1.5HP to Subang</q></td><td>Finds the items in your price list and drafts a priced quote</td><td>Check the quote, insert it, send</td></tr>
+                <tr><td><b>Asks for a discount</b><q>Boss, can less?</q></td><td>Suggests a counter-offer that stays above your margin floor</td><td>Send it. A deeper cut goes to the Owner first</td></tr>
+                <tr><td><b>Sends a bank-in slip</b></td><td>Recognises the payment and suggests marking the deal won</td><td>Mark it won with the slip reference. Order and commission are created</td></tr>
+                <tr><td><b>Goes quiet after a quote</b></td><td>Moves the deal to Follow-up due after your follow-up time and drafts a follow-up</td><td>Send the follow-up</td></tr>
+                <tr><td><b>Reports a problem</b><q>Unit got leaking leh</q></td><td>Logs the complaint and pauses follow-ups, so nobody chases them for payment</td><td>Sort out the issue, then resume follow-ups</td></tr>
+                <tr><td><b>Says no</b></td><td>Drafts a polite, no-pressure reply</td><td>Mark the deal lost with a reason</td></tr>
+                <tr><td><b>Sends their LHDN TIN</b></td><td>Saves the TIN to the customer for e-Invoices</td><td>Nothing more</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="hiw-sec" aria-labelledby="hiw-h-rules">
+          <h2 id="hiw-h-rules">What stays in your control</h2>
+          <div class="hiw-rules">
+            <div class="cc-card hiw-rule"><span class="hiw-ico"><svg><use href="#i-check"/></svg></span><div><b>The AI only writes words</b><p>Prices, totals, discounts and commission come from DealPilot, and every RM amount in a reply is checked.</p></div></div>
+            <div class="cc-card hiw-rule"><span class="hiw-ico"><svg><use href="#i-check"/></svg></span><div><b>Nothing sends by itself</b><p>The extension fills in the reply box. You press Enter.</p></div></div>
+            <div class="cc-card hiw-rule"><span class="hiw-ico"><svg><use href="#i-check"/></svg></span><div><b>Customers only</b><p>Chats with people who aren't in your customer list are not read or saved.</p></div></div>
+            <div class="cc-card hiw-rule"><span class="hiw-ico"><svg><use href="#i-check"/></svg></span><div><b>The Owner sets the limits</b><p>Staff follow your permissions. Discounts below the margin floor always need the Owner.</p></div></div>
+            <div class="cc-card hiw-rule"><span class="hiw-ico"><svg><use href="#i-check"/></svg></span><div><b>Everything is recorded</b><p>The activity log can't be edited, so you can see who did what.</p></div></div>
+          </div>
+        </section>
+      </div>
+
     </main>
   </div>
 
@@ -1179,12 +1257,37 @@
     </form>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- HOW IT WORKS WALKTHROUGH (opens after sign-in; js/how_it_works.js)    -->
+  <!-- ===================================================================== -->
+  <div id="hiw-tour" class="hiw-scrim cc-overlay" hidden>
+    <div class="hiw-tour" role="dialog" aria-modal="true" aria-labelledby="hiw-tour-title" aria-describedby="hiw-tour-desc">
+      <div class="hiw-art" id="hiw-art" aria-hidden="true"></div>
+      <div class="hiw-body">
+        <div class="hiw-top">
+          <span class="hiw-step-no" id="hiw-step-no">Step 1</span>
+          <button type="button" class="hiw-skip" id="hiw-skip">Skip tour</button>
+          <button type="button" class="hiw-x" id="hiw-close" aria-label="Close walkthrough"><svg><use href="#i-x"/></svg></button>
+        </div>
+        <div class="hiw-content" id="hiw-content" aria-live="polite"></div>
+        <div class="hiw-foot">
+          <div class="hiw-dots" id="hiw-dots" aria-label="Steps"></div>
+          <div class="hiw-actions">
+            <button type="button" class="cc-btn cc-btn-ghost" id="hiw-back">Back</button>
+            <button type="button" class="cc-btn cc-btn-primary" id="hiw-next">Next</button>
+          </div>
+          <label class="hiw-dont"><input type="checkbox" id="hiw-dont"> Don't show this when I sign in</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DealPilot modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="js/demo_chats.js?v=20261024_2"></script>
   <script src="js/state.js?v=20261024_2"></script>
   <script src="js/inspector.js?v=20261024_2"></script>
-  <script src="js/dashboard.js?v=20261024_5"></script>
+  <script src="js/dashboard.js?v=20261024_6"></script>
   <script src="js/copilot.js?v=20261024_2"></script>
   <script src="js/company_ai.js?v=20261024_2"></script>
   <script src="js/pdf_export.js?v=20261024_2"></script>
@@ -1192,7 +1295,8 @@
   <script src="js/onboarding.js?v=20261024_2"></script>
   <script src="js/main.js?v=20261024_2"></script>
   <script src="js/ui.js?v=20261024_2"></script>
-  <script src="js/auth.js?v=20261024_2"></script>
+  <script src="js/how_it_works.js?v=20261024_2"></script>
+  <script src="js/auth.js?v=20261024_3"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

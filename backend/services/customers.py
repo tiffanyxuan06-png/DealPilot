@@ -62,7 +62,10 @@ def get_customer(session: Session, name: str) -> Optional[orm.Customer]:
     return session.scalars(select(orm.Customer).where(func.lower(orm.Customer.name) == key.lower())).first()
 
 
-def upsert_customer(session: Session, name: str, ts: str, phone: str = "", tin: str = "", ssm_brn: str = "") -> None:
+def upsert_customer(
+    session: Session, name: str, ts: str, phone: str = "", tin: str = "", ssm_brn: str = "", rep_id: Optional[int] = None
+) -> None:
+    """`rep_id` only fills an empty rep: an existing customer keeps the rep they have."""
     key = customer_key(name)
     if not key:
         return
@@ -71,9 +74,10 @@ def upsert_customer(session: Session, name: str, ts: str, phone: str = "", tin: 
         row.phone = phone or row.phone
         row.tin = tin or row.tin
         row.ssm_brn = ssm_brn or row.ssm_brn
+        row.rep_id = row.rep_id if row.rep_id is not None else rep_id
         row.updated_at = ts
     else:
-        session.add(orm.Customer(name=key, phone=phone or "", tin=tin or "", ssm_brn=ssm_brn or "", updated_at=ts))
+        session.add(orm.Customer(name=key, phone=phone or "", tin=tin or "", ssm_brn=ssm_brn or "", updated_at=ts, rep_id=rep_id))
     session.flush()
 
 
@@ -106,7 +110,7 @@ def customers_payload(session: Session) -> List[entities.Customer]:
     """Every customer for the Customers page: TIN status, open deals, the ready-made TIN request, and their rep.
 
     A customer's rep is the rep on their most recent deal, so after a reassign the customer follows the
-    deals that moved. Customers without any deal have no rep (None).
+    deals that moved. A customer without any deal yet has the rep stored when they were added.
     """
     company = session.get(orm.Setting, "company_name")
     company_name = company.value if company else "us"
@@ -124,7 +128,7 @@ def customers_payload(session: Session) -> List[entities.Customer]:
             lhdn_ready=bool(c.tin),
             open_records=len(open_deal_ids(session, c.name)),
             tin_request_text="" if c.tin else tin_request_text(c.name, company_name),
-            rep_id=latest_rep.get(customer_key(c.name).lower()),
+            rep_id=latest_rep.get(customer_key(c.name).lower(), c.rep_id),
         )
         for c in session.scalars(select(orm.Customer).order_by(orm.Customer.name))
     ]

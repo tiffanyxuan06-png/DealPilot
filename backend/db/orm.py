@@ -121,7 +121,10 @@ class ClientMemory(Base):
 
 
 class Customer(Base):
-    """A customer's LHDN e-Invoice details. `name` is the clean name deals are matched on (tags stripped)."""
+    """A customer's LHDN e-Invoice details. `name` is the clean name deals are matched on (tags stripped).
+
+    `rep_id` is who looks after them until their first deal; after that the rep on their newest deal counts.
+    """
 
     __tablename__ = "customers"
     name: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -129,6 +132,7 @@ class Customer(Base):
     tin: Mapped[str] = mapped_column(Text, default="")
     ssm_brn: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[str] = mapped_column(Text)
+    rep_id: Mapped[Optional[int]] = mapped_column(ForeignKey("reps.id"))
 
 
 class RolePermission(Base):

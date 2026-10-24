@@ -18,9 +18,9 @@ def fake_ai(analysis):
 def test_ai_reply_check(client):
     ai = {
         "intent": "BUYING_INQUIRY",
-        "extDraft": "Hi Tan Bros! Total RM 6,650. Deposit RM 2,660 to confirm. Subject to stock availability · prices valid 7 days",
+        "extDraft": "Hi Tan Bros! Total RM 6,650. Deposit RM 2,660 to confirm.",
         "replyOptions": [
-            {"label": "1", "text": "5x Daikin + 5x R32 = RM 6,650. Subject to stock availability · prices valid 7 days"},
+            {"label": "1", "text": "5x Daikin + 5x R32 = RM 6,650."},
             {"label": "2", "text": "Special price boss, RM 5,999 only!"},
             {"label": "3", "text": "Pay RM 6,650 today or we take legal action."},
         ],
