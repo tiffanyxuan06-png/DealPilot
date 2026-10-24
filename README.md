@@ -22,7 +22,7 @@
 | GitHub Repository | https://github.com/tiffanyxuan06-png/DealPilot  |
 | Live Demo         | https://deal-pilot.replit.app                  |
 | RunPod Endpoint   | https://api.runpod.ai/v2/your-endpoint-id      |
-| Slide Deck        | https://canva.link/hcyqxtvc61qz2xj             |
+| Slide Deck        | [Canva](https://canva.link/hcyqxtvc61qz2xj) · [PDF](submission/SDC2026_bug+work=feature_SlideDeck.pdf) |
 | Demo Video        | [Link to Demo Video]                           |
 
 ---
@@ -204,7 +204,8 @@ Every interaction in DealPilot strictly fulfills the 5-phase automated journey r
 │   ├── SDC2026_bug+work=feature_Preliminary.pdf           # Preliminary submission form
 │   ├── SDC2026_bug+work=feature_TechDeclaration.pdf       # Technology declaration
 │   ├── SDC2026_bug+work=feature_Replit_POU.pdf           # Replit proof of use
-│   └── SDC2026_bug+work=feature_Runpod_POU.pdf           # RunPod proof of use
+│   ├── SDC2026_bug+work=feature_Runpod_POU.pdf           # RunPod proof of use
+│   └── SDC2026_bug+work=feature_SlideDeck.pdf            # Pitch slide deck
 ├── test/                                          # Automated testing suite
 │   ├── unit/                                      # Pytest unit tests (278 tests)
 │   │   ├── test_deals.py                          # Deal transitions & pipeline state machine

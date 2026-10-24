@@ -6,3 +6,4 @@ Place your completed submission PDFs in this directory:
 2. `SDC2026_bug+work=feature_TechDeclaration.pdf` - Technology declaration document
 3. `SDC2026_bug+work=feature_Replit_POU.pdf` - Replit Proof of Use document
 4. `SDC2026_bug+work=feature_Runpod_POU.pdf` - RunPod Proof of Use document
+5. `SDC2026_bug+work=feature_SlideDeck.pdf` - Pitch slide deck
