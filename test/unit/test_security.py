@@ -35,24 +35,28 @@ def test_extension_download_is_a_loadable_zip(client):
     import io
     import zipfile
 
-    r = client.get("/download/closiq-extension.zip")
+    r = client.get("/download/dealpilot-extension.zip")
     assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    assert r.headers["content-disposition"] == 'attachment; filename="dealpilot-extension.zip"'
+    legacy = client.get("/download/closiq-extension.zip")
+    assert legacy.status_code == 200
+    assert legacy.headers["content-disposition"] == r.headers["content-disposition"]
     z = zipfile.ZipFile(io.BytesIO(r.content))
     names = set(z.namelist())
-    assert {"closiq-extension/manifest.json", "closiq-extension/content.js", "closiq-extension/background.js",
-            "closiq-extension/sidebar.css", "closiq-extension/img/logo.png"} <= names
+    assert {"dealpilot-extension/manifest.json", "dealpilot-extension/content.js", "dealpilot-extension/background.js",
+            "dealpilot-extension/sidebar.css", "dealpilot-extension/img/logo.png"} <= names
     # From this computer the extension keeps its default server.
-    assert b'const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";' in z.read("closiq-extension/content.js")
+    assert b'const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";' in z.read("dealpilot-extension/content.js")
 
 
 def test_extension_downloaded_from_replit_points_at_replit(client):
     import io
     import zipfile
 
-    r = client.get("/download/closiq-extension.zip",
+    r = client.get("/download/dealpilot-extension.zip",
                    headers={"x-forwarded-host": "cash-chase.replit.app", "x-forwarded-proto": "https"})
-    content = zipfile.ZipFile(io.BytesIO(r.content)).read("closiq-extension/content.js")
+    content = zipfile.ZipFile(io.BytesIO(r.content)).read("dealpilot-extension/content.js")
     assert b'const DEFAULT_BACKEND_URL = "https://cash-chase.replit.app";' in content
     # Any other host (e.g. a forged header) keeps the default.
-    r = client.get("/download/closiq-extension.zip", headers={"x-forwarded-host": "evil.example.com"})
-    assert b'"http://127.0.0.1:8000"' in zipfile.ZipFile(io.BytesIO(r.content)).read("closiq-extension/content.js")
+    r = client.get("/download/dealpilot-extension.zip", headers={"x-forwarded-host": "evil.example.com"})
+    assert b'"http://127.0.0.1:8000"' in zipfile.ZipFile(io.BytesIO(r.content)).read("dealpilot-extension/content.js")

@@ -206,8 +206,9 @@ EXTENSION_DIR = ROOT / "extension"
 REPLIT_HOSTS = (".replit.app", ".replit.dev", ".repl.co")
 
 
+@router.get("/download/closiq-extension.zip", response_class=Response, include_in_schema=False)
 @router.get(
-    "/download/closiq-extension.zip",
+    "/download/dealpilot-extension.zip",
     response_class=Response,
     responses={200: {"content": {"application/zip": {}}, "description": "The DealPilot Chrome extension, ready to load unpacked"}},
 )
@@ -226,9 +227,9 @@ def download_extension(request: Request) -> Response:
             if server and path.name == "content.js":
                 data = re.sub(rb'const DEFAULT_BACKEND_URL = "[^"]*";',
                               f'const DEFAULT_BACKEND_URL = "{server}";'.encode(), data, count=1)
-            zf.writestr(f"closiq-extension/{path.relative_to(EXTENSION_DIR).as_posix()}", data)
+            zf.writestr(f"dealpilot-extension/{path.relative_to(EXTENSION_DIR).as_posix()}", data)
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="closiq-extension.zip"'},
+        headers={"Content-Disposition": 'attachment; filename="dealpilot-extension.zip"'},
     )
