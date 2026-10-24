@@ -406,9 +406,9 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/complet
 | :--- | :--- | :--- |
 | **Ng Jing Xuan** | Team Lead / Frontend, Chrome Extension & WhatsApp Integrations | [@tiffanyxuan06-png](https://github.com/tiffanyxuan06-png) |
 | **Frederick Tiong Kong Yao** | Backend, AI & System Architecture | [@fredericktky](https://github.com/fredericktky) |
-| **Lim Yue Qi** | UI/UX Design, Testing & Quality Assurance | [@limyueqi](https://github.com/limyueqi) |
-| **[Member 4 Name]** | [Role / e.g. AI / Backend] | [@username](https://github.com/username) |
-| **[Member 5 Name]** | [Role / e.g. Product / QA] | [@username](https://github.com/username) |
+| **Lim Yue Qi** | UI/UX Design, Testing & Quality Assurance | [@yukilim-404](https://github.com/yukilim-404) |
+| **Tay Jun Ren** | Slide Preparation | [@tayjunren](https://github.com/tayjunren) |
+| **Clement Teo** | Video Demo | [@Clemement](https://github.com/Clemement) |
 
 ---
 
