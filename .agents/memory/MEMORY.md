@@ -1,0 +1,1 @@
+- [Branch merge restriction](branch-policy.md) — never merge with main in this project.

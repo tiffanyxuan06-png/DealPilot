@@ -4,12 +4,49 @@ modules = ["python-3.12"]
 [env]
 # Replit forwards outside traffic to the app, so it must listen on every interface (run_server.py reads HOST and PORT).
 HOST = "0.0.0.0"
-PORT = "8000"
+PORT = "5000"
 
 [deployment]
-run = ["python", "run_server.py"]
-deploymentTarget = "cloudrun"
+run = ["env", "HOST=0.0.0.0", "PORT=5000", "python", "run_server.py"]
+deploymentTarget = "autoscale"
+build = ["python", "-c", "import fastapi, uvicorn, pydantic, pydantic_settings, sqlalchemy, httpx, multipart, openpyxl, pypdf, jwt; print('Runtime dependencies verified')"]
 
 [[ports]]
-localPort = 8000
+localPort = 5000
 externalPort = 80
+
+[nix]
+channel = "stable-25_05"
+packages = ["libxcrypt"]
+
+[userenv]
+
+[userenv.shared]
+AI_PROVIDER = "runpod"
+RUNPOD_ENDPOINT_ID = "8ec80x1r3ss9ih"
+RUNPOD_MODEL = "qwen/qwen3-vl-8b-instruct-fp8"
+CASHCHASE_DATABASE_URL = "sqlite:///backend/cashchase.db"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "CashChase"
+
+[[workflows.workflow]]
+name = "CashChase"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "HOST=0.0.0.0 PORT=5000 python run_server.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"

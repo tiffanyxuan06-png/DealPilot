@@ -17,7 +17,10 @@ class AppSettings(BaseSettings):
     # Any SQLAlchemy URL. Local testing uses SQLite (e.g. sqlite:///backend/cashchase.db, see .env.example);
     # production can point at Postgres once its migrations exist (backend/schema/migrations/<dialect>/).
     # Default for local testing; set DATABASE_URL (in .env or the environment) to use another database, e.g. Postgres later.
-    database_url: str = "sqlite:///backend/cashchase.db"
+    database_url: str = Field(
+        "sqlite:///backend/cashchase.db",
+        validation_alias=AliasChoices("CASHCHASE_DATABASE_URL", "DATABASE_URL", "database_url"),
+    )
     host: str = "127.0.0.1"  # set HOST=0.0.0.0 to open the server to the Wi-Fi (e.g. a phone demo)
     port: int = 8000
 

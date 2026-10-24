@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 os.environ["SUPABASE_URL"] = ""
 # Must be set before backend.app is imported: importing the app migrates and seeds the database.
 os.environ["DATABASE_URL"] = "sqlite:///" + (Path(tempfile.mkdtemp()) / "test.db").as_posix()
+os.environ["CASHCHASE_DATABASE_URL"] = os.environ["DATABASE_URL"]
 
 from fastapi.testclient import TestClient  # noqa: E402
 

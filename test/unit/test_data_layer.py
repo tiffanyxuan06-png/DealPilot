@@ -49,6 +49,7 @@ def test_bad_seed_fails_clearly():
 def test_database_url_defaults_to_local_sqlite(monkeypatch):
     from backend.config import ROOT
 
+    monkeypatch.delenv("CASHCHASE_DATABASE_URL", raising=False)
     monkeypatch.delenv("DATABASE_URL")
     assert AppSettings(_env_file=None).database_url == "sqlite:///" + (ROOT / "backend" / "cashchase.db").as_posix()
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@h/db")
