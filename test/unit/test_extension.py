@@ -173,32 +173,37 @@ def test_quote_from_price_list_refuses_a_chat_that_is_not_a_customer():
 BOOT_ONLY =[("CC_AUTH_STATUS", ""), ("CC_API_FETCH", "/api/state")]
 
 
-def test_switching_chats_and_new_messages_send_nothing():
+def test_new_customer_messages_are_analysed_once_and_friends_never():
+    """A registered customer's newest message is analysed straight away; a friend's chat and a PDF send nothing."""
     out = run_scenario("sidebar_chat_activity_is_local")
     result = out["result"]
     assert out["errors"] == []
-    boot = [(c["type"], c["path"]) for c in result["afterBoot"]]
-    assert boot == BOOT_ONLY
-    # client's message is read into the panel locally, but nothing is sent: no analyze, no client/memory
-    assert result["afterFirstChat"] == len(BOOT_ONLY)
-    assert [(c["type"], c["path"]) for c in result["final"]] == BOOT_ONLY
-    assert result["customer"] == "Tan Bros Trading"  # the panel still follows the open chat, locally
+    assert [(c["type"], c["path"]) for c in result["afterBoot"]] == BOOT_ONLY
+    analysed = [(c["body"]["customer"], c["body"]["message"]) for c in posts(result["final"], "/api/whatsapp/analyze")]
+    assert analysed == [
+        ("Tan Bros Trading", "Boss, got 5 Daikin 1.5HP? how much"),
+        ("Ah Seng", "How much for R32 gas?"),
+        ("Tan Bros Trading", "Boss any update?"),
+        ("Tan Bros Trading", "Hello??"),
+    ]  # Mum (not a customer) and the PDF bubble are never sent
+    assert not any("/api/client/memory" in c["path"] for c in result["final"])  # memory is read only on Rescan
+    assert result["customer"] == "Tan Bros Trading"
     assert result["message"] == "Hello??"
-    assert result["memPill"] == "Client Ready"
     assert result["displayAfterMum"] == "Mum"  # the header follows the open chat, customer or not
     assert result["display"] == "Tan Bros Trading"
     assert result["pdfButton"] is False  # a PDF gets a hint, not the photo button
     assert "please type the items" in result["pdfBanner"]
 
 
-def test_analyse_click_sends_the_open_chat_once():
+def test_opening_a_customer_chat_analyses_it_and_rescan_asks_again():
     out = run_scenario("sidebar_analyse_click")
     result = out["result"]
     assert out["errors"] == []
-    assert result["before"] == len(BOOT_ONLY)  # opening the chat sent nothing
+    opened = result["final"][:result["before"]]
+    assert len(posts(opened, "/api/whatsapp/analyze")) == 1  # the customer's message was answered on arrival
     sent = result["final"][result["before"]:]
     analyze = posts(sent, "/api/whatsapp/analyze")
-    assert len(analyze) == 1
+    assert len(analyze) == 1  # Rescan asks once more
     assert analyze[0]["body"]["customer"] == "Tan Bros Trading"
     assert analyze[0]["body"]["message"] == "Boss, got 5 Daikin 1.5HP? how much"
     paths = [c["path"] for c in sent]
@@ -243,10 +248,10 @@ def test_editing_fields_sends_nothing_and_keeps_own_draft():
     out = run_scenario("sidebar_field_edit_and_draft")
     result = out["result"]
     assert out["errors"] == []
-    assert result["calls"] == len(BOOT_ONLY)  # change events on the fields did not analyse
-    assert result["sameChat"] == "Hi boss, typing my own reply"  # new message, same chat: draft kept
-    assert result["otherChat"] == ""  # other chat: cleared
-    assert result["btn"] == "✅ Insert Selected Reply"
+    # Analysed on opening Tan Bros and on opening Ah Seng only: not on field edits, not over the rep's own typing.
+    assert result["calls"] == len(BOOT_ONLY) + 4  # 2 x (analyze + state refresh)
+    assert result["sameChat"] == "Hi boss, typing my own reply"  # new message, same chat: the typed reply is kept
+    assert result["otherChat"].startswith("Hi Ah Seng")  # another customer's chat gets its own reply
 
 
 # ---- customers only (docs/11 §5): a friend's chat is never sent; Add as customer enables the contact
@@ -285,14 +290,13 @@ def test_friend_chat_says_not_a_customer_and_no_button_sends_anything():
     ("0123456789", [{"name": "Ahmad", "phone": "+60 12-345 6789"}]),
     ("+60 12-345 6789", [{"name": "Ahmad", "phone": "0123456789"}]),
 ])
-def test_customer_chat_is_idle_then_rescan_sends_one_analyze(title, customers):
+def test_customer_chat_is_analysed_on_opening_and_rescan_asks_again(title, customers):
     out = run_scenario("cust_customer_chat", title=title, customers=customers)
     result = out["result"]
     assert out["errors"] == []
     assert result["shown"]["badge"] != "Not a customer"
-    assert "Tap" in result["shown"]["check"] and "Rescan" in result["shown"]["check"]
-    assert result["afterOpen"] == []
-    assert len(posts(result["sent"], ANALYZE)) == 1
+    assert len(posts(result["afterOpen"], ANALYZE)) == 1  # the customer's message is answered straight away
+    assert len(posts(result["sent"], ANALYZE)) == 2  # ... and once more on Rescan
     body = posts(result["sent"], ANALYZE)[0]["body"]
     assert body["customer"] == title
     digits = "".join(ch for ch in title if ch.isdigit())
@@ -320,17 +324,17 @@ def test_ask_ai_and_enter_each_send_one_analyze(via):
     ("Mum!", "Mum", ""),
     ("+60 19-888 7766", "+60 19-888 7766", "60198887766"),
 ])
-def test_add_as_customer_posts_once_then_rescan_analyses(title, name, phone):
+def test_add_as_customer_posts_once_then_analyses(title, name, phone):
     out = run_scenario("cust_add", title=title, double=True)
     result = out["result"]
     assert out["errors"] == []
     assert result["before"]["button"] == "➕ Add as customer"
     after = [c for c in result["afterAdd"] if c["path"] in (CUSTOMERS, STATE, ANALYZE)]
-    assert paths(after) == [("POST", CUSTOMERS), ("GET", STATE)]  # double click: one POST, then the refresh
+    # double click: one POST and the list refresh; now a customer, their message is answered once
+    assert paths(after) == [("POST", CUSTOMERS), ("GET", STATE), ("POST", ANALYZE), ("GET", STATE)]
     assert posts(after, CUSTOMERS)[0]["body"] == {"name": name, "phone": phone, "role": "OWNER"}
-    assert result["added"]["badge"] != "Not a customer" and "Rescan" in result["added"]["check"]  # idle, not analysed
-    assert len(posts(result["afterAdd"], ANALYZE)) == 0
-    assert len(posts(result["final"], ANALYZE)) == 1  # only the Rescan click analyses
+    assert result["added"]["badge"] != "Not a customer"
+    assert len(posts(result["final"], ANALYZE)) == 2  # + the Rescan click
 
 
 def test_add_as_customer_error_is_shown_and_button_stays():
@@ -369,8 +373,9 @@ def test_rescan_retries_the_customer_list_and_recovers():
     out = run_scenario("cust_state_offline", stateFails=1)  # the boot read fails, the retry works
     result = out["result"]
     assert "Can't check the customer list" in result["shown"]["title"]
-    assert paths(result["sent"]) == [("GET", STATE)]  # retry only; the chat is not analysed
-    assert result["final"]["badge"] != "Not a customer" and "Rescan" in result["final"]["check"]
+    assert result["afterOpen"] == []  # nothing is sent while the customer list is unknown
+    assert paths(result["sent"]) == [("GET", STATE), ("POST", ANALYZE), ("GET", STATE)]  # list first, then the customer's message
+    assert result["final"]["badge"] != "Not a customer"
 
 
 def test_phone_title_sends_its_digits_in_analyze_execute_and_photo_quote():
@@ -393,7 +398,8 @@ def test_rescan_on_not_a_customer_rereads_the_list_without_analysing():
     assert out["errors"] == []
     assert result["blocked"]["badge"] == "Not a customer"
     assert paths(result["afterFirstRescan"]) == [("GET", STATE)]  # list read only: no analyze, no client memory
-    assert result["idle"]["badge"] != "Not a customer" and "Rescan" in result["idle"]["check"]
+    assert result["idle"]["badge"] != "Not a customer"
+    assert "photo" in result["idle"]["title"]  # newest message is a photo: offer Quote from photo, don't analyse the text
     assert result["banner"] == "block"  # the photo button is back now that Mum is a customer
     assert paths(result["final"]) == [("GET", STATE), ("GET", "/api/client/memory?customer=Mum"), ("POST", ANALYZE), ("GET", STATE)]
 

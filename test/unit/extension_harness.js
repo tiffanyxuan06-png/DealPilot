@@ -672,6 +672,7 @@ scenarios.sidebar_field_edit_and_draft = async (env) => {
   await env.settle();
   const draft = d.getElementById("cc-draft-output");
   draft.value = "Hi boss, typing my own reply";
+  draft.dispatchEvent(new Event("input"));   // the rep typed it
   await env.switchChat("Tan Bros Trading", [["in", "Boss, got 5 Daikin 1.5HP? how much"], ["in", "Hello?"]]);
   const sameChat = draft.value;
   await env.switchChat("Ah Seng", [["in", "How much for R32 gas?"]]);

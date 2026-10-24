@@ -103,6 +103,7 @@ const precomputedCache = new Map(); // cacheKey -> cached analysis response
 const processedSidebarPreviews = new Map(); // contactTitle -> last unread preview text
 let lastDetectedAttachmentKey = "";
 let isAnalyzing = false;
+let repTypedDraft = false; // the rep typed in the reply box: a new customer message must not overwrite it
 let lastAnalyzedHash = "";
 let knownCustomers = null; // customers from GET /api/state; null = not loaded (backend offline)
 let knownDeals = []; // deals and reps from GET /api/state (for the follow-ups card and the deal line)
@@ -1104,28 +1105,39 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         `;
       }
 
-      // Check cache first
+      // A registered customer's newest message: write the reply straight away, no click needed.
+      // (Not a customer? blockIfNotCustomer above already stopped here, so nothing is sent.)
       const cacheKey = getCacheKey(activeTitle, lastClientText);
-      if (precomputedCache.has(cacheKey) && !forceRun) {
-        renderAnalysisResult(precomputedCache.get(cacheKey), true);
+      const cached = precomputedCache.get(cacheKey);
+      if (cached && cached.source !== "local_smart_engine" && !forceRun) {   // the AI already answered this message
+        renderAnalysisResult(cached, true);
         return;
       }
-      if (!forceRun) {
+      if (chatSwitched) repTypedDraft = false;
+      if (!forceRun && attachment) {
+        // A photo or PDF: its own button or hint handles it, so the text isn't sent as a reply request.
         lastAnalysis = null;
-        const draftEl = document.getElementById("cc-draft-output");
+        const pdf = attachment.type === "PDF_DOCUMENT";
+        if (titleEl) titleEl.textContent = `📎 ${activeTitle} sent ${pdf ? "a PDF" : "a photo"}`;
+        if (badgeEl) badgeEl.textContent = "Needs Reply";
         const tabsEl = document.getElementById("cc-reply-tabs");
+        if (tabsEl) tabsEl.innerHTML = "";
         const bigBtn = document.getElementById("cc-big-action-btn");
-        const paramBox = document.getElementById("cc-custom-param-box");
-        const lmStatus = document.getElementById("cc-lm-status");
+        if (bigBtn) bigBtn.textContent = "✅ Insert Selected Reply";
+        const checkEl = document.getElementById("cc-ext-check");
+        if (checkEl) checkEl.textContent = pdf ? "Type the items to quote, or tap 🔄 Rescan." : "Tap 📷 Quote from photo to price it, or 🔄 Rescan to reply to the text.";
+        return;
+      }
+      if (!forceRun && isAnalyzing) {
+        lastProcessedActiveMsg = "";   // still writing the previous reply: the 1s heartbeat retries this message
+        return;
+      }
+      if (!forceRun && repTypedDraft) {
+        // The rep is typing their own reply: never overwrite it. Rescan writes a new one on request.
         if (titleEl) titleEl.textContent = `💬 New message from ${activeTitle}`;
         if (badgeEl) badgeEl.textContent = "Needs Reply";
-        if (draftEl && chatSwitched) draftEl.value = "";
-        if (tabsEl) tabsEl.innerHTML = "";
-        if (bigBtn) bigBtn.textContent = "✅ Insert Selected Reply";
-        if (paramBox) paramBox.style.display = "none";
-        if (lmStatus) lmStatus.textContent = "Ready · tap Rescan";
         const checkEl = document.getElementById("cc-ext-check");
-        if (checkEl) checkEl.textContent = "Tap 🔄 Rescan to analyse this chat and draft a reply.";
+        if (checkEl) checkEl.textContent = "New message. Your typed reply is kept; tap 🔄 Rescan for a new suggestion.";
         return;
       }
 
@@ -1726,6 +1738,7 @@ function createSidebar() {
     chipsEl.innerHTML = ADJUST_CHIPS.map(([label], i) => `<button type="button" class="cc-chip" data-chip="${i}">${label}</button>`).join("");
   }
 
+  document.getElementById("cc-draft-output").addEventListener("input", () => { repTypedDraft = true; });   // typing only, not code
   document.getElementById("cc-pl-toggle").addEventListener("click", () => {
     const body = document.getElementById("cc-pl-body");
     body.style.display = body.style.display === "none" ? "block" : "none";
@@ -1965,6 +1978,7 @@ function renderAnalysisResult(data, fromCache = false) {
     return;
   }
   gateState = "";
+  repTypedDraft = false;   // the box now holds the AI's suggestion
   lastAnalysis = data.analysis;
   setPanelMode("reply");
   setMascot(lastAnalysis.intent);
