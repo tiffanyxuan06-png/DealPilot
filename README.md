@@ -1,4 +1,4 @@
-<h1><img src="docs/dealpilot-mascot.jpeg" alt="DealPilot mascot" width="120" align="absmiddle"> DealPilot</h1>
+<h1>DealPilot <img src="docs/dealpilot-mascot.png" alt="DealPilot mascot" width="120" align="absmiddle"></h1>
 
 > Autonomous WhatsApp Web Copilot and Real-Time Deal Pipeline CRM for Malaysian SMEs powered by Local LLMs & RunPod Serverless GPU.
 
