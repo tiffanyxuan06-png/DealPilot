@@ -203,8 +203,8 @@ Every interaction in DealPilot strictly fulfills the 5-phase automated journey r
 ├── submission/                                    # Required SDC Hackathon 2026 submission documents
 │   ├── SDC2026_bug+work=feature_Preliminary.pdf           # Preliminary submission form
 │   ├── SDC2026_bug+work=feature_TechDeclaration.pdf       # Technology declaration
-│   ├── SDC2026_bug+work=feature_Replit_POU.pdf            # Replit proof of use
-│   └── SDC2026_bug+work=feature_Runpod_POU.pdf            # RunPod proof of use
+│   ├── SDC2026_bug+work=feature_Replit_POU.jpeg          # Replit proof of use
+│   └── SDC2026_bug+work=feature_Runpod_POU.jpeg          # RunPod proof of use
 ├── test/                                          # Automated testing suite
 │   ├── unit/                                      # Pytest unit tests (278 tests)
 │   │   ├── test_deals.py                          # Deal transitions & pipeline state machine
@@ -350,7 +350,9 @@ python -m pytest test/unit -q
 - **Production Server Hosting:** Deployed the FastAPI backend and single-page CRM WebApp on Replit Deployments (`deploymentTarget = "cloudrun"` via `.replit`), ensuring constant uptime for extension API requests.
 - **Zero Secret Leakage:** Production API credentials (`RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID`, `SUPABASE_ANON_KEY`) are managed strictly through Replit Secrets and injected into environment variables at runtime, guaranteeing that no private API keys are ever committed to git.
 
-📄 Proof of use: [`submission/SDC2026_bug+work=feature_Replit_POU.pdf`](submission/SDC2026_bug+work=feature_Replit_POU.pdf)
+**Proof of use — Replit**
+
+<img src="submission/SDC2026_bug+work=feature_Replit_POU.jpeg" alt="Replit usage dashboard showing project usage and account usage" width="100%">
 
 ---
 
@@ -395,7 +397,9 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/complet
   }'
 ```
 
-📄 Proof of use: [`submission/SDC2026_bug+work=feature_Runpod_POU.pdf`](submission/SDC2026_bug+work=feature_Runpod_POU.pdf)
+**Proof of use — RunPod**
+
+<img src="submission/SDC2026_bug+work=feature_Runpod_POU.jpeg" alt="RunPod audit logs showing endpoint and API key setup" width="100%">
 
 ---
 
