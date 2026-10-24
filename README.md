@@ -203,8 +203,8 @@ Every interaction in DealPilot strictly fulfills the 5-phase automated journey r
 ├── submission/                                    # Required SDC Hackathon 2026 submission documents
 │   ├── SDC2026_bug+work=feature_Preliminary.pdf           # Preliminary submission form
 │   ├── SDC2026_bug+work=feature_TechDeclaration.pdf       # Technology declaration
-│   ├── SDC2026_bug+work=feature_Replit_POU.jpeg          # Replit proof of use
-│   └── SDC2026_bug+work=feature_Runpod_POU.jpeg          # RunPod proof of use
+│   ├── SDC2026_bug+work=feature_Replit_POU.pdf           # Replit proof of use
+│   └── SDC2026_bug+work=feature_Runpod_POU.pdf           # RunPod proof of use
 ├── test/                                          # Automated testing suite
 │   ├── unit/                                      # Pytest unit tests (278 tests)
 │   │   ├── test_deals.py                          # Deal transitions & pipeline state machine
@@ -352,7 +352,7 @@ python -m pytest test/unit -q
 
 **Proof of use — Replit**
 
-<img src="submission/SDC2026_bug+work=feature_Replit_POU.jpeg" alt="Replit usage dashboard showing project usage and account usage" width="100%">
+📄 [View Replit proof of use (PDF)](submission/SDC2026_bug+work=feature_Replit_POU.pdf)
 
 ---
 
@@ -399,7 +399,7 @@ curl -X POST https://api.runpod.ai/v2/$RUNPOD_ENDPOINT_ID/openai/v1/chat/complet
 
 **Proof of use — RunPod**
 
-<img src="submission/SDC2026_bug+work=feature_Runpod_POU.jpeg" alt="RunPod audit logs showing endpoint and API key setup" width="100%">
+📄 [View RunPod proof of use (PDF)](submission/SDC2026_bug+work=feature_Runpod_POU.pdf)
 
 ---
 
