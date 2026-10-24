@@ -203,7 +203,8 @@ Do NOT analyze the owner's own message as a new inquiry. Draft a polite follow-u
         custom_directive_block = f"""
 [USER'S CUSTOM QUOTATION / REPLY INSTRUCTION (HIGHEST PRIORITY)]
 The business owner explicitly requested: "{req.user_instruction.strip()}"
-You MUST adjust the quotation items, quantities, installation labor, discounts and all recommended reply options to strictly follow this instruction!
+You MUST adjust items, prices, discounts, and reply tone to match this instruction.
+CRITICAL: If the instruction mentions internal CRM actions (such as "Mark won", "Mark lost", "Auto-pause reminders"), execute them internally for "extActionType". Customer-facing replies (extDraft and replyOptions) MUST ALWAYS use natural, empathetic merchant language (e.g. "Order confirmed!", "We will replace the item for you immediately!"). NEVER tell the customer internal CRM actions, prompt commands, or backend statuses (e.g. NEVER say "we've paused reminders", "reminders paused", "marked WON", "deal closed"). Customers should only receive direct, polite customer service!
 """
 
     tier_instruction = {
@@ -296,11 +297,8 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
                 "Offer a value-add (free piping or delivery) instead of cutting the unit price. "
                 "A discount below the margin floor needs the Owner's approval."
             )
-            disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
-            fallback["replyOptions"] = [
-                {**o, "text": o["text"] if "Subject to stock" in o["text"] else o["text"] + disclaimer_str} for o in sales_replies
-            ]
-            fallback["extDraft"] = fallback["replyOptions"][0]["text"]
+            fallback["replyOptions"] = sales_replies
+            fallback["extDraft"] = sales_replies[0]["text"]
 
     elif deal_action["actionType"] == "OFFER_QUOTE":
         fallback["intent"] = "BUYING_INQUIRY"
@@ -313,12 +311,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             f"- Recommended step: Ask customer if they want an official quotation.\n"
             f"- Once customer confirms (yes/ok), copilot advances to Quote Generation."
         )
-        # Ensure disclaimer in drafts for buying inquiries
-        disclaimer_str = " (Subject to stock availability · prices valid 7 days)"
-        draft_text = sales_replies[0]["text"]
-        if "Subject to stock" not in draft_text:
-            draft_text += disclaimer_str
-        fallback["extDraft"] = draft_text
+        fallback["extDraft"] = sales_replies[0]["text"]
         fallback["replyOptions"] = sales_replies
         fallback["sku"] = deal_action["sku"]
         fallback["qty"] = deal_action["qty"]

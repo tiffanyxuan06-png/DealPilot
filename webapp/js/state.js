@@ -230,6 +230,7 @@ let currentRole = 'OWNER';
       appState.framework = data.company.framework || '';
       appState.followUpHours = data.company.followUpHours;
       appState.marginFloorPct = data.company.marginFloorPct;
+      appState.aiProvider = data.company.aiProvider || data.company.ai_provider || 'runpod';
       appState.products = data.products || [];
       appState.reps = data.reps || [];
       appState.deals = data.deals || [];

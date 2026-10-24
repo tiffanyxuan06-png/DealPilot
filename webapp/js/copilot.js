@@ -304,7 +304,7 @@
         <div class="pt-4 border-t border-[#DCE4F2]">
           <div class="flex items-center justify-between gap-2">
             <div class="text-xs font-semibold text-[#5B6B85]">What's happening</div>
-            <button onclick="triggerLiveAIForChat(getState().chats[currentChatIndex])" class="text-[11px] font-semibold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer" title="Query LM Studio to re-analyze this chat with live AI">
+            <button onclick="triggerLiveAIForChat(getState().chats[currentChatIndex])" class="text-[11px] font-semibold text-[#0152FC] hover:underline flex items-center gap-1 cursor-pointer" title="Re-analyze this chat with live AI">
               ⚡ Re-analyze with AI
             </button>
           </div>
@@ -333,10 +333,10 @@
           <div class="pt-4 border-t border-[#DCE4F2] flex flex-col items-center text-center gap-2 py-6" role="status">
             <img src="img/mascot-laptop.png" alt="" width="257" height="223" class="w-24 h-auto m-laptop animate-pulse" />
             <div class="font-semibold text-sm text-[#042970]">Writing a reply…</div>
-            <div class="text-xs text-[#5B6B85]">Connecting to LM Studio (port 1234)… usually takes ~10–15s.</div>
+            <div class="text-xs text-[#5B6B85]">${(getState().aiProvider === 'lmstudio') ? 'Connecting to LM Studio (port 1234)… usually takes ~10–15s.' : 'Connecting to RunPod Cloud GPU… usually takes ~5–10s.'}</div>
             <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[11px] text-[#0152FC] font-medium mt-1">
               <span class="w-1.5 h-1.5 rounded-full bg-[#0152FC] animate-ping"></span>
-              Generating live tokens on local model
+              ${(getState().aiProvider === 'lmstudio') ? 'Generating live tokens on local model' : 'Generating live tokens on RunPod GPU'}
             </div>
           </div>
         ` : `

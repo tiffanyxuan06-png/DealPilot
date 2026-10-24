@@ -73,7 +73,7 @@ async function askCompanyAgent(questionText) {
       const badge = document.getElementById('agent-lm-badge');
       if (badge) {
         badge.textContent = data.lmstudio_connected
-          ? `⚡ Answered by the AI model (${data.model_used || 'LM Studio'})`
+          ? `⚡ Answered by the AI model (${data.model_used || 'RunPod'})`
           : '🏢 AI offline: answered from your live sales data';
       }
     } else {

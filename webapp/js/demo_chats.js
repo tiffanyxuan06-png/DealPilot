@@ -36,22 +36,22 @@ const DEMO_CHATS = {
               { from: 'customer', time: '10:38 AM', text: 'Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah? Need quote urgently.' }
             ],
             extTitle: '🤖 Buying Inquiry → Quote Deal',
-            extCheck: '✅ 5x Daikin 1.5HP = RM 5,750\n✅ 5x R32 Gas = RM 900\n💰 Total Quote: RM 6,650\nSubject to stock availability · prices valid 7 days',
+            extCheck: '✅ 5x Daikin 1.5HP = RM 5,750\n✅ 5x R32 Gas = RM 900\n💰 Total Quote: RM 6,650',
             extActionDesc: 'Generates formal sales quote from the price list and logs deal in Pipeline.',
-            extDraft: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650. Subject to stock availability · prices valid 7 days.',
+            extDraft: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650 with ready stock. Can arrange dispatch today!',
             selectedReplyIdx: 0,
             replyOptions: [
               {
                 label: '💼 Option 1: Official Quote (Manglish)',
-                text: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650. Subject to stock availability · prices valid 7 days.'
+                text: 'Hi Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas total RM 6,650 with ready stock. Can arrange dispatch today!'
               },
               {
                 label: '🤝 Option 2: Friendly Boss Style',
-                text: 'Ready stock Boss! 5x Daikin + 5x R32 total RM 6,650. Can arrange lorry today. Subject to stock availability · prices valid 7 days.'
+                text: 'Ready stock Boss! 5x Daikin + 5x R32 total RM 6,650. Can arrange lorry today!'
               },
               {
                 label: '🇲🇾 Option 3: Bahasa Melayu (Sebut Harga)',
-                text: 'Salam Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas jumlah RM 6,650. Tertakluk kepada stok sedia ada · sah 7 hari.'
+                text: 'Salam Tan Bros! 5x Daikin 1.5HP + 5x R32 Gas jumlah RM 6,650 siap stok. Boleh hantar lori hari ini.'
               }
             ],
             extBtnLabel: 'Send quote & insert reply',
@@ -77,18 +77,18 @@ const DEMO_CHATS = {
               { from: 'customer', time: '11:02 AM', text: 'Boss, quote for 2 units Daikin 1.5HP can less or give discount sikit? Best price please.' }
             ],
             extTitle: '🏷️ Discount Request → Counter-Offer',
-            extCheck: '🛡️ Margin Floor Guard: 15% minimum\n💡 Recommended: Offer Free Delivery (Protects Margin)\nTotal: RM 2,300 · Subject to stock availability · prices valid 7 days',
+            extCheck: '🛡️ Margin Floor Guard: 15% minimum\n💡 Recommended: Offer Free Delivery (Protects Margin)\nTotal: RM 2,300',
             extActionDesc: 'Send a margin-safe counter offer without cutting unit prices.',
-            extDraft: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today! Subject to stock availability · prices valid 7 days.',
+            extDraft: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today!',
             selectedReplyIdx: 0,
             replyOptions: [
               {
                 label: '🚚 Option 1: Value-Add Free Delivery (Margin Safe)',
-                text: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today! Subject to stock availability · prices valid 7 days.'
+                text: 'Hi Boss! For 2 units Daikin 1.5HP, our price is RM 2,300 nett. We can throw in free delivery to your shop today!'
               },
               {
                 label: '💰 Option 2: Round Down RM 50 (Owner Allowed)',
-                text: 'Hi Boss, we can round down to RM 2,250 as a gesture for your restaurant! Subject to stock availability · prices valid 7 days.'
+                text: 'Hi Boss, we can round down to RM 2,250 as a gesture for your restaurant!'
               }
             ],
             extBtnLabel: 'Send counter-offer & reply',
@@ -191,12 +191,12 @@ const DEMO_CHATS = {
             extTitle: '⚠️ Complaint Reported → Auto Pause',
             extCheck: '🛡️ Follow-up reminders AUTO-PAUSED on customer deal.\nLog complaint and notify service team.',
             extActionDesc: 'Pauses active follow-up timers and drafts apology response.',
-            extDraft: 'So sorry Dr. Lim! We have paused all reminders. Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.',
+            extDraft: 'So sorry Dr. Lim! Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.',
             selectedReplyIdx: 0,
             replyOptions: [
               {
                 label: '🛠️ Option 1: Apology & Free Swap Today',
-                text: 'So sorry Dr. Lim! We have paused all reminders. Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.'
+                text: 'So sorry Dr. Lim! Our technician is heading over before 2:00 PM today to swap the R32 cylinder at no charge.'
               }
             ],
             extBtnLabel: 'Log complaint & pause deal',
@@ -365,10 +365,10 @@ const DEMO_CHATS = {
             extTitle: '⚠️ Damaged Item Reported (Reminders Paused)',
             extCheck: '🛡️ Payment chasing on #INV-501 is AUTO-PAUSED.\n💡 Recommended Fix: Send 1x replacement Oat Milk carton (-1 Stock) OR Credit Rebate (RM 135).',
             extActionDesc: 'Choose resolution reply below, then click to execute.',
-            extDraft: 'So sorry about the punctured carton Bistro Bintang! We have paused invoice chasing and will send 1x replacement Oat Milk carton on today\'s afternoon route at no charge.',
+            extDraft: 'So sorry about the punctured carton Bistro Bintang! We will send 1x replacement Oat Milk carton on today\'s afternoon route at no charge.',
             selectedReplyIdx: 0,
             replyOptions: [
-              { kind: 'REPLACE', label: '📦 Option 1: Free 1-to-1 Replacement Today', text: 'So sorry about the punctured carton Bistro Bintang! We have paused invoice chasing and will send 1x replacement Oat Milk carton on today\'s afternoon route at no charge.' },
+              { kind: 'REPLACE', label: '📦 Option 1: Free 1-to-1 Replacement Today', text: 'So sorry about the punctured carton Bistro Bintang! We will send 1x replacement Oat Milk carton on today\'s afternoon route at no charge.' },
               { kind: 'REBATE', label: '💸 Option 2: Offer RM 135 Instant Credit Rebate', text: 'Sincere apologies Bistro Bintang! We can deduct RM 135 off #INV-501 immediately (revised balance RM 1,215) if that is more convenient.' },
               { kind: 'TECH_VISIT', label: '🚚 Option 3: Driver Swap Before 3:00 PM', text: 'Sorry about that! Our delivery driver is still in your area and will swap the damaged carton before 3:00 PM today.' }
             ],
@@ -435,9 +435,6 @@ const DEMO_SIM_BAR_HTML = {
           <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 shadow-2xs transition">
             📎 Sends DuitNow Receipt PDF
           </button>
-          <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs transition">
-            📎 Sends Supplier Bill PDF
-          </button>
           <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-200 text-xs font-bold text-[#0152FC] shadow-2xs transition">
             💬 Asks for 5x Daikin + R32 Quote
           </button>
@@ -457,9 +454,6 @@ const DEMO_SIM_BAR_HTML = {
   fnb: `
           <button onclick="simulateCustomerAction('PDF_DUITNOW')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 shadow-2xs transition">
             📎 DuitNow RM 1,164 PDF
-          </button>
-          <button onclick="simulateCustomerAction('PDF_SUPPLIER')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs transition">
-            📎 Coffee Green Beans Bill SUP-601
           </button>
           <button onclick="simulateCustomerAction('MSG_BUY_INQUIRY')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-50 border border-blue-200 text-xs font-bold text-[#0152FC] shadow-2xs transition">
             💬 Asks for 6x Arabica + 10x Oat Milk
@@ -512,7 +506,7 @@ function demoChatsFor(preset) {
         chat.depositRef = 'DN-99281';
         chat.depositAmount = 2000;
         showToast('💬 Simulated Customer confirming deposit payment!');
-        triggerLiveAIForChat(chat, 'Customer confirmed deposit with ref DN-99281. Mark Won and schedule delivery.');
+        triggerLiveAIForChat(chat, 'Customer confirmed deposit with ref DN-99281. Thank customer warmly, confirm order, and schedule delivery.');
       } else if (actionKey === 'FOLLOW_UP_DUE') {
         chat.messages.push({
           from: 'system',
@@ -526,7 +520,7 @@ function demoChatsFor(preset) {
         chat.messages.push({ from: 'customer', time: 'Just Now', text: msg });
         chat.complaintNote = 'R32 gas cylinder nozzle leaking';
         showToast('⚠️ Simulated Customer reporting service issue!');
-        triggerLiveAIForChat(chat, 'Customer reports leaking gas valve. Auto-pause reminders and offer free replacement.');
+        triggerLiveAIForChat(chat, 'Customer reports leaking gas valve. Express empathy, reassure customer, and offer free replacement inspection.');
       } else if (actionKey === 'CUSTOMER_DECLINED') {
         const msg = 'Sorry boss, budget tak lepas kali ini. We pass first ya.';
         chat.messages.push({ from: 'customer', time: 'Just Now', text: msg });
@@ -539,6 +533,6 @@ function demoChatsFor(preset) {
         chat.tin = 'C21884920000';
         chat.ssmBrn = '202401009921';
         showToast('🧾 Simulated Customer sending LHDN TIN!');
-        triggerLiveAIForChat(chat, 'Customer provided LHDN Buyer TIN C21884920000 and SSM 202401009921. Save details.');
+        triggerLiveAIForChat(chat, 'Customer provided LHDN Buyer TIN C21884920000 and SSM 202401009921. Thank customer and confirm e-invoicing details received.');
       }
     }

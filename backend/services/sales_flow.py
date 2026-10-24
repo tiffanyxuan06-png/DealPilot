@@ -619,15 +619,15 @@ def generate_fallback_replies(
         return [
             {
                 "label": "Recommended",
-                "text": f"We appreciate your business, Boss! Our unit prices are strictly factory controlled, but we can bundle in an extra 3m premium copper piping free of charge for this order. Can we proceed?",
+                "text": "Boss, unit price is direct factory nett, but I can throw in 3m copper piping free for you. Can we proceed?",
             },
             {
                 "label": "Casual Boss",
-                "text": "Harga unit ni memang direct kilang Boss. Tapi saya belanja piping copper extra 3m percuma untuk Boss. Boleh kita jalan?",
+                "text": "Harga unit memang direct kilang Boss. Tapi saya belanja piping copper 3m percuma untuk Boss. Boleh jalan?",
             },
             {
                 "label": "Bahasa Melayu",
-                "text": "Untuk harga unit memang sudah harga terbaik kilang Boss. Sebagai tanda penghargaan, kami belanja set paip tembaga 3m secara percuma. Boleh kita sahkan?",
+                "text": "Untuk harga unit memang direct kilang Boss. Sebagai tanda penghargaan, kami belanja paip tembaga 3m percuma. Boleh kita sahkan?",
             },
         ]
 
