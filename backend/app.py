@@ -1,32 +1,34 @@
-import os
 from pathlib import Path
 import jwt
 from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import init_db
-from backend.services.lmstudio import check_lmstudio_health, DEFAULT_LMSTUDIO_URL, call_lmstudio_chat
+from backend.config import get_settings
+from backend.db import init_database
+from backend.models.responses import AuthConfig
 from backend.routes.state import router as state_router
 from backend.routes.whatsapp import router as whatsapp_router
 from backend.routes.company_ai import router as company_ai_router
-from backend.routes.invoices import router as invoices_router
 from backend.routes.exports import router as exports_router
+from backend.routes.deals import router as deals_router
 from backend.routes.team import router as team_router
 from backend.routes.onboarding import router as onboarding_router
+from backend.routes.sidekick import router as sidekick_router
 from backend.services.auth import auth_enabled, reset_current_role, role_from_claims, set_current_role, verify_token
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEBAPP_DIR = BASE_DIR / "webapp"
 
-# Initialize SQLite database schema & seeds if missing
-init_db(force_reset=False)
+# Apply pending migrations; an empty database gets the demo business.
+init_database()
 
 app = FastAPI(
     title="CashChase Orbyte API",
-    description="Intelligent WhatsApp Copilot & Real-Time Net Worth Engine for SMEs",
+    description="WhatsApp sales agent for Malaysian SMEs: quotes, follow-ups, pipeline and a won-orders CSV",
     version="2.0.0",
 )
 
@@ -39,6 +41,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_as_text(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Bad input is a 400 with one plain sentence, like every other error the WebApp and extension show."""
+    first = exc.errors()[0] if exc.errors() else {}
+    msg = str(first.get("msg", "Invalid request.")).removeprefix("Value error, ")
+    field = ".".join(str(p) for p in first.get("loc", ())[1:] if not isinstance(p, int))
+    custom = first.get("type") == "value_error"  # our own validators already write a full sentence
+    return JSONResponse({"detail": msg if custom or not field else f"{field}: {msg}"}, status_code=400)
+
 
 # Uploads arrive as base64 inside JSON: 15 MB of JSON is about a 10 MB file.
 MAX_REQUEST_BYTES = 15 * 1024 * 1024
@@ -78,10 +90,11 @@ async def require_login(request: Request, call_next):
 app.include_router(state_router)
 app.include_router(whatsapp_router)
 app.include_router(company_ai_router)
-app.include_router(invoices_router)
 app.include_router(exports_router)
+app.include_router(deals_router)
 app.include_router(team_router)
 app.include_router(onboarding_router)
+app.include_router(sidekick_router)
 
 # Mount webapp static directory, including /js and /css
 if WEBAPP_DIR.exists():
@@ -97,13 +110,14 @@ if WEBAPP_DIR.exists():
         app.mount("/img", StaticFiles(directory=str(img_dir)), name="img")
 
 
-@app.get("/api/auth/config")
-def auth_config() -> dict:
+@app.get("/api/auth/config", response_model=AuthConfig)
+def auth_config() -> AuthConfig:
     """Public Supabase settings for the WebApp login (the anon key is safe to expose)."""
-    return {"url": os.getenv("SUPABASE_URL", ""), "anonKey": os.getenv("SUPABASE_ANON_KEY", "")}
+    env = get_settings()
+    return AuthConfig(url=env.supabase_url, anon_key=env.supabase_anon_key)
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def root() -> HTMLResponse:
     index_file = WEBAPP_DIR / "index.html"
     if index_file.exists():

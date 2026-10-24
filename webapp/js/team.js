@@ -3,8 +3,8 @@
     // The backend enforces every rule; this file only shows and edits them.
     // =========================================================================
     let permissionDraft = {};      // action key -> mode the Owner picked but has not saved yet
-    let permissionThresholdDraft = null;
-    let holdHoursDraft = null;
+    let marginFloorDraft = null;
+    let followUpHoursDraft = null;
 
     // Short labels for the segmented switch; the backend's longer labels are the fallback.
     const modeShortLabel = { ALLOW: 'Allowed', APPROVAL: 'Needs approval', DENY: 'Off' };
@@ -42,7 +42,7 @@
             <div class="text-sm font-semibold text-[#042970]">${escapeHtmlText(a.summary)}</div>
             <div class="ap-meta">
               <span class="font-mono">#AP-${a.id}</span>
-              <span>${a.requestedBy === 'STAFF' ? 'Aina (Staff)' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)}</span>
+              <span>${a.requestedBy === 'STAFF' ? 'Staff' : escapeHtmlText(a.requestedBy)} · ${escapeHtmlText(a.createdAt)}</span>
               <span>Why: ${escapeHtmlText(a.reason)}</span>
               ${a.decisionNote ? `<span>Note: ${escapeHtmlText(a.decisionNote)}</span>` : ''}
             </div>
@@ -61,9 +61,14 @@
       const req = backendApprovals.find(a => a.id === id);
       if (!req) return;
       if (decision === 'REJECT') {
-        const note = prompt(`Reject #AP-${id}: "${req.summary}"?\n\nOptional note for Staff:`, '');
-        if (note === null) return;
-        backendAction(`/api/approvals/${id}/decide`, { decision, note }, `Rejected #AP-${id}. Nothing was changed.`);
+        askUserConfirm(
+          `Reject Staff Request #AP-${id}`,
+          `${req.summary}\n\nReason it needed you: ${req.reason}\n\nRejecting changes nothing. Staff will see your note.`,
+          note => backendAction(`/api/approvals/${id}/decide`, { decision, note }, `Rejected #AP-${id}. Nothing was changed.`),
+          'Reject request',
+          true,
+          true
+        );
         return;
       }
       askUserConfirm(
@@ -84,9 +89,9 @@
       const p = backendPermissions;
       const isOwner = currentRole === 'OWNER';
       const groups = [...new Set(p.actions.map(a => a.group))];
-      const threshold = permissionThresholdDraft ?? p.threshold;
-      const holdHours = holdHoursDraft ?? p.holdHours;
-      const changedCount = Object.keys(permissionDraft).length + (permissionThresholdDraft !== null ? 1 : 0) + (holdHoursDraft !== null ? 1 : 0);
+      const threshold = marginFloorDraft ?? p.marginFloorPct ?? 20.0;
+      const holdHours = followUpHoursDraft ?? p.followUpHours ?? 2;
+      const changedCount = Object.keys(permissionDraft).length + (marginFloorDraft !== null ? 1 : 0) + (followUpHoursDraft !== null ? 1 : 0);
 
       box.innerHTML = `
         ${isOwner ? '' : `<div class="cc-note cc-note-warn"><svg aria-hidden="true"><use href="#i-lock"/></svg><span>Only the Owner can change permissions. This is what Staff are allowed to do.</span></div>`}
@@ -119,16 +124,18 @@
 
         <div class="cc-box grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label for="perm-threshold" class="cc-label">Staff money-out needs approval above (RM)</label>
-            <input id="perm-threshold" type="number" min="0" step="100" value="${threshold}" ${isOwner ? '' : 'disabled'}
-              onchange="permissionThresholdDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
+            <label for="perm-threshold" class="cc-label">Lowest margin allowed (%)</label>
+            <input id="perm-threshold" type="number" min="0" max="100" step="1" value="${threshold}" ${isOwner ? '' : 'disabled'}
+              onchange="marginFloorDraft = Math.max(0, parseInt(this.value || '0', 10)); renderTeamPermissions();"
               class="cc-input cc-input-sm" />
+            <p class="text-xs text-[#5B6B85] mt-1">A discount below this goes to you for approval.</p>
           </div>
           <div>
-            <label for="perm-hold" class="cc-label">A quote holds stock for (hours)</label>
+            <label for="perm-hold" class="cc-label">Follow up a quote after (hours)</label>
             <input id="perm-hold" type="number" min="1" max="720" step="1" value="${holdHours}" ${isOwner ? '' : 'disabled'}
-              onchange="holdHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
+              onchange="followUpHoursDraft = Math.max(1, parseInt(this.value || '48', 10)); renderTeamPermissions();"
               class="cc-input cc-input-sm" />
+            <p class="text-xs text-[#5B6B85] mt-1">After this, the quote shows as follow-up due.</p>
           </div>
         </div>
 
@@ -147,7 +154,7 @@
           <div class="cc-box flex flex-wrap items-center justify-between gap-3 !border-dashed !border-[#0152FC]/40">
             <div class="flex items-start gap-2 text-[13px] text-[#042970] min-w-0 flex-[1_1_16rem]">
               <svg class="w-4 h-4 mt-0.5 shrink-0 text-[#0152FC]" aria-hidden="true"><use href="#i-clock"/></svg>
-              <span><b>Demo clock.</b> Skip ahead to show a quote hold running out and its stock coming back.</span>
+              <span><b>Demo clock.</b> Skip ahead to show quotes becoming follow-up due.</span>
             </div>
             <div class="flex gap-2">
               <button onclick="fastForwardHolds(24)" class="cc-btn cc-btn-ghost"><svg aria-hidden="true"><use href="#i-forward"/></svg>+24h</button>
@@ -182,20 +189,20 @@
       backendPermissions.actions.forEach(a => {
         if (a.mode !== a.default) permissionDraft[a.key] = a.default;
       });
-      permissionThresholdDraft = backendPermissions.threshold !== 1000 ? 1000 : null;
-      holdHoursDraft = backendPermissions.holdHours !== 48 ? 48 : null;
+      marginFloorDraft = backendPermissions.threshold !== 1000 ? 1000 : null;
+      followUpHoursDraft = backendPermissions.holdHours !== 48 ? 48 : null;
       renderTeamPermissions();
     }
 
     async function savePermissions() {
       const body = { staffModes: { ...permissionDraft } };
-      if (permissionThresholdDraft !== null) body.threshold = permissionThresholdDraft;
-      if (holdHoursDraft !== null) body.holdHours = holdHoursDraft;
+      if (marginFloorDraft !== null) body.threshold = marginFloorDraft;
+      if (followUpHoursDraft !== null) body.holdHours = followUpHoursDraft;
       const data = await backendAction('/api/permissions', body, 'Saved Team & Permissions. The change is in the activity log.');
       if (data) {
         permissionDraft = {};
-        permissionThresholdDraft = null;
-        holdHoursDraft = null;
+        marginFloorDraft = null;
+        followUpHoursDraft = null;
         renderTeamPermissions();
       }
     }
@@ -203,8 +210,8 @@
     function fastForwardHolds(hours) {
       askUserConfirm(
         `Demo: skip ${hours} hours`,
-        `Pretend ${hours} hours have passed for every quote hold?\n\nQuotes past their hold time expire and their stock goes back to Available to Sell. This is logged.`,
-        () => backendAction('/api/demo/fast-forward', { hours }, `Skipped ${hours}h. Expired holds released their stock.`),
+        `Pretend ${hours} hours have passed for every open quote?\n\nQuotes past their follow-up time show as Follow-up due, so reps can send a reminder. This is logged.`,
+        () => backendAction('/api/demo/fast-forward', { hours }, `Skipped ${hours}h. Quotes past their follow-up time are now due.`),
         `Skip ${hours}h`
       );
     }

@@ -1,941 +1,996 @@
 // =========================================================================
-    // CLEAN SIDEBAR NAVIGATION
-    // =========================================================================
-    function switchPage(page) {
-      currentPage = page;
-      const pages = ['overview', 'invoices', 'stock', 'ledger', 'wa'];
-      pages.forEach(p => {
-        const el = document.getElementById('page-' + p);
-        if (el) el.classList.toggle('hidden', p !== page);
+// CASHCHASE SALES CRM DASHBOARD & VIEW CONTROLLER
+// Drives 5 core views: Pipeline/My Day, Deals, Catalog, Customers, Commission
+// =========================================================================
 
-        const nav = document.getElementById('nav-' + p);
-        if (nav) nav.classList.toggle('is-active', p === page);
+let currentDealFilter = 'ALL';
+let currentDealRepFilter = 'ALL';
+let dealSearchQuery = '';
+
+// Backend text still carries emoji markers; the UI uses its own icons
+function noEmoji(text) {
+  return String(text || '').replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
+}
+
+// Deals carry repId only; look the name up from the reps list
+function repNameOf(st, d) {
+  if (d.repName) return d.repName;
+  const rep = (st.reps || []).find(r => r.id === d.repId);
+  return rep ? rep.name : 'Unassigned';
+}
+
+const STAGE_META = {
+  INQUIRY: { label: 'New inquiry', dot: '#0152FC', pill: 'background:#E6EEFF;color:#042970' },
+  QUOTED: { label: 'Quoted', dot: '#01AAFC', pill: 'background:#E3F6FF;color:#04527A' },
+  FOLLOW_UP: { label: 'Follow-up due', dot: '#F79009', pill: 'background:#FEF0C7;color:#93370D' },
+  WON: { label: 'Won', dot: '#12B76A', pill: 'background:#ECFDF3;color:#05603A' },
+  LOST: { label: 'Lost', dot: '#98A2B3', pill: 'background:#F2F4F7;color:#475467' }
+};
+
+function switchPage(page) {
+  currentPage = page;
+  const pages = ['pipeline', 'deals', 'catalog', 'customers', 'commission', 'wa'];
+  pages.forEach(p => {
+    const el = document.getElementById('page-' + p);
+    if (el) el.classList.toggle('hidden', p !== page);
+
+    const nav = document.getElementById('nav-' + p);
+    if (nav) nav.classList.toggle('is-active', p === page);
+  });
+
+  document.body.dataset.page = page;
+  window.scrollTo({ top: 0 });
+  if (window.revealIn) {
+    const activeEl = document.getElementById('page-' + page);
+    if (activeEl) window.revealIn(activeEl);
+  }
+  renderAll();
+}
+
+function showSettingsTab(key, focus) {
+  document.querySelectorAll('#settings-modal .set-tab').forEach(t => {
+    const on = t.id === `stab-${key}`;
+    t.classList.toggle('is-active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+    if (on && focus) t.focus();
+  });
+  document.querySelectorAll('#settings-modal .set-panel').forEach(p => { p.hidden = p.id !== `spanel-${key}`; });
+  const box = document.querySelector('#settings-modal .set-panels');
+  if (box) box.scrollTop = 0;
+}
+
+// Arrow keys move between the sections, like a native tab bar
+document.addEventListener('keydown', e => {
+  const tab = e.target.closest && e.target.closest('#settings-modal .set-tab');
+  if (!tab || !['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const tabs = [...document.querySelectorAll('#settings-modal .set-tab')];
+  let i = tabs.indexOf(tab);
+  if (e.key === 'Home') i = 0; else if (e.key === 'End') i = tabs.length - 1;
+  else i = (i + (/Down|Right/.test(e.key) ? 1 : -1) + tabs.length) % tabs.length;
+  e.preventDefault();
+  showSettingsTab(tabs[i].id.replace('stab-', ''), true);
+});
+
+function openSettingsModal(tab) {
+  if (typeof renderTeamPermissions === 'function') renderTeamPermissions();
+  if (typeof renderOnboarding === 'function') renderOnboarding();
+  // Staff can't change business settings, pricing rules or the AI, and don't get the activity log, so they
+  // only see what they are allowed to do (read-only)
+  const isOwner = currentRole === 'OWNER';
+  ['business', 'pricing', 'activity', 'advanced'].forEach(k => { const t = document.getElementById(`stab-${k}`); if (t) t.hidden = !isOwner; });
+  const title = document.getElementById('settings-title');
+  if (title) title.textContent = isOwner ? 'Settings' : 'What you can do';
+  showSettingsTab(isOwner ? (typeof tab === 'string' ? tab : 'business') : 'team');
+  const m = document.getElementById('settings-modal');
+  if (m) m.classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+  const m = document.getElementById('settings-modal');
+  if (m) m.classList.add('hidden');
+}
+
+// =========================================================================
+// 1. PIPELINE (OWNER) / MY DAY (STAFF) VIEW
+// =========================================================================
+function renderPipelineView() {
+  const st = getState();
+  // Staff see their own day; the Owner sees the whole pipeline
+  const heroCopy = currentRole === 'OWNER'
+    ? ['Pipeline', 'How the business is doing.', 'Paid orders, open deals and each rep\'s results this month.']
+    : ['My day', 'Your follow-ups and wins today.', 'Send the reminders that are due, then close the deals that are ready.'];
+  const logBtn = document.getElementById('pipeline-log-btn');
+  if (logBtn) logBtn.style.display = currentRole === 'OWNER' ? 'none' : '';  // .cc-btn's display beats .hidden
+  [['pipeline-hero-pill', 0], ['pipeline-hero-title', 1], ['pipeline-hero-sub', 2]].forEach(([id, n]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = heroCopy[n];
+  });
+  const isOwner = currentRole === 'OWNER';
+  const pipeline = st.pipeline || { valueRm: 0, winRate: 0, overdue: 0, byStage: {} };
+  const reps = st.reps || [];
+  const deals = st.deals || [];
+
+  // Update header text
+  const navText = document.getElementById('nav-text-pipeline');
+  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My Day';
+  const navDeals = document.getElementById('nav-text-deals');
+  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals & Quotes';
+
+  const badgePipeline = document.getElementById('badge-pipeline');
+  if (badgePipeline) {
+    // Chasing is the rep's job, so only Staff get a "due" badge (for their own follow-ups and re-engage alerts)
+    const dueCount = isOwner ? 0 : (pipeline.overdue || 0) + (st.reengage || []).length;
+    badgePipeline.textContent = dueCount > 0 ? `${dueCount} Due` : `${deals.length}`;
+    badgePipeline.className = dueCount > 0 ? 'nav-badge !bg-amber-500 !text-white' : 'nav-badge';
+  }
+
+  const badgeDeals = document.getElementById('badge-deals');
+  if (badgeDeals) badgeDeals.textContent = deals.length;
+
+  const badgeCatalog = document.getElementById('badge-catalog');
+  if (badgeCatalog) badgeCatalog.textContent = (st.products || []).length;
+
+  const badgeCustomers = document.getElementById('badge-customers');
+  if (badgeCustomers) badgeCustomers.textContent = (st.customers || []).length;
+
+  const badgeCommission = document.getElementById('badge-commission');
+  if (badgeCommission) badgeCommission.textContent = reps.length;
+
+  // Toggle Owner vs Staff container
+  const ownerBox = document.getElementById('pipeline-owner-view');
+  const staffBox = document.getElementById('pipeline-staff-view');
+  if (ownerBox) ownerBox.classList.toggle('hidden', !isOwner);
+  if (staffBox) staffBox.classList.toggle('hidden', isOwner);
+
+  if (isOwner) {
+    renderOwnerResults(st, deals, reps, pipeline);
+  } else {
+    renderStaffDay(st, deals, reps);
+  }
+}
+
+const RM = n => 'RM ' + (n || 0).toLocaleString();
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+
+// Customer health from the agent's rating, shown before the rep replies
+const TIER_TAG = {
+  VIP_FAST_PAYER: { label: 'Fast payer', tone: 'ok' },
+  LONG_TERM_PARTNER: { label: 'Long-term', tone: 'ok' },
+  PARTIAL_SHORT_PAYER: { label: 'Haggler', tone: 'warn' },
+  SLOW_PAYER_GHOST_RISK: { label: 'Ghost risk', tone: 'warn' },
+};
+const LEVEL_TAG = {
+  READY: { label: 'Ready to buy', tone: 'bad' },
+  INTERESTED: { label: 'Interested', tone: 'warn' },
+  BROWSING: { label: 'Browsing', tone: 'info' },
+};
+const tag = (t) => t ? `<span class="lvl-tag is-${t.tone}">${t.label}</span>` : '';
+
+function quietText(stamp) {
+  const t = stamp ? new Date(stamp.replace(' ', 'T')) : null;
+  if (!t || isNaN(t)) return '';
+  const h = Math.max(0, Math.floor((Date.now() - t.getTime()) / 3600000));
+  return h < 1 ? 'Last wrote under an hour ago' : h < 48 ? `Last wrote ${h}h ago` : `Last wrote ${Math.floor(h / 24)} days ago`;
+}
+
+function renderOwnerResults(st, deals, reps, pipeline) {
+  const month = new Date().toISOString().slice(0, 7);
+  const paid = deals.filter(d => d.stage === 'WON' && (d.wonAt || '').startsWith(month))
+    .sort((a, b) => (a.wonAt || '').localeCompare(b.wonAt || ''));
+  const paidTotal = paid.reduce((sum, d) => sum + (d.amount || 0), 0);
+  const won = deals.filter(d => d.stage === 'WON').length;
+  const lost = deals.filter(d => d.stage === 'LOST').length;
+  const commTotal = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);
+
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('kpi-won-month', RM(paidTotal));
+  set('kpi-won-note', `${paid.length} order${paid.length === 1 ? '' : 's'} marked won with a payment slip`);
+  // A percentage on a handful of deals swings wildly, so show the count until there are 20 closed deals
+  set('kpi-win-rate', won + lost >= 20 ? Math.round(won / (won + lost) * 100) + '%' : `${won} of ${won + lost}`);
+  set('kpi-win-note', `${won} won, ${lost} lost, all time`);
+  set('kpi-comm-pay', RM(commTotal));
+  set('kpi-comm-note', `This month, ${reps.length} rep${reps.length === 1 ? '' : 's'}`);
+
+  // Paid orders: running total as a small line chart, with every order as a point you can hover or tap
+  const chart = document.getElementById('pipeline-paid-chart');
+  if (chart) {
+    if (!paid.length) {
+      chart.innerHTML = `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No paid orders yet this month.</span></div>`;
+    } else {
+      const W = 520, H = 180, L = 44, R = 16, T = 14, B = 28;
+      let run = 0;
+      const pts = paid.map(d => ({ d, total: (run += d.amount || 0) }));
+      const max = Math.max(1000, Math.ceil(run / 1000 / 2) * 2000);
+      const x = i => pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1);
+      const y = v => T + (1 - v / max) * (H - T - B);
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.total).toFixed(1)}`).join(' ');
+      const area = `${line} L${x(pts.length - 1).toFixed(1)} ${H - B} L${x(0).toFixed(1)} ${H - B} Z`;
+      const day = s => new Date(s.replace(' ', 'T')).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+      chart.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="paid-chart" role="img" aria-label="Paid orders this month: ${RM(run)} from ${pts.length} orders">
+          ${[0, max / 2, max].map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" class="pc-grid"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" class="pc-axis">${t ? (t / 1000) + 'k' : '0'}</text>`).join('')}
+          <path d="${area}" class="pc-area"/><path d="${line}" class="pc-line"/>
+          ${pts.map((p, i) => `<g class="pc-pt" tabindex="0" data-i="${i}"><rect x="${x(i) - 24}" y="${T}" width="48" height="${H - T - B}" fill="transparent"/><circle cx="${x(i)}" cy="${y(p.total)}" r="4.5"/><text x="${x(i)}" y="${H - 8}" text-anchor="middle" class="pc-axis">${day(p.d.wonAt)}</text></g>`).join('')}
+        </svg>
+        <p id="paid-chart-readout" class="text-[13px] text-[#324564] mt-1" aria-live="polite"></p>`;
+      const readout = i => {
+        const p = pts[i];
+        document.getElementById('paid-chart-readout').innerHTML = `<b class="tabular-nums">${RM(p.total)}</b> by ${day(p.d.wonAt)} · +${RM(p.d.amount)} from ${escapeHtmlText(p.d.customer)}`;
+        chart.querySelectorAll('.pc-pt').forEach(g => g.classList.toggle('is-on', +g.dataset.i === i));
+      };
+      chart.querySelectorAll('.pc-pt').forEach(g => {
+        const i = +g.dataset.i;
+        g.addEventListener('mouseenter', () => readout(i));
+        g.addEventListener('focus', () => readout(i));
+        g.addEventListener('click', () => readout(i));
       });
-
-      document.body.dataset.page = page;
-      window.scrollTo({ top: 0 });
-      if (window.revealIn) window.revealIn(document.getElementById('page-' + page));
-      renderAll();
+      readout(pts.length - 1);
     }
+  }
 
-    function openSettingsModal() {
-      renderTeamPermissions();
-      renderOnboarding();
-      document.getElementById('settings-modal').classList.remove('hidden');
+  // Open deals by stage: bars to one scale, each opens that stage on the Deals page
+  const byStage = pipeline.byStage || {};
+  const open = ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].map(k => ({ k, ...(byStage[k] || { count: 0, valueRm: 0 }) }));
+  const openMax = Math.max(1, ...open.map(o => o.valueRm || 0));
+  const openTotal = open.reduce((sum, o) => sum + (o.valueRm || 0), 0);
+  const openCount = open.reduce((sum, o) => sum + (o.count || 0), 0);
+  const totalEl = document.getElementById('pipeline-open-total');
+  if (totalEl) totalEl.textContent = `${RM(openTotal)} · ${openCount} deal${openCount === 1 ? '' : 's'}`;
+  const stageContainer = document.getElementById('pipeline-stage-cards');
+  if (stageContainer) {
+    stageContainer.innerHTML = open.map(o => `
+      <button onclick="filterDealsToStage('${o.k}')" class="stage-bar" aria-label="${STAGE_META[o.k].label}: ${RM(o.valueRm)}, ${o.count} deals">
+        <span class="sb-label">${STAGE_META[o.k].label}</span>
+        <span class="sb-track"><span class="sb-fill" style="width:${Math.max(2, (o.valueRm || 0) / openMax * 100)}%"></span></span>
+        <span class="sb-value tabular-nums">${RM(o.valueRm)}<small>${o.count} deal${o.count === 1 ? '' : 's'}</small></span>
+      </button>`).join('');
+  }
+
+  // Team this month: won and commission per rep, best first
+  const repTable = document.getElementById('pipeline-reps-snippet');
+  if (repTable) {
+    repTable.innerHTML = [...reps].sort((a, b) => (b.wonRm || 0) - (a.wonRm || 0)).map(r => `
+      <tr><td class="px-4 font-semibold text-[#042970]">${escapeHtmlText(r.name)}</td>
+        <td class="px-4 text-right tabular-nums">${RM(r.wonRm)}</td>
+        <td class="px-4 text-right tabular-nums">${RM(r.commissionRm)}</td></tr>`).join('');
+  }
+
+  // Why we lose: the reasons recorded on lost deals, most common first
+  const lossBox = document.getElementById('pipeline-loss-reasons');
+  if (lossBox) {
+    const lostDeals = deals.filter(d => d.stage === 'LOST');
+    const reasons = Object.entries(pipeline.lossReasons || {}).sort((a, b) => b[1] - a[1]);
+    lossBox.innerHTML = `<div class="text-sm font-semibold text-[#042970]">Why we lose</div>` + (reasons.length
+      ? reasons.map(([reason, n]) => {
+          const value = lostDeals.filter(d => (d.lossReason || '').startsWith(reason)).reduce((sum, d) => sum + (d.amount || 0), 0);
+          return `<div class="flex items-baseline justify-between gap-3 mt-2 text-sm"><span>${escapeHtmlText(reason)}</span><span class="tabular-nums text-[#5B6B85]">${n} deal${n === 1 ? '' : 's'} · ${RM(value)}</span></div>`;
+        }).join('') + `<p class="text-xs text-[#5B6B85] mt-3">If one reason keeps coming up, review prices or the margin floor.</p>`
+      : `<p class="text-sm text-[#5B6B85] mt-1">No lost deals yet.</p>`);
+  }
+
+  // Owner Activity Log
+  const logList = document.getElementById('audit-log-list');
+  if (logList) {
+    logList.innerHTML = (st.logs || []).map(l => `
+      <div class="flex items-start gap-2 py-1 text-xs text-[#324564]">
+        <span class="cc-dot mt-1.5" style="background:#0152FC"></span>
+        <span>${escapeHtmlText(noEmoji(l))}</span>
+      </div>
+    `).join('');
+  }
+}
+
+// Re-engage alerts the rep sent or dismissed stay hidden in this browser until the customer writes again
+function reengageKey(a) { return 'cc-reengage:' + a.customer + ':' + a.said; }
+function reengageHidden(a) { try { return localStorage.getItem(reengageKey(a)) === '1'; } catch (e) { return false; } }
+function hideReengage(a) { try { localStorage.setItem(reengageKey(a), '1'); } catch (e) { /* private window: shows again on reload */ } }
+
+function renderStaffDay(st, deals, reps) {
+  // The server sends Staff only their own rep row, deals, customers and chats
+  const me = reps[0] || { name: 'You', commissionPct: 0, wonRm: 0, commissionRm: 0, potentialRm: 0, rank: 0 };
+  const memories = st.clientMemories || {};
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('staff-kpi-rank', me.rank ? `${ordinal(me.rank)} of ${st.teamSize || reps.length}` : '-');
+  set('staff-kpi-won', RM(me.wonRm));
+  set('staff-kpi-comm', RM(me.commissionRm));
+  set('staff-kpi-potential', '+' + RM(me.potentialRm));
+
+  // Re-engage: customers who were about to buy and went quiet (the agent decides from their own words)
+  const alerts = (st.reengage || []).filter(a => !reengageHidden(a));
+  window.__reengage = alerts;
+  const card = document.getElementById('staff-reengage-card');
+  const list = document.getElementById('staff-reengage-list');
+  if (card) card.classList.toggle('hidden', alerts.length === 0);
+  if (list) {
+    list.innerHTML = alerts.map((a, i) => `
+      <div class="reengage">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(a.customer)}${a.dealId ? ` <span class="deal-id">${a.dealId}</span>` : ''}</span>
+          <span class="flex flex-wrap gap-1.5">${tag(LEVEL_TAG[a.level])}${tag(TIER_TAG[a.tier])}</span>
+        </div>
+        <blockquote class="reengage-said">"${escapeHtmlText(a.said)}"<span>${escapeHtmlText(a.reason)}${a.amount ? ' · ' + RM(a.amount) : ''}</span></blockquote>
+        <label for="reengage-msg-${i}" class="cc-label">Suggested message (edit before sending)</label>
+        <textarea id="reengage-msg-${i}" rows="2" class="cc-input">${escapeHtmlText(a.suggestedMessage)}</textarea>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button onclick="sendReengage(${i})" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send on WhatsApp</button>
+          <button onclick="dismissReengage(${i})" class="cc-btn cc-btn-ghost">Dismiss</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Next up: a short ranked list. Follow-ups due first, then quotes the customer is warm on, then new questions.
+  const alerted = new Set(alerts.map(a => (a.customer || '').toLowerCase()));
+  const memoryOf = name => memories[name] || Object.values(memories).find(m => m.customer.toLowerCase() === (name || '').toLowerCase());
+  const open = deals.filter(d => ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].includes(d.stage) && !d.paused && !alerted.has(d.customer.toLowerCase()));
+  const rank = d => d.stage === 'FOLLOW_UP' ? 0 : d.stage === 'QUOTED' ? 1 : 2;
+  const items = open.sort((a, b) => rank(a) - rank(b)).map(d => ({ deal: d, name: d.customer, mem: memoryOf(d.customer) }));
+  // New chats with no deal yet (e.g. a price question) come last
+  Object.values(memories).forEach(m => {
+    const key = m.customer.toLowerCase();
+    if (m.buyingLevel && !alerted.has(key) && !deals.some(d => d.customer.toLowerCase() === key && ['INQUIRY', 'QUOTED', 'FOLLOW_UP'].includes(d.stage))
+      && !deals.some(d => d.customer.toLowerCase() === key && d.stage === 'WON' && (d.wonAt || '') >= (m.lastCustomerAt || ''))) {
+      items.push({ deal: null, name: m.customer, mem: m });
     }
-
-    function closeSettingsModal() {
-      document.getElementById('settings-modal').classList.add('hidden');
-    }
-
-    // =========================================================================
-    // NET WORTH & DASHBOARD SUMMARY CALCULATIONS
-    // =========================================================================
-    function renderTopNumbers() {
-      const st = getState();
-      const stockVal = st.stock.reduce((sum, item) => sum + (item.onHand * item.unitCost), 0);
-      const holdUnits = st.stock.reduce((sum, item) => sum + item.onHold, 0);
-      const coreNW = st.cashOnHand + stockVal;
-
-      const pendingIn = st.invoices
-        .filter(i => i.type === 'PENDING' || i.type === 'AFTERSALES' || i.type === 'PENDING_VERIFY')
-        .reduce((sum, i) => sum + i.amount, 0);
-      const pendingOut = st.invoices
-        .filter(i => i.type === 'SUPPLIER_COST' && i.status === 'UNPAID_PAYABLE')
-        .reduce((sum, i) => sum + i.amount, 0);
-
-      const fullNW = coreNW + pendingIn - pendingOut;
-
-      document.getElementById('top-company-title').textContent = st.name;
-      document.getElementById('ov-core-nw').textContent = 'RM ' + coreNW.toLocaleString();
-      document.getElementById('ov-core-sub').textContent = `Cash: RM ${st.cashOnHand.toLocaleString()} · Stock: RM ${stockVal.toLocaleString()}`;
-      document.getElementById('ov-receivables').textContent = 'RM ' + pendingIn.toLocaleString();
-      document.getElementById('ov-payables').textContent = 'RM ' + pendingOut.toLocaleString();
-      document.getElementById('ov-full-nw').textContent = 'RM ' + fullNW.toLocaleString();
-
-      const summaryEl = document.getElementById('stock-table-summary');
-      if (summaryEl) {
-        summaryEl.textContent = `Total Stock Value: RM ${stockVal.toLocaleString()} | Cash: RM ${st.cashOnHand.toLocaleString()}`;
-      }
-
-      document.getElementById('badge-invoices').textContent = st.invoices.length;
-      document.getElementById('badge-stock').textContent = holdUnits > 0 ? `${holdUnits} Held` : 'OK';
-    }
-
-    // =========================================================================
-    // HELPER: BUILDS THE 1 BIG OBVIOUS ACTION BUTTON FOR ANY RECORD
-    // =========================================================================
-    function getBigActionButton(inv) {
-      const btn = (fn, label) => `<button onclick="${fn}('${inv.id}')" class="cc-btn cc-btn-primary">${label}</button>`;
-      if (inv.type === 'PENDING_VERIFY') return btn('openVerifyModal', 'Check bank receipt');
-      if (inv.type === 'QUOTE_HOLD' && inv.status === 'HOLD_EXPIRED') return btn('releaseQuoteFromTable', 'Release expired hold');
-      if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') return btn('confirmQuoteFromTable', 'Confirm deposit');
-      if (inv.type === 'AFTERSALES') {
-        if (inv.status === 'REPLACEMENT_SENT' || inv.status === 'DISCOUNT_APPLIED') return btn('resolveAftersales', 'Mark resolved');
-        return btn('replaceFromTable', 'Send replacement');
-      }
-      if (inv.type === 'PENDING') return btn('markInvoicePaid', `Mark paid (+RM ${inv.amount.toLocaleString()})`);
-      if (inv.type === 'SUPPLIER_COST' && inv.status === 'UNPAID_PAYABLE') return btn('paySupplierBill', `Pay bill (−RM ${inv.amount.toLocaleString()})`);
-      return `<span class="cc-pill !bg-emerald-50 !text-emerald-700 !py-1.5 !px-3.5">✓ Completed</span>`;
-    }
-
-    // =========================================================================
-    // RENDER DASHBOARD, INVOICES & STOCK
-    // =========================================================================
-    function renderWebAppView() {
-      const st = getState();
-
-      // 1. Dashboard Priority Queue (1 Big Button per row)
-      const queueEl = document.getElementById('ov-action-queue');
-      const activeItems = st.invoices.filter(i => i.status !== 'PAID' && i.status !== 'HOLD_RELEASED' && i.status !== 'PAID_SUPPLIER' && i.status !== 'PAID_STOCK_IN' && i.status !== 'PAID_EXPENSE');
-      document.getElementById('badge-overview').textContent = activeItems.length;
-
-      queueEl.innerHTML = activeItems.map(inv => {
-        const pillStyle = inv.type === 'PENDING_VERIFY'
-          ? 'bg-purple-100 text-purple-900 border border-purple-300'
-          : inv.type === 'AFTERSALES'
-            ? 'bg-amber-100 text-amber-800'
-            : inv.status === 'HOLD_EXPIRED'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-[#E6EEFF] text-[#0152FC]';
-
-        return `
-          <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4">
-            <div class="space-y-1 max-w-xl">
-              <div class="flex items-center gap-2">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${pillStyle}">${inv.id}</span>
-                <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
-                <span class="font-bold text-sm text-[#0152FC]">· RM ${inv.amount.toLocaleString()}</span>
-              </div>
-              <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
+  });
+  const top = items.slice(0, 3);
+  const staffFollowList = document.getElementById('staff-followups-list');
+  if (staffFollowList) {
+    staffFollowList.innerHTML = top.length ? top.map((it, i) => {
+      const d = it.deal, m = it.mem;
+      const what = d ? `${d.id} · ${RM(d.amount)} · ${escapeHtmlText(noEmoji(d.followUpText) || STAGE_META[d.stage].label)}` : 'New chat · no quote yet';
+      const tip = m && m.paymentBehavior ? noEmoji(m.paymentBehavior) : '';
+      const action = d && d.stage === 'FOLLOW_UP'
+        ? `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary i-swipe"><svg aria-hidden="true"><use href="#i-send"/></svg>Send follow-up</button>`
+        : d && d.stage === 'INQUIRY'
+          ? `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary">Send quote</button>`
+          : `<button onclick="switchPage('wa')" class="cc-btn ${d ? 'cc-btn-ghost' : 'cc-btn-primary'}"><svg aria-hidden="true"><use href="#i-chat"/></svg>Open chat</button>`;
+      return `
+        <li class="next-up">
+          <span class="next-up-n tabular-nums">${i + 1}</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(it.name)}</span>
+              ${m ? tag(LEVEL_TAG[m.buyingLevel]) + tag(TIER_TAG[m.tier]) : ''}
             </div>
-            <div class="flex items-center gap-2">
-              ${getBigActionButton(inv)}
-            </div>
+            <div class="text-[13px] text-[#5B6B85] mt-0.5">${what}${m && quietText(m.lastCustomerAt) ? ' · <b>' + quietText(m.lastCustomerAt) + '</b>' : ''}</div>
+            ${tip ? `<div class="text-[13px] text-[#324564] mt-1">${escapeHtmlText(tip)}</div>` : ''}
           </div>
-        `;
-      }).join('');
+          <div class="shrink-0">${action}</div>
+        </li>`;
+    }).join('') : `<li class="cc-note cc-note-ok"><svg aria-hidden="true"><use href="#i-check"/></svg><span>All caught up. Nothing waiting on you.</span></li>`;
+  }
 
-      // Populate Walk-In Item Dropdown
-      const skuSelect = document.getElementById('walkin-sku');
-      if (skuSelect) {
-        const prevVal = skuSelect.value;
-        skuSelect.innerHTML = st.stock.map((s, idx) =>
-          `<option value="${idx}">${escapeHtmlText(s.name)} (RM ${s.sellPrice}) — ${Math.max(0, s.onHand - s.onHold)} Avail</option>`
-        ).join('');
-        if (prevVal && st.stock[prevVal]) skuSelect.value = prevVal;
-      }
+  // Staff Recent Wins
+  const myWonDeals = deals.filter(d => d.stage === 'WON');
+  const staffWinsList = document.getElementById('staff-recent-wins');
+  if (staffWinsList) {
+    staffWinsList.innerHTML = myWonDeals.slice(0, 4).map(d => `
+      <div class="rep-card">
+        <span class="cc-stat-icon !w-8 !h-8 bg-emerald-50 text-emerald-600"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-semibold text-[#042970] truncate">${escapeHtmlText(d.customer)}</span>
+          <span class="block text-xs font-mono text-[#5B6B85]">#${d.orderNo || d.id}</span>
+        </span>
+        <span class="text-right">
+          <span class="block text-sm font-semibold text-[#042970] tabular-nums">${RM(d.amount)}</span>
+          <span class="block text-xs text-emerald-700 tabular-nums">+${RM(Math.round(d.amount * (me.commissionPct || 0) / 100))} commission</span>
+        </span>
+      </div>
+    `).join('') || `<div class="cc-note cc-note-info"><svg aria-hidden="true"><use href="#i-trend"/></svg><span>No wins yet this month. Each quote you close adds commission.</span></div>`;
+  }
+}
 
-      // 2. Page 2: Clean Invoice Cards (1 Big Primary Action + clean secondary links)
-      const invContainer = document.getElementById('invoice-list-container');
-      const filtered = st.invoices.filter(i => currentInvFilter === 'ALL' || i.type === currentInvFilter);
+// Send opens WhatsApp with the edited message. With an open deal it also counts as a follow-up (logged and the
+// timer resets); otherwise it is logged on its own.
+function sendReengage(i) {
+  const a = (window.__reengage || [])[i];
+  if (!a) return;
+  const text = (document.getElementById(`reengage-msg-${i}`) || {}).value || a.suggestedMessage;
+  const digits = (a.phone || '').replace(/\D/g, '');
+  if (digits) window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  hideReengage(a);
+  if (a.dealId) {
+    sendFollowUpDeal(a.dealId);
+  } else {
+    backendAction('/api/reengage', { customer: a.customer, action: 'SENT' }, `Re-engaged ${a.customer}.`);
+  }
+}
 
-      invContainer.innerHTML = filtered.map(inv => `
-        <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] flex flex-wrap items-center justify-between gap-4">
-          <div class="space-y-1 max-w-xl">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-              <span class="font-bold text-sm text-[#042970]">${escapeHtmlText(inv.party)}</span>
-              <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
-            </div>
-            <div class="text-xs text-[#324564]">${escapeHtmlText(inv.itemsText)}</div>
-            <div class="flex flex-wrap items-center gap-3 pt-1">
-              <button onclick="openPdfForInvoice('${inv.id}')" class="text-xs font-semibold text-[#0152FC] hover:underline cursor-pointer">Preview PDF</button>
-              ${inv.receiptRef ? `<button onclick="viewReceiptCopy('${inv.id}')" class="text-xs font-bold text-purple-700 hover:underline cursor-pointer flex items-center gap-1">View receipt (${inv.receiptRef})</button>` : ''}
-              ${inv.lhdn.includes('Missing TIN') ? `<button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline cursor-pointer">Add buyer TIN</button>` : ''}
-              ${inv.type === 'PENDING' ? `<button onclick="addExtraPipingAndLabor('${inv.id}')" class="text-xs font-semibold text-[#042970] hover:underline cursor-pointer">Add piping &amp; labour</button>` : ''}
-              ${inv.type === 'AFTERSALES' ? `<button onclick="discountFromTable('${inv.id}')" class="text-xs font-semibold text-amber-800 hover:underline cursor-pointer">Or give RM 180 discount</button>` : ''}
-            </div>
+function dismissReengage(i) {
+  const a = (window.__reengage || [])[i];
+  if (!a) return;
+  hideReengage(a);
+  backendAction('/api/reengage', { customer: a.customer, action: 'DISMISSED' }, `Dismissed the alert for ${a.customer}.`);
+}
+
+function filterDealsToStage(stage) {
+  currentDealFilter = stage;
+  switchPage('deals');
+}
+
+// =========================================================================
+// 2. DEALS & PIPELINE VIEW
+// =========================================================================
+function setDealFilter(stage) {
+  currentDealFilter = stage;
+  renderDealsView();
+}
+
+function setDealRepFilter(repName) {
+  currentDealRepFilter = repName;
+  renderDealsView();
+}
+
+function renderDealsView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const deals = st.deals || [];
+  const reps = st.reps || [];
+
+  // The Owner reads every deal; the reps do the quoting and chasing on their own deals
+  const dealsCopy = isOwner
+    ? ['All deals', 'Every deal, every rep.', 'Read-only. Reps send the quotes and follow-ups; discounts and lost deals that need you come as approvals on the Pipeline page.']
+    : ['Deals', 'One next step per deal.', 'Send the quote, follow up, or close it. Discounts below your margin go to the Owner.'];
+  [['deals-hero-pill', 0], ['deals-hero-title', 1], ['deals-hero-sub', 2]].forEach(([id, n]) => { const el = document.getElementById(id); if (el) el.textContent = dealsCopy[n]; });
+  const dealsLog = document.getElementById('deals-log-btn');
+  if (dealsLog) dealsLog.style.display = isOwner ? 'none' : '';
+
+  // Staff only get their own deals, so the rep filter is the Owner's alone
+  const repFilter = document.getElementById('deals-rep-filter');
+  if (repFilter) repFilter.classList.toggle('hidden', !isOwner);
+  if (!isOwner) currentDealRepFilter = 'ALL';
+
+  // Update Rep filter options
+  const repSelect = document.getElementById('deals-rep-select');
+  if (repSelect) {
+    const curVal = repSelect.value;
+    repSelect.innerHTML = `<option value="ALL">All reps</option>` +
+      reps.map(r => `<option value="${escapeHtmlText(r.name)}">${escapeHtmlText(r.name)}</option>`).join('');
+    if (curVal) repSelect.value = curVal;
+  }
+
+  // Filter deals
+  const filtered = deals.filter(d => {
+    if (currentDealFilter !== 'ALL' && d.stage !== currentDealFilter) return false;
+    if (currentDealRepFilter !== 'ALL' && d.repName !== currentDealRepFilter) return false;
+    if (dealSearchQuery) {
+      const q = dealSearchQuery.toLowerCase();
+      const matchCust = (d.customer || '').toLowerCase().includes(q);
+      const matchId = (d.id || '').toLowerCase().includes(q);
+      const matchOrder = (d.orderNo || '').toLowerCase().includes(q);
+      if (!matchCust && !matchId && !matchOrder) return false;
+    }
+    return true;
+  });
+
+  // Filter chips active state
+  document.querySelectorAll('#deals-filter-bar button').forEach(btn => {
+    const f = btn.getAttribute('data-stage');
+    btn.classList.toggle('is-active', f === currentDealFilter);
+  });
+
+  const listEl = document.getElementById('deals-list-container');
+  if (!listEl) return;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `
+      <div class="cc-card p-8 text-center">
+        <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-16 h-auto mx-auto mb-3" aria-hidden="true" />
+        <div class="text-sm font-semibold text-[#042970]">No deals here</div>
+        <p class="text-[13px] text-[#5B6B85] mt-1">Pick another stage, or log a new inquiry.</p>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(d => {
+    const isWon = d.stage === 'WON';
+    const isLost = d.stage === 'LOST';
+    const isFollowUp = d.stage === 'FOLLOW_UP';
+    const itemsSummary = (d.items || []).map(i => `${i.qty}x ${i.name || i.sku}`).join(', ') || 'Standard Quotation';
+
+    const meta = STAGE_META[d.stage] || STAGE_META.INQUIRY;
+
+    // Primary action button based on stage (the Owner sees where the deal is instead)
+    let primaryBtn = '';
+    if (isOwner && !isWon && !isLost) {
+      primaryBtn = `<span class="cc-pill !py-1.5 !px-3" style="${meta.pill}">${d.stage === 'INQUIRY' ? 'Not quoted yet' : d.stage === 'QUOTED' ? 'Quote sent' : 'Follow-up due'}</span>`;
+    } else if (d.stage === 'INQUIRY') {
+      primaryBtn = `<button onclick="sendQuoteDeal('${d.id}')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-send"/></svg>Send quote</button>`;
+    } else if (d.stage === 'QUOTED') {
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary">Follow up</button>`;
+    } else if (d.stage === 'FOLLOW_UP') {
+      primaryBtn = `<button onclick="sendFollowUpDeal('${d.id}')" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-clock"/></svg>Send follow-up</button>`;
+    } else if (isWon) {
+      primaryBtn = `<span class="cc-pill cc-pill-ok !py-1.5 !px-3"><svg aria-hidden="true"><use href="#i-check"/></svg>Order #${d.orderNo || d.id}</span>`;
+    } else if (isLost) {
+      primaryBtn = `<span class="cc-pill cc-pill-muted !py-1.5 !px-3">Lost: ${escapeHtmlText(d.lossReason || 'Declined')}</span>`;
+    }
+
+    // Margin display: Owner sees %, Staff sees marginOk
+    const marginBadge = isOwner
+      ? (d.marginOk ? `<span class="text-xs text-emerald-700">${d.marginPct || 25}% margin</span>` : `<span class="text-xs font-semibold text-rose-700">${d.marginPct || 10}% margin · below floor</span>`)
+      : (d.marginOk ? `<span class="text-xs text-emerald-700">Margin OK</span>` : `<span class="text-xs font-semibold text-amber-700">Needs Owner OK</span>`);
+
+    // Owner approval state for this deal (the backend names the deal as "#ID (Customer)" in the summary)
+    const forDeal = (typeof backendApprovals !== 'undefined' ? backendApprovals : []).filter(a => a.summary.includes(`#${d.id} (`));
+    const waiting = forDeal.find(a => a.status === 'PENDING');
+    const turnedDown = !waiting && forDeal[0]?.status === 'REJECTED' ? forDeal[0] : null;
+    if (waiting) primaryBtn = `<span class="cc-pill cc-pill-warn !py-1.5 !px-3"><svg aria-hidden="true"><use href="#i-clock"/></svg>Waiting for Owner</span>`;
+    const approvalNote = waiting ? `
+          <div class="deal-approval is-waiting" role="status">
+            <svg aria-hidden="true"><use href="#i-shield"/></svg>
+            <div><b>Sent to the Owner.</b> ${escapeHtmlText(waiting.summary)}<br><span>#AP-${waiting.id} · ${escapeHtmlText(waiting.reason)}. We'll update this when they decide.</span></div>
+          </div>` : turnedDown ? `
+          <div class="deal-approval is-rejected" role="status">
+            <svg aria-hidden="true"><use href="#i-x"/></svg>
+            <div><b>Owner said no.</b> ${escapeHtmlText(turnedDown.summary)}${turnedDown.decisionNote ? `<br><span>Note: ${escapeHtmlText(turnedDown.decisionNote)}</span>` : ''}</div>
+          </div>` : '';
+
+    const followText = noEmoji(d.followUpText);
+    return `
+      <div class="deal-row ${(isFollowUp && !isOwner) || waiting ? 'is-attention' : ''}">
+        <div class="min-w-0 flex-1 space-y-1.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="deal-id">${d.id}</span>
+            <span class="font-semibold text-sm text-[#042970]">${escapeHtmlText(d.customer)}</span>
+            <span class="cc-pill" style="${meta.pill}"><span class="cc-dot" style="background:${meta.dot}"></span>${meta.label}</span>
           </div>
-
-          <div class="flex items-center gap-4">
-            <div class="text-right">
-              <div class="text-xs text-[#64748B]">Amount</div>
-              <div class="text-base font-bold text-[#042970]">RM ${inv.amount.toLocaleString()}</div>
-            </div>
-            ${getBigActionButton(inv)}
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="deal-meta"><svg aria-hidden="true"><use href="#i-users"/></svg>${escapeHtmlText(repNameOf(st, d))}</span>
+            ${d.phone ? `<span class="deal-meta"><svg aria-hidden="true"><use href="#i-chat"/></svg>${escapeHtmlText(d.phone)}</span>` : ''}
+            ${d.paused ? `<span class="deal-meta !text-[#93370D]"><svg aria-hidden="true"><use href="#i-alert"/></svg>Follow-ups paused (complaint)</span>` : (followText ? `<span class="deal-meta ${isFollowUp ? '!text-[#93370D]' : ''}"><svg aria-hidden="true"><use href="#i-clock"/></svg>${escapeHtmlText(followText)}</span>` : '')}
+          </div>
+          ${!isWon && !isLost && d.followUpCount > 0 ? `<div class="deal-meta ${d.followUpCount >= 3 ? '!text-[#B42318]' : ''}"><svg aria-hidden="true"><use href="#i-chat"/></svg>${d.followUpCount >= 3 ? `${d.followUpCount} follow-ups sent, no reply. Consider marking it lost.` : `${d.followUpCount} of 3 follow-ups sent`}</div>` : ''}
+          <div class="text-[13px] text-[#324564]">${escapeHtmlText(itemsSummary)}</div>
+          ${approvalNote}
+          <div class="deal-actions">
+            <button onclick="openPdfForDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-file"/></svg>PDF</button>
+            ${!isOwner && !isWon && !isLost && !waiting ? `
+              <button onclick="markWonDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-check"/></svg>Mark won</button>
+              <button onclick="discountDeal('${d.id}')" class="deal-act"><svg aria-hidden="true"><use href="#i-sparkle"/></svg>Discount</button>
+              <button onclick="pauseResumeDeal('${d.id}', ${!d.paused})" class="deal-act">${d.paused ? 'Resume follow-ups' : 'Pause (complaint)'}</button>
+              <button onclick="markLostDeal('${d.id}')" class="deal-act is-danger">Mark lost</button>
+            ` : ''}
+            ${isWon && isOwner ? `<button onclick="cancelWonDeal('${d.id}')" class="deal-act is-danger">Cancel order</button>` : ''}
+            ${isOwner ? '' : `<button onclick="setTinDeal('${d.id}')" class="deal-act">Add TIN</button>`}
           </div>
         </div>
-      `).join('');
 
-      // 3. Page 3: Stock Table (Shows WHO is holding each SKU + Quick Access Inspector)
-      const stockTbody = document.getElementById('stock-tbody');
-      stockTbody.innerHTML = st.stock.map((s, idx) => {
-        const avail = Math.max(0, s.onHand - s.onHold);
-        const val = s.onHand * s.unitCost;
-        const holders = getHoldersForSku(s.sku);
-
-        const holdersHtml = holders.length > 0
-          ? `<div class="space-y-1.5">
-               <div class="flex items-center gap-2">
-                 <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs">⏳ ${s.onHold} Held</span>
-                 <button onclick="openHoldInspector(${idx})" class="text-xs font-bold text-[#0152FC] hover:underline">🔍 Quick View All</button>
-               </div>
-               <div class="flex flex-wrap gap-1.5">
-                 ${holders.map(h => `
-                   <button onclick="openHoldInspector(${idx})" class="text-left px-2.5 py-1 rounded-lg border text-xs font-semibold transition flex items-center gap-1.5 ${
-                     h.inv.status === 'HOLD_EXPIRED'
-                       ? 'bg-red-50 border-red-200 text-red-800 hover:bg-red-100'
-                       : 'bg-[#F2F6FF] border-[#D5DFEE] text-[#042970] hover:bg-[#E6EEFF]'
-                   }">
-                     <span>👤 <b>${escapeHtmlText(h.inv.party)}</b> · ${h.heldQty}x (${h.inv.id})</span>
-                     <span class="text-xs px-1.5 py-0.2 rounded ${h.inv.status === 'HOLD_EXPIRED' ? 'bg-red-200 text-red-900 font-bold' : 'bg-[#E6EEFF] text-[#0152FC]'}">${h.inv.holdTimer || (h.inv.status === 'HOLD_EXPIRED' ? '⚠️ Expired' : '⏳ 48h Hold')}</span>
-                   </button>
-                 `).join('')}
-               </div>
-             </div>`
-          : s.onHold > 0
-            ? `<button onclick="openHoldInspector(${idx})" class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold hover:bg-amber-200 transition">⏳ ${s.onHold} Held (${s.holdNote}) 🔍</button>`
-            : `<span class="text-[#64748B]">0 (None Held)</span>`;
-
-        return `
-          <tr class="hover:bg-[#F2F6FF] transition align-top">
-            <td class="py-3.5 px-4 font-mono font-bold text-[#0152FC]">${escapeHtmlText(s.sku)}</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">${escapeHtmlText(s.name)}</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">${s.onHand} units</td>
-            <td class="py-3.5 px-4">${holdersHtml}</td>
-            <td class="py-3.5 px-4 font-bold text-emerald-700">${avail} Available</td>
-            <td class="py-3.5 px-4 font-bold text-[#042970]">RM ${val.toLocaleString()}</td>
-            <td class="py-3.5 px-4 text-right">
-              <div class="flex flex-col items-end gap-1.5">
-                <div class="flex items-center gap-1.5">
-                  <button onclick="quickRestockRow(${idx})" class="px-3 py-1.5 rounded-xl bg-[#E6EEFF] hover:bg-[#0152FC] text-[#0152FC] hover:text-white font-bold text-xs border border-[#0152FC]/30 transition">
-                    ➕ Restock (+Qty)
-                  </button>
-                  ${s.onHold > 0 ? `
-                    <button onclick="openHoldInspector(${idx})" class="px-3.5 py-1.5 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white font-bold text-xs shadow-xs transition">
-                      🔍 Who's Holding (${s.onHold})
-                    </button>
-                  ` : ''}
-                </div>
-                ${s.onHold > 0
-                  ? `<button onclick="releaseStockRow(${idx})" class="text-xs font-bold text-amber-700 hover:underline">🔓 Release All ${s.onHold} Held Units</button>`
-                  : `<span class="text-emerald-700 font-semibold text-xs">✓ Ready</span>`
-                }
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      // 3B. Page 3 Lower Section: "Who Is Holding Stock Right Now" Quick Access Cards
-      const activeHolds = st.invoices.filter(i => i.type === 'QUOTE_HOLD' && i.status !== 'HOLD_RELEASED');
-      const holdsCountBadge = document.getElementById('active-holds-count-badge');
-      if (holdsCountBadge) {
-        holdsCountBadge.textContent = `${activeHolds.length} Active / Expired Quote Hold(s)`;
-      }
-      const holdersListEl = document.getElementById('stock-holders-list');
-      if (holdersListEl) {
-        if (activeHolds.length === 0) {
-          holdersListEl.innerHTML = `
-            <div class="p-5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-center text-xs text-[#64748B]">
-              🎉 <b>Zero stock is currently locked on hold!</b> 100% of your physical warehouse inventory is Available to Sell.
-            </div>
-          `;
-        } else {
-          holdersListEl.innerHTML = activeHolds.map(inv => {
-            const isExpired = inv.status === 'HOLD_EXPIRED';
-            const timerLabel = inv.holdTimer || (isExpired ? '⚠️ Expired (>48h ago)' : '⏳ 48h Hold Active');
-            return `
-              <div class="p-4 rounded-xl bg-[#F2F6FF] border ${isExpired ? 'border-red-300 bg-red-50/40' : 'border-[#D5DFEE]'} flex flex-wrap items-center justify-between gap-4">
-                <div class="space-y-1.5 max-w-2xl">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                    <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
-                    ${inv.phone ? `<span class="text-xs text-[#64748B] font-medium">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970]">${escapeHtmlText(inv.lhdn)}</span>
-                  </div>
-                  <div class="text-xs font-semibold text-[#042970]">
-                    📦 Holding: <span class="text-[#0152FC]">${escapeHtmlText(inv.itemsText)}</span> · Quote Value: <b>RM ${inv.amount.toLocaleString()}</b>
-                  </div>
-                  <!-- Quick Access Bar -->
-                  <div class="flex flex-wrap items-center gap-3 pt-1">
-                    <button onclick="openPdfForInvoice('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-                      📄 View Quote PDF
-                    </button>
-                    <button onclick="jumpToQuoteChat('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-                      💬 Open Customer WhatsApp Chat ↗
-                    </button>
-                    ${!isExpired ? `
-                      <button onclick="releaseQuoteFromTable('${inv.id}')" class="px-3 py-1 rounded-lg bg-white hover:bg-amber-50 border border-amber-300 text-xs font-bold text-amber-800 transition">
-                        🔓 Release Hold Early (+Return Stock)
-                      </button>
-                    ` : ''}
-                    ${inv.lhdn.includes('Missing TIN') ? `
-                      <button onclick="setInvoiceTin('${inv.id}')" class="text-xs font-bold text-amber-700 hover:underline">
-                        ✏️ Key In Buyer TIN
-                      </button>
-                    ` : ''}
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  ${getBigActionButton(inv)}
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-
-      // 4. Audit Log (Dashboard preview)
-      const logList = document.getElementById('audit-log-list');
-      logList.innerHTML = st.logs.map(l => `
-        <div class="p-2.5 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#324564]">${escapeHtmlText(l)}</div>
-      `).join('');
-
-      // 5. Page 4: ALL DATA & MASTER LEDGER ("SEE EVERYTHING" VIEW)
-      const badgeLedger = document.getElementById('badge-ledger');
-      if (badgeLedger) {
-        badgeLedger.textContent = `${st.invoices.length + st.stock.length} Rows`;
-      }
-
-      const searchQ = (document.getElementById('ledger-search-input')?.value || '').trim().toLowerCase();
-      const ledgerTbody = document.getElementById('master-ledger-tbody');
-      if (ledgerTbody) {
-        const ledgerRows = st.invoices.filter(inv => {
-          if (!searchQ) return true;
-          return (
-            inv.id.toLowerCase().includes(searchQ) ||
-            inv.party.toLowerCase().includes(searchQ) ||
-            inv.itemsText.toLowerCase().includes(searchQ) ||
-            inv.lhdn.toLowerCase().includes(searchQ) ||
-            inv.status.toLowerCase().includes(searchQ)
-          );
-        });
-
-        ledgerTbody.innerHTML = ledgerRows.map(inv => {
-          const isOutflow = inv.type === 'SUPPLIER_COST';
-          const isPaidIn = inv.status === 'PAID';
-          const isPaidOut = inv.status === 'PAID_SUPPLIER' || inv.status === 'PAID_STOCK_IN' || inv.status === 'PAID_EXPENSE';
-          const isPendingVerify = inv.type === 'PENDING_VERIFY';
-
-          let catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-xs whitespace-nowrap shadow-xs">💰 Customer Sale</span>`;
-          if (inv.type === 'QUOTE_HOLD') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-xs whitespace-nowrap shadow-xs">⏳ 48h Quote Hold</span>`;
-          if (inv.type === 'PENDING_VERIFY') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 text-purple-900 font-bold text-xs whitespace-nowrap shadow-xs">🕵️‍♂️ Pending Bank Verify</span>`;
-          if (inv.type === 'AFTERSALES') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-bold text-xs whitespace-nowrap shadow-xs">⚠️ Aftersales Claim</span>`;
-          if (inv.type === 'SUPPLIER_COST') catBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-bold text-xs whitespace-nowrap shadow-xs">🚚 Supplier / Expense</span>`;
-
-          let statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">${escapeHtmlText(inv.status)}</span>`;
-          if (inv.status === 'PENDING_BANK_VERIFY') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 font-bold text-[11px] border border-purple-200 whitespace-nowrap">Bank Verification</span>`;
-          else if (inv.status === 'HOLD_EXPIRED') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200 whitespace-nowrap">Hold Expired</span>`;
-          else if (inv.status === 'ON_HOLD_48H') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-bold text-[11px] border border-amber-200 whitespace-nowrap">48h Hold Active</span>`;
-          else if (inv.status === 'AFTERSALES_PAUSED') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 font-bold text-[11px] border border-amber-200 whitespace-nowrap">Chasing Paused</span>`;
-          else if (inv.status === 'PENDING_PAYMENT') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200 whitespace-nowrap">Pending Payment</span>`;
-          else if (inv.status === 'UNPAID_PAYABLE') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-red-50 text-red-700 font-bold text-[11px] border border-red-200 whitespace-nowrap">Unpaid Payable</span>`;
-          else if (inv.status === 'PAID' || inv.status === 'PAID_SUPPLIER') statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200 whitespace-nowrap">Settled / Paid</span>`;
-
-          let cashEffectHtml = `<span class="font-bold text-[#0152FC] whitespace-nowrap">Pending +RM ${inv.amount.toLocaleString()}</span>`;
-          if (isPaidIn) cashEffectHtml = `<span class="font-bold text-emerald-700 whitespace-nowrap">+RM ${inv.amount.toLocaleString()} (Banked)</span>`;
-          else if (isPaidOut) cashEffectHtml = `<span class="font-bold text-red-600 whitespace-nowrap">-RM ${inv.amount.toLocaleString()} (Paid Out)</span>`;
-          else if (isOutflow) cashEffectHtml = `<span class="font-bold text-red-600 whitespace-nowrap">Payable -RM ${inv.amount.toLocaleString()}</span>`;
-          else if (isPendingVerify) cashEffectHtml = `<span class="font-bold text-purple-800 whitespace-nowrap">🕵️‍♂️ Unverified RM ${inv.amount.toLocaleString()}</span>`;
-          else if (inv.type === 'QUOTE_HOLD') cashEffectHtml = `<span class="text-[#64748B] font-semibold whitespace-nowrap">RM ${inv.amount.toLocaleString()} (Quote Only)</span>`;
-
-          return `
-            <tr class="hover:bg-[#F2F6FF] transition">
-              <td class="py-3 px-4 font-mono font-bold text-[#0152FC] whitespace-nowrap">
-                <button onclick="openPdfForInvoice('${inv.id}')" class="hover:underline">${inv.id} 📄</button>
-              </td>
-              <td class="py-3 px-4 whitespace-nowrap">${catBadge}</td>
-              <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(inv.party)}</td>
-              <td class="py-3 px-4 text-[#324564]">${escapeHtmlText(inv.itemsText)}</td>
-              <td class="py-3 px-4 whitespace-nowrap">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(inv.lhdn)}</span>
-              </td>
-              <td class="py-3 px-4 whitespace-nowrap">${statusBadge}</td>
-              <td class="py-3 px-4 text-right whitespace-nowrap">${cashEffectHtml}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      // Directory of All Customers & Suppliers
-      const custTbody = document.getElementById('master-customers-tbody');
-      if (custTbody) {
-        const partyMap = {};
-        st.invoices.forEach(inv => {
-          if (!partyMap[inv.party]) {
-            partyMap[inv.party] = {
-              party: inv.party,
-              isSupplier: inv.type === 'SUPPLIER_COST',
-              lhdn: inv.lhdn,
-              count: 0,
-              totalRM: 0,
-              sampleId: inv.id
-            };
-          }
-          partyMap[inv.party].count += 1;
-          partyMap[inv.party].totalRM += inv.amount;
-          if (inv.lhdn && !inv.lhdn.includes('Missing')) {
-            partyMap[inv.party].lhdn = inv.lhdn;
-          }
-        });
-
-        // Live profile: TIN comes from the customer record in the backend (shared with WhatsApp).
-        if (usesBackend() && Array.isArray(st.customers)) {
-          Object.values(partyMap).forEach(p => {
-            if (p.isSupplier) return;
-            const c = st.customers.find(x => x.name.toLowerCase() === cleanCustomerName(p.party).toLowerCase());
-            if (!c) return;
-            p.customer = c;
-            if (!(p.lhdn || '').includes('Consolidated')) p.lhdn = c.tin ? `🟢 LHDN TIN: ${c.tin}` : '🟡 Missing TIN';
-          });
-        }
-
-        const parties = Object.values(partyMap).filter(p => {
-          if (!searchQ) return true;
-          return p.party.toLowerCase().includes(searchQ) || p.lhdn.toLowerCase().includes(searchQ);
-        });
-
-        custTbody.innerHTML = parties.map(p => `
-          <tr class="hover:bg-[#F2F6FF] transition">
-            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">${escapeHtmlText(p.party)}</td>
-            <td class="py-3 px-4 whitespace-nowrap">
-              ${p.isSupplier
-                ? '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-700 font-bold border border-red-200 text-xs whitespace-nowrap shadow-xs">🏭 Supplier / Vendor</span>'
-                : '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-[#E6EEFF] text-[#0152FC] font-bold text-xs whitespace-nowrap shadow-xs">👤 Customer (B2B / Walk-In)</span>'
-              }
-            </td>
-            <td class="py-3 px-4 whitespace-nowrap">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-[#D5DFEE] font-semibold text-[#042970] text-xs whitespace-nowrap shadow-xs">${escapeHtmlText(p.lhdn)}</span>
-            </td>
-            <td class="py-3 px-4 font-bold text-[#324564] whitespace-nowrap">${p.count} record(s)</td>
-            <td class="py-3 px-4 font-bold text-[#042970] whitespace-nowrap">RM ${p.totalRM.toLocaleString()}</td>
-            <td class="py-3 px-4 text-right whitespace-nowrap">
-              ${p.customer && !p.customer.tin && p.customer.phone ? `
-                <a href="https://wa.me/${p.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(p.customer.tinRequestText)}" target="_blank" rel="noopener"
-                  class="inline-block px-3.5 py-1.5 mr-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition whitespace-nowrap shadow-xs">
-                  📨 Ask TIN on WhatsApp
-                </a>` : ''}
-              <button onclick="setInvoiceTin('${p.sampleId}')" class="px-3.5 py-1.5 rounded-xl bg-[#F2F6FF] hover:bg-[#E6EEFF] border border-[#D5DFEE] text-[#0152FC] font-bold text-xs transition whitespace-nowrap cursor-pointer shadow-xs">
-                ✏️ Edit TIN / Consolidated
-              </button>
-            </td>
-          </tr>
-        `).join('');
-      }
-
-      // Full Audit Log in Page 4
-      const masterLogList = document.getElementById('master-audit-log-list');
-      const masterLogCount = document.getElementById('master-log-count');
-      if (masterLogList) {
-        if (masterLogCount) masterLogCount.textContent = `${st.logs.length} Events Logged`;
-        masterLogList.innerHTML = st.logs.map(l => `
-          <div class="p-3 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] font-mono text-xs text-[#042970]">${escapeHtmlText(l)}</div>
-        `).join('');
-      }
-    }
-
-    function exportAllDataCSV() {
-      const st = getState();
-      askUserConfirm(
-        `Export Full System Ledger (.xlsx / .csv)`,
-        `Download all ${st.invoices.length} Invoices/Quotes/Supplier Bills, ${st.stock.length} Warehouse Stock SKUs, Client Memory Profiles, and ${st.logs.length} Audit Logs as an Excel (.xlsx) workbook?`,
-        () => {
-          triggerRealXlsxOrCsvDownload('CashChase_Master_Ledger.xlsx');
-        },
-        '📥 Download Excel (.xlsx)'
-      );
-    }
-
-    // Clean customer name to avoid showing tags like (Deposit), (Walk-in), etc.
-    function promptAddMemoryNote() {
-      const st = getState();
-      const chat = st.chats[currentChatIndex];
-      if (!chat.memory) {
-        chat.memory = { tier: 'Standard Client', score: 75, totalOrders: 1, totalPaidRM: 1000, notes: [], timeline: [] };
-      }
-      const note = prompt(`Add a persistent memory note for ${chat.customer}:\n(e.g., "Prefers WhatsApp quotes over phone", "Only accepts morning delivery", "Requested 5% discount on volume")`);
-      if (note && note.trim()) {
-        chat.memory.notes.push(note.trim());
-        chat.memory.timeline.unshift({
-          time: 'Just Now',
-          note: `Owner recorded: "${note.trim()}"`
-        });
-        showToast(`Saved note into ${chat.customer}'s persistent memory!`);
-        renderWhatsAppView();
-      }
-    }
-
-    function handlePhoneOrder() {
-      const st = getState();
-      const nameInput = document.getElementById('walkin-name');
-      const tinInput = document.getElementById('walkin-tin');
-      const skuIdx = parseInt(document.getElementById('walkin-sku').value || '0', 10);
-      const qty = Math.max(1, parseInt(document.getElementById('walkin-qty').value || '1', 10));
-      const mode = document.getElementById('walkin-mode').value;
-
-      const customerName = (nameInput.value || 'Walk-In Customer').trim();
-      const buyerTin = (tinInput.value || '').trim();
-      const item = st.stock[skuIdx] || st.stock[0];
-      const totalAmount = item.sellPrice * qty;
-
-      const lhdnStatus = buyerTin
-        ? `🟢 LHDN TIN: ${buyerTin}`
-        : `🔵 Consolidated e-Invoice (No Buyer TIN Needed)`;
-
-      const confirmMsg = mode === 'PAID_NOW'
-        ? `Record Immediate Walk-In Sale for ${customerName}?\n\n• Item: ${qty}x ${item.name} (${item.sku})\n• Physical Stock: -${qty} units deducted immediately\n• Cash on Hand: +RM ${totalAmount.toLocaleString()}\n• LHDN Status: ${lhdnStatus}`
-        : `Create 48-Hour Phone Quote Hold for ${customerName}?\n\n• Item: ${qty}x ${item.name} (${item.sku})\n• Stock Effect: +${qty} units locked ON HOLD for 48h\n• Quote Total: RM ${totalAmount.toLocaleString()}`;
-
-      askUserConfirm(
-        mode === 'PAID_NOW' ? `Confirm Walk-In Sale` : `Confirm 48h Phone Quote Hold`,
-        confirmMsg,
-        () => {
-          if (usesBackend()) {
-            backendAction('/api/orders/walkin', { customerName, buyerTin, sku: item.sku, qty, mode: mode === 'PAID_NOW' ? 'PAID_NOW' : 'QUOTE_HOLD' },
-              d => mode === 'PAID_NOW' ? `Walk-In Sale ${d.createdId} recorded!` : `Phone Quote ${d.createdId} created! ${qty}x ${item.name} placed ON HOLD for 48h.`);
-            return;
-          }
-          if (mode === 'PAID_NOW') {
-            item.onHand = Math.max(0, item.onHand - qty);
-            st.cashOnHand += totalAmount;
-            const newId = 'INV-' + Math.floor(300 + Math.random() * 90);
-            st.invoices.unshift({
-              id: newId,
-              type: 'PAID_DONE',
-              party: customerName + ' (Walk-In)',
-              itemsText: `${qty}x ${item.name} (Walk-In Paid Immediately · Stock Deducted)`,
-              sku: item.sku,
-              qty: qty,
-              amount: totalAmount,
-              status: 'PAID',
-              lhdn: lhdnStatus
-            });
-            st.logs.unshift(`10:49 AM · [${currentRole}] Walk-In Sale ${newId} (${customerName}) → Deducted ${qty}x ${item.name} from Physical Stock, Cash +RM ${totalAmount.toLocaleString()} (${lhdnStatus}).`);
-            showToast(`Walk-In Sale ${newId} recorded! Deducted ${qty}x ${item.name} from Stock & added +RM ${totalAmount.toLocaleString()} to Cash!`);
-          } else {
-            item.onHold += qty;
-            item.holdNote = `${item.onHold}x Active Quote Holds (48h)`;
-            const newId = 'QT-' + Math.floor(110 + Math.random() * 80);
-            st.invoices.unshift({
-              id: newId,
-              type: 'QUOTE_HOLD',
-              party: customerName + ' (Phone Order)',
-              phone: 'Phone / Walk-In',
-              holdTimer: '⏳ 48h Left (Just Held)',
-              itemsText: `${qty}x ${item.name} (ON HOLD — 48h timer)`,
-              sku: item.sku,
-              qty: qty,
-              amount: totalAmount,
-              status: 'ON_HOLD_48H',
-              lhdn: buyerTin ? `🟢 LHDN TIN: ${buyerTin}` : `🟡 Missing TIN`
-            });
-            st.logs.unshift(`10:49 AM · [${currentRole}] Phone Quote ${newId} (${customerName}) → Placed ${qty}x ${item.name} ON HOLD for 48h.`);
-            showToast(`Phone Quote ${newId} created! ${qty}x ${item.name} placed ON HOLD for 48h.`);
-          }
-          renderAll();
-        },
-        '✅ Confirm & Save Entry'
-      );
-    }
-
-    function getHoldersForSku(sku) {
-      const st = getState();
-      const results = [];
-      st.invoices.forEach(inv => {
-        // Backend profile: expired quotes no longer hold stock. Demo profiles keep counting them until released.
-        const holding = usesBackend() ? inv.status === 'ON_HOLD_48H' : inv.status !== 'HOLD_RELEASED';
-        if (inv.type === 'QUOTE_HOLD' && holding) {
-          if (inv.sku === sku) {
-            results.push({ inv, heldQty: inv.qty });
-          } else if (inv.extraSku === sku && inv.extraQty > 0) {
-            results.push({ inv, heldQty: inv.extraQty });
-          }
-        }
-      });
-      return results;
-    }
-
-    let currentInspectSkuIdx = null;
-
-    function openHoldInspector(stockIdx) {
-      const st = getState();
-      const s = st.stock[stockIdx];
-      if (!s) return;
-      currentInspectSkuIdx = stockIdx;
-
-      const avail = Math.max(0, s.onHand - s.onHold);
-      document.getElementById('hold-modal-sku-pill').textContent = `⏳ Stock Hold Breakdown · ${s.sku}`;
-      document.getElementById('hold-modal-title').textContent = s.name;
-      document.getElementById('hold-modal-subtitle').textContent =
-        `Physical On Hand: ${s.onHand} units · Currently Held: ${s.onHold} units · Available to Sell: ${avail} units`;
-
-      const holders = getHoldersForSku(s.sku);
-      const listEl = document.getElementById('hold-modal-list');
-
-      if (holders.length === 0) {
-        listEl.innerHTML = `
-          <div class="p-4 rounded-xl bg-[#F2F6FF] border border-[#D5DFEE] text-xs text-[#64748B] text-center">
-            No active customer quotes are holding <b>${escapeHtmlText(s.name)}</b> right now.
+        <div class="flex items-center gap-4 shrink-0">
+          <div class="text-right">
+            <div class="text-base font-bold text-[#042970] tabular-nums">RM ${(d.amount || 0).toLocaleString()}</div>
+            ${marginBadge}
           </div>
-        `;
-      } else {
-        listEl.innerHTML = holders.map(h => {
-          const inv = h.inv;
-          const isExpired = inv.status === 'HOLD_EXPIRED';
-          const timerLabel = inv.holdTimer || (isExpired ? '⚠️ Expired (>48h ago)' : '⏳ 48h Hold Active');
-          return `
-            <div class="p-4 rounded-xl bg-[#F2F6FF] border ${isExpired ? 'border-red-300 bg-red-50/40' : 'border-[#D5DFEE]'} space-y-2.5">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-mono font-bold text-xs px-2.5 py-0.5 rounded bg-white border border-[#D5DFEE] text-[#0152FC]">${inv.id}</span>
-                  <span class="font-bold text-sm text-[#042970]">👤 ${escapeHtmlText(inv.party)}</span>
-                  ${inv.phone ? `<span class="text-xs text-[#64748B]">📞 ${escapeHtmlText(inv.phone)}</span>` : ''}
-                </div>
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${isExpired ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-amber-100 text-amber-900'}">${timerLabel}</span>
-              </div>
+          ${primaryBtn}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-              <div class="text-xs text-[#324564] flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-lg border border-[#D5DFEE]">
-                <div>
-                  <b>Holding this SKU:</b> <span class="text-[#0152FC] font-bold">${h.heldQty} units (${escapeHtmlText(s.sku)})</span>
-                  <div class="text-[#64748B] mt-0.5">Full Quote Scope: ${escapeHtmlText(inv.itemsText)}</div>
-                </div>
-                <div class="text-right">
-                  <div class="text-[#64748B]">Quote Total</div>
-                  <div class="text-sm font-bold text-[#042970]">RM ${inv.amount.toLocaleString()}</div>
-                </div>
-              </div>
+// Deal action API callers
+function sendQuoteDeal(dealId) {
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_QUOTE' }, `Quote #${dealId} sent to customer!`);
+}
 
-              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <button onclick="closeHoldInspector(); openPdfForInvoice('${inv.id}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#0152FC] transition">
-                    📄 View Quote PDF
-                  </button>
-                  <button onclick="closeHoldInspector(); jumpToQuoteChat('${inv.id}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#E6EEFF] border border-[#D5DFEE] text-xs font-bold text-[#042970] transition">
-                    💬 Open WhatsApp Chat ↗
-                  </button>
-                  <button onclick="releaseQuoteFromTable('${inv.id}'); closeHoldInspector();" class="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-xs font-bold text-amber-900 transition">
-                    🔓 Release Hold (+${h.heldQty} Avail)
-                  </button>
-                </div>
+function sendFollowUpDeal(dealId) {
+  backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, { action: 'SEND_FOLLOW_UP' }, `Follow-up sent on #${dealId}!`);
+}
 
-                <button onclick="confirmQuoteFromTable('${inv.id}'); closeHoldInspector();" class="px-4 py-2 rounded-xl bg-[#0152FC] hover:bg-[#0141C9] text-white text-xs font-bold shadow-xs transition">
-                  💰 Confirm Deposit & Deduct Stock
-                </button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
+function markWonDeal(dealId) {
+  askForm({
+    title: `Mark #${dealId} as won`,
+    message: 'Record the customer\'s payment slip. The order number and commission are created for you.',
+    okText: 'Mark won',
+    fields: [
+      { name: 'ref', label: 'Bank / DuitNow transfer slip ref', value: 'DN-20261023-889', required: true, requiredMsg: 'Enter the slip reference.' },
+      { name: 'amount', label: 'Deposit or amount paid (RM)', type: 'number', value: 1000, min: 1, hint: 'Recorded with the order.' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'MARK_WON',
+    depositRef: v.ref,
+    depositAmount: v.amount
+  }, `Deal #${dealId} marked WON! Order confirmed.`));
+}
 
-      document.getElementById('hold-inspector-modal').classList.remove('hidden');
+function markLostDeal(dealId) {
+  askForm({
+    title: `Mark #${dealId} as lost`,
+    okText: 'Mark lost',
+    isDanger: true,
+    fields: [
+      { name: 'reason', label: 'Why was it lost?', value: 'Customer declined on WhatsApp', required: true, requiredMsg: 'Enter a reason.',
+        chips: ['Competitor price', 'No reply', 'Timing', 'Cancelled'] }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'MARK_LOST',
+    reason: v.reason
+  }, `Deal #${dealId} marked LOST.`));
+}
+
+function discountDeal(dealId) {
+  askForm({
+    title: `Apply a discount to #${dealId}`,
+    okText: 'Apply discount',
+    fields: [
+      { name: 'discount', label: 'Discount (RM)', type: 'number', value: 50, min: 1, required: true, requiredMsg: 'Enter the discount in RM.',
+        hint: 'A discount that takes the margin below your floor needs Owner approval.' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'APPLY_DISCOUNT',
+    discount: Math.round(v.discount)
+  }, `Discount of RM ${Math.round(v.discount)} applied to #${dealId}!`));
+}
+
+function pauseResumeDeal(dealId, pause) {
+  const send = note => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: pause ? 'PAUSE' : 'RESUME',
+    note: note || ''
+  }, `${pause ? 'Paused' : 'Resumed'} follow-ups on #${dealId}.`);
+
+  if (!pause) { send(''); return; }
+  askForm({
+    title: `Pause follow-ups on #${dealId}`,
+    message: 'Reminders stop until you resume them.',
+    okText: 'Pause follow-ups',
+    fields: [
+      { name: 'note', label: 'What happened?', value: 'Customer reported issue', required: true, requiredMsg: 'Add a short reason.' }
+    ]
+  }, v => send(v.note));
+}
+
+function setTinDeal(dealId) {
+  askForm({
+    title: `Add buyer TIN to #${dealId}`,
+    message: 'The LHDN tax ID goes on the e-Invoice.',
+    okText: 'Save TIN',
+    fields: [
+      { name: 'tin', label: 'Buyer LHDN TIN', value: 'C2588190021', required: true, requiredMsg: 'Enter the TIN.', hint: 'For example C2588190021' }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'SET_TIN',
+    tin: v.tin
+  }, `Saved LHDN TIN ${v.tin} on #${dealId}!`));
+}
+
+function cancelWonDeal(dealId) {
+  askForm({
+    title: `Cancel won order #${dealId}`,
+    message: 'The order is marked lost and its commission is taken off this month.',
+    okText: 'Cancel order',
+    isDanger: true,
+    fields: [
+      { name: 'reason', label: 'Why is it cancelled?', value: 'Customer requested cancellation', required: true, requiredMsg: 'Enter a reason.',
+        chips: ['Customer returned units', 'Payment bounced', 'Customer requested cancellation'] }
+    ]
+  }, v => backendAction(`/api/deals/${encodeURIComponent(dealId)}/action`, {
+    action: 'CANCEL_WON',
+    reason: v.reason
+  }, `Cancelled won order #${dealId}.`));
+}
+
+function openPdfForDeal(dealId) {
+  if (typeof openPdfForInvoice === 'function') {
+    openPdfForInvoice(dealId);
+  }
+}
+
+function downloadWonOrdersCsv() {
+  window.open(`${BACKEND_API_BASE}/api/export/orders.csv?role=${encodeURIComponent(currentRole)}`, '_blank');
+  showToast('📥 Downloading Won Orders CSV for accounting...');
+}
+
+// Log inquiry modal & form
+function openLogInquiryModal() {
+  const st = getState();
+  const skuSelect = document.getElementById('inquiry-sku-select');
+  if (skuSelect) {
+    skuSelect.innerHTML = (st.products || []).map(p =>
+      `<option value="${p.sku}">${escapeHtmlText(p.name)} — RM ${p.sellPrice}</option>`
+    ).join('');
+  }
+  const modal = document.getElementById('log-inquiry-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeLogInquiryModal() {
+  const modal = document.getElementById('log-inquiry-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitLogInquiry() {
+  const custInput = document.getElementById('inquiry-customer-name');
+  const phoneInput = document.getElementById('inquiry-phone');
+  const skuSelect = document.getElementById('inquiry-sku-select');
+  const qtyInput = document.getElementById('inquiry-qty');
+  const quoteNowCheck = document.getElementById('inquiry-quote-now');
+
+  const customer = (custInput?.value || '').trim();
+  if (!customer) {
+    showToast('⚠️ Please enter a customer name.');
+    return;
+  }
+  const phone = (phoneInput?.value || '').trim();
+  const sku = skuSelect?.value;
+  if (!sku) {
+    showToast('⚠️ Pick a product from the price list.');
+    return;
+  }
+  const qty = Math.max(1, parseInt(qtyInput?.value || '1', 10));
+  const quoteNow = quoteNowCheck?.checked ?? true;
+
+  const data = await backendAction('/api/deals', {
+    customer: customer,
+    phone: phone,
+    items: [{ sku: sku, qty: qty }],
+    quote: quoteNow
+  }, d => `Deal #${d.createdId} created for ${customer}!`);
+
+  if (data) {
+    closeLogInquiryModal();
+    if (custInput) custInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+  }
+}
+
+// =========================================================================
+// 3. CATALOG (PRICE LIST) VIEW
+// =========================================================================
+function renderCatalogView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const products = st.products || [];
+
+  const addBtn = document.getElementById('catalog-add-btn');
+  if (addBtn) addBtn.classList.toggle('hidden', !isOwner);
+
+  const tbody = document.getElementById('catalog-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = products.map(p => {
+    const cost = p.unitCost !== undefined && p.unitCost !== null ? p.unitCost : Math.round(p.sellPrice * 0.7);
+    const margin = p.sellPrice - cost;
+    const marginPct = p.sellPrice > 0 ? Math.round((margin / p.sellPrice) * 100) : 0;
+    const specs = p.specs || {};
+    const specsSummary = [
+      specs.hp ? `${specs.hp}HP` : '',
+      specs.brand || '',
+      specs.best_for ? `Best for: ${specs.best_for}` : ''
+    ].filter(Boolean).join(' · ') || 'Standard catalog SKU';
+
+    return `
+      <tr class="align-top">
+        <td class="px-4 font-mono text-[13px] font-semibold text-[#0152FC]">${escapeHtmlText(p.sku)}</td>
+        <td class="px-4 min-w-[240px]">
+          <div class="font-semibold text-[#042970]">${escapeHtmlText(p.name)}</div>
+          <div class="text-xs text-[#5B6B85] mt-0.5">${escapeHtmlText(specsSummary)}</div>
+        </td>
+        <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${p.sellPrice.toLocaleString()}</td>
+        <td class="px-4 text-right text-[#5B6B85] tabular-nums whitespace-nowrap">
+          ${isOwner ? 'RM ' + cost.toLocaleString() : '<span class="inline-flex items-center gap-1"><svg class="w-3.5 h-3.5" aria-hidden="true"><use href="#i-lock"/></svg>Owner only</span>'}
+        </td>
+        <td class="px-4 text-right whitespace-nowrap">
+          ${isOwner
+            ? `<span class="font-semibold tabular-nums ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">RM ${margin}</span> <span class="text-xs text-[#5B6B85]">(${marginPct}%)</span>`
+            : `<span class="text-xs font-semibold ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}">${marginPct >= 15 ? 'OK' : 'Low'}</span>`}
+        </td>
+        <td class="px-4 text-right whitespace-nowrap">
+          ${isOwner ? `<button onclick="openEditProductModal('${p.sku}')" class="deal-act">Edit price</button>` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openEditProductModal(sku = '') {
+  const st = getState();
+  const p = (st.products || []).find(x => x.sku === sku);
+  const skuEl = document.getElementById('prod-modal-sku');
+  const nameEl = document.getElementById('prod-modal-name');
+  const sellEl = document.getElementById('prod-modal-sell');
+  const costEl = document.getElementById('prod-modal-cost');
+
+  if (p) {
+    if (skuEl) { skuEl.value = p.sku; skuEl.readOnly = true; }
+    if (nameEl) nameEl.value = p.name;
+    if (sellEl) sellEl.value = p.sellPrice;
+    if (costEl) costEl.value = p.unitCost || Math.round(p.sellPrice * 0.7);
+  } else {
+    if (skuEl) { skuEl.value = ''; skuEl.readOnly = false; }
+    if (nameEl) nameEl.value = '';
+    if (sellEl) sellEl.value = '1000';
+    if (costEl) costEl.value = '700';
+  }
+  const modal = document.getElementById('edit-product-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditProductModal() {
+  const modal = document.getElementById('edit-product-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveProductFromModal() {
+  const sku = (document.getElementById('prod-modal-sku')?.value || '').trim().toUpperCase();
+  const name = (document.getElementById('prod-modal-name')?.value || '').trim();
+  const sellPrice = parseInt(document.getElementById('prod-modal-sell')?.value || '0', 10);
+  const unitCost = parseInt(document.getElementById('prod-modal-cost')?.value || '0', 10);
+
+  if (!sku || !name || sellPrice <= 0) {
+    showToast('Enter a SKU, a name and a selling price.');
+    return;
+  }
+
+  const data = await backendAction('/api/products', {
+    sku,
+    name,
+    sellPrice,
+    unitCost
+  }, `Saved ${sku} to Price List!`);
+
+  if (data) {
+    closeEditProductModal();
+  }
+}
+
+// =========================================================================
+// 4. CUSTOMERS & LHDN TIN DIRECTORY VIEW
+// =========================================================================
+function renderCustomersView() {
+  const st = getState();
+  const customers = st.customers || [];
+  const tbody = document.getElementById('customers-tbody');
+  if (!tbody) return;
+
+  const deals = st.deals || [];
+  tbody.innerHTML = customers.map(c => {
+    const isReady = c.lhdnReady || !!c.tin;
+    const tinBadge = isReady
+      ? `<span class="cc-pill cc-pill-ok font-mono">${escapeHtmlText(c.tin || 'LHDN ready')}</span>`
+      : `<span class="cc-pill cc-pill-warn">Missing TIN</span>`;
+    const won = deals.filter(d => d.customer === c.name && d.stage === 'WON');
+    const wonRm = won.reduce((sum, d) => sum + (d.amount || 0), 0);
+    const rep = (st.reps || []).find(r => r.id === c.repId);
+
+    return `
+      <tr>
+        <td class="px-4 font-semibold text-[#042970] min-w-[150px]">${escapeHtmlText(c.name)}</td>
+        <td class="px-4 text-[#5B6B85] text-xs font-mono whitespace-nowrap">${escapeHtmlText(c.phone || '-')}</td>
+        <td class="px-4 whitespace-nowrap">${tinBadge}</td>
+        <td class="px-4 text-[#324564] whitespace-nowrap">${rep ? escapeHtmlText(rep.name) : '<span class="text-[#5B6B85]">Unassigned</span>'}</td>
+        <td class="px-4 text-right tabular-nums">${c.openRecords || 0}</td>
+        <td class="px-4 text-right tabular-nums">${won.length}</td>
+        <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${wonRm.toLocaleString()}</td>
+        <td class="px-4 text-right whitespace-nowrap">
+          <div class="inline-flex flex-col items-end gap-0.5">
+            <button onclick="promptCustomerTin('${escapeHtmlText(c.name)}')" class="deal-act">${isReady ? 'Update TIN' : 'Add TIN'}</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function promptCustomerTin(customerName) {
+  askForm({
+    title: `Buyer TIN for ${customerName}`,
+    message: 'The LHDN tax ID goes on their e-Invoices.',
+    okText: 'Save TIN',
+    fields: [
+      { name: 'tin', label: 'Buyer LHDN TIN', value: 'C2588190021', required: true, requiredMsg: 'Enter the TIN.', hint: 'For example C2588190021' }
+    ]
+  }, v => {
+    // Find latest deal for this customer if any
+    const st = getState();
+    const d = (st.deals || []).find(x => x.customer === customerName);
+    if (d) {
+      backendAction(`/api/deals/${encodeURIComponent(d.id)}/action`, { action: 'SET_TIN', tin: v.tin }, `Saved LHDN TIN ${v.tin} on #${d.id}!`);
+    } else {
+      showToast(`Saved TIN ${v.tin} for ${customerName}!`);
     }
+  });
+}
 
-    function closeHoldInspector() {
-      document.getElementById('hold-inspector-modal').classList.add('hidden');
-    }
+function addCustomerPrompt() {
+  askForm({
+    title: 'Add a customer',
+    okText: 'Add customer',
+    fields: [
+      { name: 'name', label: 'Customer or company name', required: true, requiredMsg: 'Enter a name.', placeholder: 'Customer or company name' },
+      { name: 'phone', label: 'WhatsApp phone', value: '+60 12-345 6789' }
+    ]
+  }, v => backendAction('/api/customers', {
+    name: v.name,
+    phone: v.phone
+  }, `Added ${v.name} to customer directory!`));
+}
 
-    function jumpToQuoteChat(quoteId) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === quoteId);
-      let targetIdx = 0;
-      if (inv && typeof inv.chatIdx === 'number') {
-        targetIdx = inv.chatIdx;
-      } else if (inv) {
-        const foundIdx = st.chats.findIndex(c =>
-          c.customer.toLowerCase().includes(inv.party.toLowerCase().replace(' (phone order)', '')) ||
-          c.phone.includes(quoteId)
-        );
-        if (foundIdx >= 0) targetIdx = foundIdx;
-      }
-      currentChatIndex = targetIdx;
-      switchPage('wa');
-      showToast(`Opened WhatsApp chat for ${inv ? inv.party : quoteId}!`);
-    }
+// =========================================================================
+// 5. COMMISSION TRACKER & LEADERBOARD VIEW
+// =========================================================================
+function renderCommissionView() {
+  const st = getState();
+  const isOwner = currentRole === 'OWNER';
+  const reps = st.reps || [];
+  const tbody = document.getElementById('commission-tbody');
+  if (!tbody) return;
 
-    function setInvoiceTin(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const entered = prompt(
-        `Enter Buyer LHDN TIN for ${inv.party} (e.g. C2588190021),\nOR leave blank and click OK to mark as Monthly Consolidated e-Invoice (EI00000000010):`,
-        'C2588190021'
-      );
-      if (entered === null) return;
-      const tinClean = entered.trim();
-      askUserConfirm(
-        `Confirm LHDN e-Invoice TIN · #${id}`,
-        tinClean
-          ? `Save Buyer LHDN TIN "${tinClean}" for ${inv.party} on #${id}?`
-          : `Classify #${id} (${inv.party}) under Monthly Consolidated e-Invoice (General TIN EI00000000010)?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'SET_TIN', tin: tinClean },
-              tinClean ? `Saved Buyer TIN ${tinClean} on ${id} — LHDN e-Invoice Ready!` : `Marked ${id} as Monthly Consolidated e-Invoice!`);
-            return;
-          }
-          if (tinClean) {
-            inv.lhdn = `🟢 LHDN TIN: ${tinClean}`;
-            st.logs.unshift(`10:50 AM · [${currentRole}] Keyed in Buyer LHDN TIN (${tinClean}) on ${id}.`);
-            showToast(`Saved Buyer TIN ${tinClean} on ${id} — LHDN e-Invoice Ready!`);
-          } else {
-            inv.lhdn = `🔵 Consolidated e-Invoice`;
-            st.logs.unshift(`10:50 AM · [${currentRole}] Set ${id} to Monthly Consolidated e-Invoice (General TIN EI00000000010).`);
-            showToast(`Marked ${id} as Monthly Consolidated e-Invoice!`);
-          }
-          renderAll();
-        },
-        '✅ Save LHDN Status'
-      );
-    }
+  // Staff get only their own row from the server, so the page speaks to them about their own pay
+  const say = (id, owner, staff) => { const el = document.getElementById(id); if (el) el.textContent = isOwner ? owner : staff; };
+  say('comm-hero-sub', "Each rep's sales and commission, worked out from the deals they closed.", 'Your sales and commission, worked out from the deals you closed.');
+  say('comm-won-label', 'Won sales', 'Your won sales');
+  say('comm-won-note', 'All won deals added together', 'Orders you closed this month');
+  say('comm-pay-label', 'Commission to pay', 'Your commission');
+  say('comm-pay-note', 'Owed across all reps', 'Estimated; the Owner confirms your pay');
+  const addRep = document.getElementById('comm-add-rep');
+  if (addRep) addRep.style.display = isOwner ? '' : 'none';
 
-    function releaseStockRow(idx) {
-      const st = getState();
-      const s = st.stock[idx];
-      if (!s) return;
-      const released = s.onHold;
-      askUserConfirm(
-        `Confirm Release Held Stock · ${s.sku}`,
-        `Release all ${released} held units of ${s.name} (${s.sku}) back to Available Stock?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/stock/${encodeURIComponent(s.sku)}/release`, {}, `Released ${released} units of ${s.name} back to Available Stock!`);
-            return;
-          }
-          s.onHold = 0;
-          s.holdNote = '-';
-          st.invoices.forEach(inv => {
-            if (inv.type === 'QUOTE_HOLD' && inv.status !== 'HOLD_RELEASED') {
-              if (inv.sku === s.sku) {
-                inv.status = 'HOLD_RELEASED';
-                inv.type = 'PAID_DONE';
-              } else if (inv.extraSku === s.sku) {
-                inv.extraQty = 0;
-              }
-            }
-          });
-          st.logs.unshift(`10:50 AM · [${currentRole}] Released ${released}x ${s.name} back to Available Stock.`);
-          showToast(`Released ${released} units of ${s.name} back to Available Stock!`);
-          renderAll();
-        },
-        '🔓 Yes, Release Stock'
-      );
-    }
+  const totalWon = reps.reduce((sum, r) => sum + (r.wonRm || 0), 0);
+  const totalComm = reps.reduce((sum, r) => sum + (r.commissionRm || 0), 0);
 
-    function confirmQuoteFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[0];
-      const deposit = Math.round(inv.amount * 0.4);
-      askUserConfirm(
-        `Confirm Deposit & Deduct Stock · #${id}`,
-        `Confirm 40% Deposit (RM ${deposit.toLocaleString()}) from ${inv.party} on #${id}?\n\n• Deduct ${inv.qty}x ${item.name} from Physical Stock\n• Add +RM ${deposit.toLocaleString()} to Cash on Hand\n• Convert Quote to Active Invoice (Balance RM ${(inv.amount - deposit).toLocaleString()})`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'CONFIRM_QUOTE' },
-              `Order ${id} confirmed! Deducted ${inv.qty} units from Stock & added RM ${deposit} deposit to Cash.`);
-            return;
-          }
-          item.onHold = Math.max(0, item.onHold - inv.qty);
-          item.onHand = Math.max(0, item.onHand - inv.qty);
-          if (inv.extraSku && inv.extraQty > 0) {
-            const extraItem = st.stock.find(s => s.sku === inv.extraSku);
-            if (extraItem) {
-              extraItem.onHold = Math.max(0, extraItem.onHold - inv.extraQty);
-              extraItem.onHand = Math.max(0, extraItem.onHand - inv.extraQty);
-            }
-          }
-          st.cashOnHand += deposit;
-          inv.type = 'PENDING';
-          inv.amount = inv.amount - deposit;
-          inv.status = 'PENDING_PAYMENT';
-          inv.itemsText = `${inv.qty}x ${item.name} (STOCK DEDUCTED · Deposit RM ${deposit} Paid)`;
-          st.logs.unshift(`10:50 AM · [OWNER] Confirmed Deposit RM ${deposit} on ${id} → Deducted ${inv.qty} units from Physical Stock.`);
-          showToast(`Order ${id} confirmed! Deducted ${inv.qty} units from Stock & added RM ${deposit} deposit to Cash.`);
-          renderAll();
-        },
-        '💰 Confirm Deposit & Deduct'
-      );
-    }
+  const wonTotalEl = document.getElementById('comm-total-won');
+  if (wonTotalEl) wonTotalEl.textContent = 'RM ' + totalWon.toLocaleString();
 
-    function releaseQuoteFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[0];
-      askUserConfirm(
-        `Confirm Release Quote Hold · #${id}`,
-        `Release Quote Hold #${id} for ${inv.party}?\n\n• Returns +${inv.qty}x ${item.name} back to Available to Sell Stock.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'RELEASE_QUOTE' },
-              `Released Quote ${id}! +${inv.qty} units returned to Available Stock.`);
-            return;
-          }
-          item.onHold = Math.max(0, item.onHold - inv.qty);
-          if (inv.extraSku && inv.extraQty > 0) {
-            const extraItem = st.stock.find(s => s.sku === inv.extraSku);
-            if (extraItem) {
-              extraItem.onHold = Math.max(0, extraItem.onHold - inv.extraQty);
-            }
-          }
-          inv.status = 'HOLD_RELEASED';
-          inv.type = 'PAID_DONE';
-          st.logs.unshift(`10:51 AM · [${currentRole}] Released Quote Hold ${id} (+${inv.qty} units returned to Available Stock).`);
-          showToast(`Released Quote ${id}! +${inv.qty} units returned to Available Stock.`);
-          renderAll();
-        },
-        '🔓 Yes, Release Hold'
-      );
-    }
+  const commTotalEl = document.getElementById('comm-total-payout');
+  if (commTotalEl) commTotalEl.textContent = 'RM ' + totalComm.toLocaleString();
 
-    function replaceFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const item = st.stock.find(s => s.sku === inv.sku) || st.stock[1] || st.stock[0];
-      askUserConfirm(
-        `Confirm Aftersales Replacement · #${id}`,
-        `Send 1x Replacement ${item.name} (${item.sku}) to ${inv.party}?\n\n• Deducts -1 unit from Physical Warehouse Stock.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'REPLACE_ONE', sku: item.sku },
-              `Deducted 1x ${item.name} as Aftersales Replacement! Now click 'Mark Aftersales Resolved' when done.`);
-            return;
-          }
-          item.onHand = Math.max(0, item.onHand - 1);
-          inv.status = 'REPLACEMENT_SENT';
-          inv.itemsText = `4x Daikin, 4x R32 (1x Replacement ${item.name} Sent — Ready to Mark Resolved)`;
-          st.logs.unshift(`10:51 AM · [OWNER] Sent 1x Replacement ${item.name} for ${id} (-1 Physical Stock).`);
-          showToast(`Deducted 1x ${item.name} as Aftersales Replacement! Now click 'Mark Aftersales Resolved' when done.`);
-          renderAll();
-        },
-        '🔄 Confirm Send Replacement'
-      );
-    }
+  tbody.innerHTML = reps.map((r, idx) => `
+    <tr>
+      <td class="px-4">
+        <span class="inline-flex items-center gap-2.5 font-semibold text-[#042970] whitespace-nowrap">
+          <span class="rep-rank ${idx === 0 ? 'is-top' : ''}">${idx + 1}</span>${escapeHtmlText(r.name)}
+        </span>
+      </td>
+      <td class="px-4 text-right tabular-nums">${r.commissionPct}%</td>
+      <td class="px-4 text-right font-semibold text-[#042970] tabular-nums whitespace-nowrap">RM ${(r.wonRm || 0).toLocaleString()}</td>
+      <td class="px-4 text-right font-semibold text-emerald-700 tabular-nums whitespace-nowrap">RM ${(r.commissionRm || 0).toLocaleString()}</td>
+      <td class="px-4 text-right tabular-nums">${r.openDeals || 0}</td>
+      <td class="px-4 text-right tabular-nums">${r.overdue > 0 ? `<span class="cc-pill cc-pill-warn">${r.overdue}</span>` : '<span class="text-[#5B6B85]">0</span>'}</td>
+      <td class="px-4 text-right whitespace-nowrap">
+        ${isOwner ? `<button onclick="promptEditRepRate(${r.id}, '${escapeHtmlText(r.name)}', ${r.commissionPct})" class="deal-act">Change rate</button>` : `<span class="text-xs text-[#5B6B85]">Active</span>`}
+      </td>
+    </tr>
+  `).join('');
+}
 
-    function discountFromTable(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const entered = prompt(`Enter Credit Rebate / Discount Amount (RM) to deduct from ${id} (${inv.party}):`, '180');
-      if (entered === null) return;
-      const rebate = Math.max(0, parseInt(entered.trim() || '180', 10));
-      askUserConfirm(
-        `Confirm Aftersales Credit Rebate · #${id}`,
-        `Apply RM ${rebate.toLocaleString()} Credit Rebate to #${id} (${inv.party})?\n\n• Current Balance: RM ${inv.amount.toLocaleString()}\n• New Balance After Rebate: RM ${Math.max(0, inv.amount - rebate).toLocaleString()}`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'DISCOUNT', amount: rebate },
-              `Applied RM ${rebate.toLocaleString()} credit rebate on ${id}!`);
-            return;
-          }
-          inv.amount = Math.max(0, inv.amount - rebate);
-          inv.status = 'DISCOUNT_APPLIED';
-          inv.itemsText = `4x Daikin, 4x R32 (RM ${rebate.toLocaleString()} Credit Rebate Applied — Ready to Mark Resolved)`;
-          st.logs.unshift(`10:52 AM · [OWNER] Applied RM ${rebate.toLocaleString()} Aftersales Credit Rebate on ${id}.`);
-          showToast(`Applied RM ${rebate.toLocaleString()} credit rebate on ${id}!`);
-          renderAll();
-        },
-        `💸 Confirm RM ${rebate.toLocaleString()} Rebate`
-      );
-    }
+function promptEditRepRate(repId, repName, currentPct) {
+  askForm({
+    title: `Commission rate for ${repName}`,
+    okText: 'Save rate',
+    fields: [
+      { name: 'rate', label: 'Commission (%)', type: 'number', value: currentPct, min: 0, max: 100, step: 0.5, required: true, requiredMsg: 'Enter a percentage.',
+        hint: 'Paid on won orders only.' }
+    ]
+  }, v => backendAction('/api/reps', {
+    id: repId,
+    name: repName,
+    commissionPct: v.rate,
+    active: true
+  }, `Updated ${repName}'s commission to ${v.rate}%!`));
+}
 
-    function resolveAftersales(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Resolve Aftersales · #${id}`,
-        `Mark Aftersales issue for ${inv.party} (#${id}) as RESOLVED and resume normal payment collection (RM ${inv.amount.toLocaleString()})?`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_RESOLVED' },
-              `${id} marked Resolved! Payment follow-up resumed.`);
-            return;
-          }
-          inv.type = 'PENDING';
-          inv.status = 'PENDING_PAYMENT';
-          st.logs.unshift(`10:52 AM · [OWNER] Marked Aftersales Issue on ${id} RESOLVED → Resumed normal Pending Invoice status.`);
-          showToast(`${id} marked Resolved! Payment follow-up resumed.`);
-          renderAll();
-        },
-        '✅ Confirm Resolved'
-      );
-    }
+function promptAddNewRep() {
+  askForm({
+    title: 'Add a sales rep',
+    okText: 'Add rep',
+    fields: [
+      { name: 'name', label: 'Rep name', required: true, requiredMsg: 'Enter a name.', placeholder: 'First name, e.g. as on WhatsApp' },
+      { name: 'rate', label: 'Commission (%)', type: 'number', value: 3, min: 0, max: 100, step: 0.5, required: true, requiredMsg: 'Enter a percentage.', hint: 'Paid on won orders only.' }
+    ]
+  }, v => backendAction('/api/reps', {
+    name: v.name,
+    commissionPct: v.rate,
+    active: true
+  }, `Added sales rep ${v.name} (${v.rate}% commission)!`));
+}
 
-    function markInvoicePaid(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Full Payment Received · #${id}`,
-        `Mark Invoice #${id} (${inv.party}) as 100% PAID?\n\n• Adds +RM ${inv.amount.toLocaleString()} to Verified Cash on Hand.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'MARK_PAID' },
-              `Invoice ${id} marked PAID! Cash on Hand +RM ${inv.amount.toLocaleString()}.`);
-            return;
-          }
-          st.cashOnHand += inv.amount;
-          inv.status = 'PAID';
-          inv.type = 'PAID_DONE';
-          st.logs.unshift(`10:53 AM · [OWNER] Confirmed full payment of RM ${inv.amount} on ${id} (+Cash on Hand).`);
-          showToast(`Invoice ${id} marked PAID! Cash on Hand +RM ${inv.amount.toLocaleString()}.`);
-          renderAll();
-        },
-        `✅ Confirm +RM ${inv.amount.toLocaleString()} Paid`
-      );
-    }
-
-    function addExtraPipingAndLabor(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      const pipe = st.stock[2] || st.stock[0];
-      const pipeCharge = pipe.sellPrice * 2;
-      const laborCustomerCharge = 350;
-      const laborInstallerCost = 150;
-      askUserConfirm(
-        `Confirm Add Extra Piping & Labor · #${id}`,
-        `Add Extra Piping & Installer Labor to #${id} (${inv.party})?\n\n• Physical Stock: -2x ${pipe.name} (${pipe.sku})\n• Customer Invoice: +RM ${(pipeCharge + laborCustomerCharge).toLocaleString()}\n• Installer Subcon Cost: -RM ${laborInstallerCost.toLocaleString()} from Cash`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'ADD_PIPE_LABOR', sku: pipe.sku },
-              `Added Extra Piping & Labor to ${id}! Invoice +RM ${pipeCharge + laborCustomerCharge}, Installer Cost -RM ${laborInstallerCost}.`);
-            return;
-          }
-          pipe.onHand = Math.max(0, pipe.onHand - 2);
-          inv.amount += (pipeCharge + laborCustomerCharge);
-          st.cashOnHand -= laborInstallerCost;
-          inv.itemsText += ` + [2x ${pipe.name} (RM ${pipeCharge}) & Labor (RM ${laborCustomerCharge})]`;
-          st.logs.unshift(`10:54 AM · [${currentRole}] Added Extra Piping (-2 Stock, +RM ${pipeCharge}) & Labor (+RM ${laborCustomerCharge}, -RM ${laborInstallerCost} Installer Cost) on ${id}.`);
-          showToast(`Added Extra Piping & Labor to ${id}! Invoice +RM ${pipeCharge + laborCustomerCharge}, Installer Cost -RM ${laborInstallerCost}.`);
-          renderAll();
-        },
-        '🔧 Confirm Add Piping & Labor'
-      );
-    }
-
-    function paySupplierBill(id) {
-      const st = getState();
-      const inv = st.invoices.find(i => i.id === id);
-      if (!inv) return;
-      askUserConfirm(
-        `Confirm Pay Supplier Bill · #${id}`,
-        `Record payment of RM ${inv.amount.toLocaleString()} to ${inv.party} (#${id})?\n\n• Deducts -RM ${inv.amount.toLocaleString()} from Cash on Hand.`,
-        () => {
-          if (usesBackend()) {
-            backendAction(`/api/invoices/${encodeURIComponent(id)}/action`, { action: 'PAY_SUPPLIER' },
-              `Paid Supplier Bill ${id}! Cash on Hand -RM ${inv.amount.toLocaleString()}.`);
-            return;
-          }
-          st.cashOnHand -= inv.amount;
-          inv.status = 'PAID_SUPPLIER';
-          st.logs.unshift(`10:55 AM · [OWNER] Paid Supplier Bill ${id} (-RM ${inv.amount} Cash on Hand).`);
-          showToast(`Paid Supplier Bill ${id}! Cash on Hand -RM ${inv.amount.toLocaleString()}.`);
-          renderAll();
-        },
-        `💸 Confirm Pay RM ${inv.amount.toLocaleString()}`
-      );
-    }
-
-    function setInvoiceFilter(f) {
-      currentInvFilter = f;
-      document.querySelectorAll('#inv-filter-bar [data-filter]').forEach(b => b.classList.toggle('is-active', b.dataset.filter === f));
-      renderWebAppView();
-    }
+// Master render invoked by main.js
+function renderWebAppView() {
+  renderPipelineView();
+  renderDealsView();
+  renderCatalogView();
+  renderCustomersView();
+  renderCommissionView();
+}

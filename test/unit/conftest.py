@@ -1,4 +1,4 @@
-"""Every test gets a fresh, seeded SQLite database in a temp folder (never backend/cashchase.db)."""
+"""Every test gets a fresh, migrated and seeded database in a temp folder (never your own)."""
 import os
 import sys
 import tempfile
@@ -11,15 +11,18 @@ sys.path.insert(0, str(ROOT))
 
 # Login off by default (the real .env may turn it on); test_auth.py switches it on itself.
 os.environ["SUPABASE_URL"] = ""
-
-import backend.database as database  # noqa: E402
-
-# Must be set before backend.app is imported: importing the app initialises the database.
-database.DB_PATH = Path(tempfile.mkdtemp()) / "test.db"
+# Must be set before backend.app is imported: importing the app migrates and seeds the database.
+os.environ["DATABASE_URL"] = "sqlite:///" + (Path(tempfile.mkdtemp()) / "test.db").as_posix()
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from backend.config import AppSettings  # noqa: E402
+
+# Tests never read your own .env (e.g. AI_PROVIDER=runpod with a real key): only the environment set here or by a test.
+AppSettings.model_config["env_file"] = None
+
 from backend.app import app  # noqa: E402
+from backend.db import init_database  # noqa: E402
 
 OWNER = {"role": "OWNER"}
 STAFF = {"role": "STAFF"}
@@ -27,13 +30,5 @@ STAFF = {"role": "STAFF"}
 
 @pytest.fixture
 def client():
-    database.init_db(force_reset=True)
+    init_database(force_reset=True)
     return TestClient(app)
-
-
-def stock(state, sku):
-    return next(s for s in state["stock"] if s["sku"] == sku)
-
-
-def invoice(state, inv_id):
-    return next((i for i in state["invoices"] if i["id"] == inv_id), None)

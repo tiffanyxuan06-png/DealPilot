@@ -1,14 +1,18 @@
-"""60-second setup: read a business's own stock list (.xlsx / .csv) and start CashChase with it.
+"""60-second setup: read a business's own price list (.xlsx / .csv) and start CashChase with it.
 
-Column names are matched in code (no AI): SKU / item code, item name, quantity, unit cost, selling price.
+Column names are matched in code (no AI): SKU / item code, item name, unit cost, selling price.
+A quantity column is ignored: quotes are "subject to stock availability".
 """
 import base64
 import csv
 import io
 import json
 import re
-import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy.orm import Session
+
+from backend.db import orm
 
 HEADER_ALIASES = {
     "sku": ["sku", "code", "item code", "product code", "part no", "part number", "kod"],
@@ -72,7 +76,7 @@ def decode_upload(file_base64: str) -> bytes:
     return base64.b64decode(payload)
 
 
-def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]], List[str]]:
+def parse_price_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Returns (items, warnings). Rows without a name or with no usable numbers are skipped."""
     rows = [r for r in read_rows(file_name, data) if any(str(c or "").strip() for c in r)]
     if not rows:
@@ -85,7 +89,7 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
             break
     if "name" not in cols:
         return [], ["Could not find an item name column (e.g. 'Item', 'Product', 'Description')."]
-    missing = [label for f, label in (("qty", "quantity"), ("unitCost", "unit cost"), ("sellPrice", "selling price")) if f not in cols]
+    missing = [label for f, label in (("unitCost", "unit cost"), ("sellPrice", "selling price")) if f not in cols]
     warnings = [f"No {', '.join(missing)} column found; please check those values below."] if missing else []
 
     items, used = [], set()
@@ -94,7 +98,7 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
         name = str(get("name") or "").strip()
         if not name:
             continue
-        qty, cost, price = _num(get("qty")), _num(get("unitCost")), _num(get("sellPrice"))
+        cost, price = _num(get("unitCost")), _num(get("sellPrice"))
         sku = str(get("sku") or "").strip().upper() or _make_sku(name, used)
         if sku in used:
             sku = _make_sku(name, used)
@@ -108,7 +112,6 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
             {
                 "sku": sku,
                 "name": name[:80],
-                "qty": max(0, int(qty or 0)),
                 "unitCost": max(0, int(round(cost or 0))),
                 "sellPrice": max(0, int(round(price or 0))),
                 "estimated": estimated,
@@ -122,31 +125,37 @@ def parse_stock_list(file_name: str, data: bytes) -> Tuple[List[Dict[str, Any]],
     return items, warnings
 
 
-def apply_onboarding(conn: sqlite3.Connection, setup: Dict[str, Any], ts: str) -> None:
-    """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it."""
-    settings = {
-        "company_name": setup["companyName"],
-        "cash_on_hand": str(int(setup["startingCash"])),
-        "hold_hours": str(int(setup["holdHours"])),
-        "owner_approval_threshold": str(int(setup["threshold"])),
-        "sme_preset": "custom",
-        "framework": setup.get("framework") or "Quotes hold stock for the hold time; physical stock is only deducted after the deposit is confirmed.",
-        "onboarding_json": json.dumps(setup),
-    }
-    for k, v in settings.items():
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
-    for k in ("ssm", "tin"):
-        conn.execute("DELETE FROM settings WHERE key = ?", (k,))
-    conn.executemany(
-        "INSERT INTO stock (sku, name, on_hand, on_hold, hold_note, unit_cost, sell_price) VALUES (?, ?, ?, 0, '-', ?, ?)",
-        [(i["sku"], i["name"], i["qty"], i["unitCost"], i["sellPrice"]) for i in setup["items"]],
+def apply_onboarding(session: Session, setup: Dict[str, Any]) -> None:
+    """Fills an empty database with the business from the setup form. Stored so Reset can rebuild it.
+
+    `setup` keys: companyName, followUpHours, marginFloorPct, items [{sku, name, unitCost, sellPrice}].
+    """
+    from backend.db.seed import CUSTOM_PRESET, load_defaults, write_settings
+    from backend.services.pipeline import log
+
+    defaults = load_defaults()
+    write_settings(
+        session,
+        {
+            "company_name": setup["companyName"],
+            "follow_up_hours": int(setup["followUpHours"]),
+            "margin_floor_pct": float(setup["marginFloorPct"]),
+            "sme_preset": CUSTOM_PRESET,
+            "onboarding_json": json.dumps(setup),
+        },
     )
-    stock_value = sum(i["qty"] * i["unitCost"] for i in setup["items"])
-    conn.execute(
-        "INSERT INTO audit_logs (entry, created_at) VALUES (?, ?)",
-        (
-            f"{ts} · [OWNER] Set up {setup['companyName']}: {len(setup['items'])} stock items (RM {stock_value:,} stock value), "
-            f"starting cash RM {int(setup['startingCash']):,}, {int(setup['holdHours'])}h quote hold, RM {int(setup['threshold']):,} approval threshold.",
-            ts,
-        ),
+    for key in ("ssm", "tin"):  # the demo company's registration details
+        row = session.get(orm.Setting, key)
+        if row:
+            session.delete(row)
+    # Quantities in the uploaded list are ignored: the sales agent quotes "subject to stock availability".
+    session.add_all(
+        orm.Product(sku=i["sku"], name=i["name"], sell_price=i["sellPrice"], unit_cost=i["unitCost"]) for i in setup["items"]
+    )
+    # Deals need a rep: start with the reps in defaults.json (the Owner); the sales team is added in Settings.
+    session.add_all(orm.Rep(name=r.name, commission_pct=r.commission_pct) for r in defaults.new_business_reps)
+    log(
+        session,
+        f"[OWNER] Set up {setup['companyName']}: {len(setup['items'])} price-list items, "
+        f"follow-up after {int(setup['followUpHours'])}h, {float(setup['marginFloorPct']):g}% margin floor.",
     )

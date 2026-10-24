@@ -4,42 +4,35 @@ Both speak the OpenAI chat API, so only the address, key and model change. Chose
   lmstudio (default) · runpod · auto (RunPod when its key and endpoint are filled in, else LM Studio)
 The RunPod key stays on the server; it is never sent to the WebApp or the extension.
 """
-import os
 from typing import Dict
 
-
-def _env(name: str) -> str:
-    """Empty for unset values and for the placeholders in .env.example (e.g. 'your_runpod_endpoint_id_here')."""
-    value = (os.getenv(name) or "").strip()
-    return "" if (not value or "your_" in value) else value
+from backend.config import get_settings
 
 
 def runpod_base_url() -> str:
-    explicit = _env("RUNPOD_BASE_URL")
-    if explicit:
-        return explicit.rstrip("/")
-    endpoint = _env("RUNPOD_ENDPOINT_ID")
-    return f"https://api.runpod.ai/v2/{endpoint}/openai/v1" if endpoint else ""
+    env = get_settings()
+    if env.runpod_base_url:
+        return env.runpod_base_url.rstrip("/")
+    return f"https://api.runpod.ai/v2/{env.runpod_endpoint_id}/openai/v1" if env.runpod_endpoint_id else ""
 
 
 def runpod_ready() -> bool:
-    return bool(_env("RUNPOD_API_KEY") and runpod_base_url())
+    return bool(get_settings().runpod_api_key and runpod_base_url())
 
 
 def active_provider() -> str:
-    choice = (os.getenv("AI_PROVIDER") or "lmstudio").strip().lower()
-    if choice == "runpod":
+    choice = get_settings().ai_provider
+    if choice in ("runpod", "auto"):
         return "runpod" if runpod_ready() else "lmstudio"  # half-filled RunPod settings fall back to LM Studio
-    if choice == "auto":
-        return "runpod" if runpod_ready() else "lmstudio"
     return "lmstudio"
 
 
 def runpod_credentials() -> Dict[str, str]:
+    env = get_settings()
     return {
         "provider": "runpod",
         "base_url": runpod_base_url(),
-        "api_key": _env("RUNPOD_API_KEY"),
-        "model": _env("RUNPOD_MODEL") or "local-model",
-        "vision_model": _env("RUNPOD_VISION_MODEL") or "auto",
+        "api_key": env.runpod_api_key,
+        "model": env.runpod_model or "local-model",
+        "vision_model": env.runpod_vision_model or "auto",
     }

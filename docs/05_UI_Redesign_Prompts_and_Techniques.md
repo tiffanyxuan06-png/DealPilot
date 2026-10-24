@@ -203,6 +203,7 @@ All tokens live on `:root` in `style.css`.
 | `.wa-window`, `.wa-titlebar`, `.wa-list`, `.wa-chat`, `.wa-avatar` | The neutral WhatsApp Web frame and its chat list. |
 | `.wa-messages`, `.wa-bubble-in`, `.wa-bubble-out`, `.wa-send` | Beige chat background, white and green bubbles, round green send button. |
 | `.cc-spotlight` | Short blue ring that points at a part of the extension. |
+| Form dialog: `askForm()`, `#form-modal` | One in-app dialog for every "enter a few details" step (mark won or lost, discount, TIN, reassign, commission, new chat, notes). It replaces the browser's `prompt()`, which many browsers and embedded views block, so the button looked dead. Fields: text, number, textarea or select. It supports quick-pick chips, inline errors for required fields and number limits, and Enter to submit. Escape closes it and focus returns to the button that opened it. |
 | `.cc-panel`, `.cc-box` | Soft settings section and the white box inside it (60-second setup, Team & permissions). |
 | `.cc-pill-ok` / `-warn` / `-bad` / `-muted` | Status pills: approved, waiting, rejected, could not run. |
 | `.cc-note-warn` / `-info` | One-line notices with an icon (Owner-only, backend offline, file warnings). |

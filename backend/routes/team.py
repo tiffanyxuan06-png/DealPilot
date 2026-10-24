@@ -1,20 +1,16 @@
-from typing import Any, Dict
-
-from fastapi import APIRouter, HTTPException
-
+import json
 from datetime import timedelta
 
-from backend.database import (
-    HOLD_TIME_FORMAT,
-    add_log,
-    build_state_payload,
-    get_db,
-    get_setting,
-    now_time_str,
-    parse_hold_time,
-    set_setting,
-)
-from backend.models.schemas import ApprovalDecisionRequest, FastForwardRequest, PermissionsUpdateRequest
+from fastapi import APIRouter, HTTPException
+from sqlalchemy import select
+
+from backend.db import orm, session_scope
+from backend.models import entities
+from backend.models.enums import Role
+from backend.models.requests import ApprovalDecisionRequest, FastForwardRequest, PermissionsUpdateRequest
+from backend.models.state import ActionResponse
+from backend.services.business import load_business, save_setting
+from backend.services.clock import TIME_FORMAT, now_time_str, parse_time
 from backend.services.permissions import (
     ACTIONS,
     ALLOW,
@@ -22,151 +18,104 @@ from backend.services.permissions import (
     DENY,
     HANDLERS,
     MODE_LABELS,
-    approval_threshold,
     permissions_payload,
     require_owner,
     staff_mode,
 )
+from backend.services.pipeline import build_state, log
 
 router = APIRouter(tags=["Team & Permissions"])
 
 
-@router.get("/api/permissions")
-def api_get_permissions() -> Dict[str, Any]:
-    conn = get_db()
-    try:
-        return permissions_payload(conn)
-    finally:
-        conn.close()
+@router.get("/api/permissions", response_model=entities.Permissions)
+def api_get_permissions() -> entities.Permissions:
+    with session_scope() as s:
+        return permissions_payload(s)
 
 
-@router.post("/api/permissions")
-def api_update_permissions(req: PermissionsUpdateRequest) -> Dict[str, Any]:
-    conn = get_db()
-    require_owner(req.role, "permissions.change", conn)
+@router.post("/api/permissions", response_model=ActionResponse)
+def api_update_permissions(req: PermissionsUpdateRequest) -> ActionResponse:
+    require_owner(req.role, "permissions.change")
+    with session_scope() as s:
+        for key, mode in (req.staff_modes or {}).items():
+            if key not in ACTIONS:
+                raise HTTPException(status_code=400, detail=f"Unknown permission {key}")
+            mode = mode.upper()
+            allowed = ACTIONS[key].get("modes", [ALLOW, APPROVAL, DENY])
+            if mode not in allowed:
+                options = " or ".join(MODE_LABELS[m] for m in allowed)
+                raise HTTPException(status_code=400, detail=f"'{ACTIONS[key]['label']}' can only be set to {options} (mandatory safety rule).")
+            old = staff_mode(s, key)
+            if old == mode:
+                continue
+            s.merge(orm.RolePermission(action_key=key, staff_mode=mode, updated_at=now_time_str(), updated_by=Role.OWNER.value))
+            log(s, f"[OWNER] Permission changed · Staff · {ACTIONS[key]['label']}: {MODE_LABELS[old]} → {MODE_LABELS[mode]}.")
 
-    for key, mode in (req.staffModes or {}).items():
-        if key not in ACTIONS:
-            conn.close()
-            raise HTTPException(status_code=400, detail=f"Unknown permission {key}")
-        mode = mode.upper()
-        allowed = ACTIONS[key].get("modes", [ALLOW, APPROVAL, DENY])
-        if mode not in allowed:
-            conn.close()
-            options = " or ".join(MODE_LABELS[m] for m in allowed)
-            raise HTTPException(
-                status_code=400,
-                detail=f"'{ACTIONS[key]['label']}' can only be set to {options} (mandatory safety rule).",
-            )
-        old = staff_mode(conn, key)
-        if old == mode:
-            continue
-        conn.execute(
-            """
-            INSERT INTO role_permissions (action_key, staff_mode, updated_at, updated_by) VALUES (?, ?, ?, 'OWNER')
-            ON CONFLICT(action_key) DO UPDATE SET staff_mode = excluded.staff_mode,
-                updated_at = excluded.updated_at, updated_by = excluded.updated_by
-            """,
-            (key, mode, now_time_str()),
-        )
-        add_log(
-            conn,
-            f"[OWNER] Permission changed · Staff · {ACTIONS[key]['label']}: {MODE_LABELS[old]} → {MODE_LABELS[mode]}.",
-        )
-
-    if req.threshold is not None:
-        new_threshold = max(0, int(req.threshold))
-        old_threshold = approval_threshold(conn)
-        if new_threshold != old_threshold:
-            set_setting(conn, "owner_approval_threshold", str(new_threshold))
-            add_log(conn, f"[OWNER] Permission changed · Approval threshold: RM {old_threshold:,} → RM {new_threshold:,}.")
-
-    if req.holdHours is not None:
-        new_hours = min(720, max(1, int(req.holdHours)))
-        old_hours = int(get_setting(conn, "hold_hours", "48") or 48)
-        if new_hours != old_hours:
-            set_setting(conn, "hold_hours", str(new_hours))
-            add_log(conn, f"[OWNER] Setting changed · Quote stock hold: {old_hours}h → {new_hours}h (applies to new quotes).")
-
-    conn.commit()
-    conn.close()
-    return {"status": "ok", "state": build_state_payload()}
+        biz = load_business(s)
+        if req.margin_floor_pct is not None:
+            new_floor = round(req.margin_floor_pct, 1)
+            if new_floor != biz.margin_floor_pct:
+                save_setting(s, "margin_floor_pct", new_floor)
+                log(s, f"[OWNER] Setting changed · Margin floor: {biz.margin_floor_pct:g}% → {new_floor:g}%.")
+        if req.follow_up_hours is not None and req.follow_up_hours != biz.follow_up_hours:
+            save_setting(s, "follow_up_hours", req.follow_up_hours)
+            log(s, f"[OWNER] Setting changed · Follow-up after: {biz.follow_up_hours}h → {req.follow_up_hours}h (applies to new quotes).")
+    return ActionResponse(status="ok", state=build_state(req.role))
 
 
-@router.post("/api/demo/fast-forward")
-def api_demo_fast_forward(req: FastForwardRequest) -> Dict[str, Any]:
-    """Demo helper: moves every hold expiry earlier, as if `hours` had passed, so judges can watch a hold expire."""
-    conn = get_db()
-    require_owner(req.role, "demo.time", conn)
-    hours = min(240, max(1, int(req.hours)))
-    rows = conn.execute("SELECT id, hold_expires_at FROM invoices WHERE hold_expires_at IS NOT NULL").fetchall()
-    for r in rows:
-        expires = parse_hold_time(r["hold_expires_at"])
-        if expires:
-            conn.execute(
-                "UPDATE invoices SET hold_expires_at = ? WHERE id = ?",
-                ((expires - timedelta(hours=hours)).strftime(HOLD_TIME_FORMAT), r["id"]),
-            )
-    add_log(conn, f"[OWNER] Demo: fast-forwarded the clock {hours}h for all quote holds.")
-    conn.commit()
-    conn.close()
-    return {"status": "ok", "state": build_state_payload()}
+@router.post("/api/demo/fast-forward", response_model=ActionResponse)
+def api_demo_fast_forward(req: FastForwardRequest) -> ActionResponse:
+    """Demo helper: moves every follow-up time earlier, as if `hours` had passed, so judges can watch one fall due."""
+    require_owner(req.role, "demo.time")
+    with session_scope() as s:
+        for d in s.scalars(select(orm.Deal).where(orm.Deal.follow_up_at.is_not(None))):
+            due = parse_time(d.follow_up_at)
+            if due:
+                d.follow_up_at = (due - timedelta(hours=req.hours)).strftime(TIME_FORMAT)
+        log(s, f"[OWNER] Demo: fast-forwarded the clock {req.hours}h for all follow-ups.")
+    return ActionResponse(status="ok", state=build_state(req.role))
 
 
-@router.post("/api/approvals/{approval_id}/decide")
-def api_decide_approval(approval_id: int, req: ApprovalDecisionRequest) -> Dict[str, Any]:
-    conn = get_db()
-    require_owner(req.role, "approval.decide", conn)
-    row = conn.execute("SELECT * FROM approval_requests WHERE id = ?", (approval_id,)).fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail=f"Approval request #AP-{approval_id} not found")
-    if row["status"] != "PENDING":
-        conn.close()
-        raise HTTPException(status_code=409, detail=f"Request #AP-{approval_id} is already {row['status']}")
-
+@router.post("/api/approvals/{approval_id}/decide", response_model=ActionResponse)
+def api_decide_approval(approval_id: int, req: ApprovalDecisionRequest) -> ActionResponse:
+    require_owner(req.role, "approval.decide")
     decision = req.decision.upper()
     note = (req.note or "").strip()
+    with session_scope() as s:
+        row = s.get(orm.ApprovalRequest, approval_id)
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Approval request #AP-{approval_id} not found")
+        if row.status != "PENDING":
+            raise HTTPException(status_code=409, detail=f"Request #AP-{approval_id} is already {row.status}")
+        if decision not in ("APPROVE", "REJECT"):
+            raise HTTPException(status_code=400, detail="decision must be APPROVE or REJECT")
+        summary, handler, payload_json = row.summary, row.handler, row.payload_json
+        if decision == "REJECT":
+            row.status, row.decided_by, row.decision_note, row.decided_at = "REJECTED", Role.OWNER.value, note, now_time_str()
+            log(s, f"[OWNER] Rejected request #AP-{approval_id} from Staff: {summary}" + (f" ({note})" if note else "") + ".")
     if decision == "REJECT":
-        conn.execute(
-            "UPDATE approval_requests SET status = 'REJECTED', decided_by = 'OWNER', decision_note = ?, decided_at = ? WHERE id = ?",
-            (note, now_time_str(), approval_id),
-        )
-        add_log(conn, f"[OWNER] Rejected request #AP-{approval_id} from Staff: {row['summary']}" + (f" ({note})" if note else "") + ".")
-        conn.commit()
-        conn.close()
-        return {"status": "ok", "state": build_state_payload()}
-    if decision != "APPROVE":
-        conn.close()
-        raise HTTPException(status_code=400, detail="decision must be APPROVE or REJECT")
-    conn.close()
+        return ActionResponse(status="ok", state=build_state(req.role))
 
-    # Re-run the original request as the Owner. The route re-checks the current data (e.g. the quote is still on hold).
-    import json
-
-    fn, model, _ = HANDLERS[row["handler"]]
-    payload = json.loads(row["payload_json"])
-    body = {**payload.get("body", {}), "role": "OWNER"}
+    # Re-run the original request as the Owner. The route re-checks the current data (e.g. the deal is still open).
+    fn, model = HANDLERS[handler]
+    payload = json.loads(payload_json)
+    body = {**payload.get("body", {}), "role": Role.OWNER.value}
     try:
         if model is None:
-            fn(**payload.get("path", {}), role="OWNER")
+            fn(**payload.get("path", {}), role=Role.OWNER.value)
         else:
             fn(**payload.get("path", {}), req=model(**body))
         status, detail = "APPROVED", ""
     except HTTPException as exc:
         status, detail = "FAILED", str(exc.detail)
 
-    conn = get_db()
-    conn.execute(
-        "UPDATE approval_requests SET status = ?, decided_by = 'OWNER', decision_note = ?, decided_at = ? WHERE id = ?",
-        (status, detail or note, now_time_str(), approval_id),
-    )
-    if status == "APPROVED":
-        add_log(conn, f"[OWNER] Approved request #AP-{approval_id} from Staff: {row['summary']}.")
-    else:
-        add_log(conn, f"[OWNER] Approved request #AP-{approval_id} but it could not run: {detail}.")
-    conn.commit()
-    conn.close()
+    with session_scope() as s:
+        row = s.get(orm.ApprovalRequest, approval_id)
+        row.status, row.decided_by, row.decision_note, row.decided_at = status, Role.OWNER.value, detail or note, now_time_str()
+        if status == "APPROVED":
+            log(s, f"[OWNER] Approved request #AP-{approval_id} from Staff: {summary}.")
+        else:
+            log(s, f"[OWNER] Approved request #AP-{approval_id} but it could not run: {detail}.")
     if status == "FAILED":
         raise HTTPException(status_code=409, detail=f"Approved, but the action could not run: {detail}")
-    return {"status": "ok", "state": build_state_payload()}
+    return ActionResponse(status="ok", state=build_state(req.role))

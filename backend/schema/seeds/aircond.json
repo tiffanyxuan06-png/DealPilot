@@ -1,0 +1,499 @@
+{
+  "settings": {
+    "company_name": "Sejuk Jaya Aircond Sdn Bhd",
+    "ssm": "202401009921 (1554821-X)",
+    "tin": "C2588190021",
+    "framework": "1. Standard installation labor: RM 250/unit.\n2. Extra copper piping: RM 150 per 3m set.\n3. Free delivery in the Klang Valley for orders above RM 3,000."
+  },
+  "products": [
+    {
+      "sku": "ACN-DAI-15",
+      "name": "Daikin 1.5HP Inverter Unit",
+      "sell_price": 1150,
+      "unit_cost": 850,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 1.5,
+        "room_sqft": [
+          150,
+          250
+        ],
+        "best_for": "master bedroom / small office",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "up to 40% power saving",
+          "quiet 19dB",
+          "durable gold fin"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M",
+          "GAS-R32"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-DAI-10",
+      "name": "Daikin 1.0HP Inverter Unit",
+      "sell_price": 950,
+      "unit_cost": 700,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "small bedroom / study room",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "quiet 19dB operation",
+          "fast cooling mode",
+          "energy saving"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-DAI-20",
+      "name": "Daikin 2.0HP Inverter Unit",
+      "sell_price": 1750,
+      "unit_cost": 1300,
+      "specs": {
+        "brand": "Daikin",
+        "category": "aircond",
+        "hp": 2.0,
+        "room_sqft": [
+          250,
+          400
+        ],
+        "best_for": "living room / large office",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "powerful airflow",
+          "smart sensor",
+          "wide coverage"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-PAN-10",
+      "name": "Panasonic 1.0HP Aero Series",
+      "sell_price": 980,
+      "unit_cost": 720,
+      "specs": {
+        "brand": "Panasonic",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "bedroom (nanoe-X air purification)",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "nanoe-X deodorization & PM2.5 filter",
+          "aerowings fast cooling",
+          "eco mode with AI"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-PAN-15",
+      "name": "Panasonic 1.5HP Aero Series",
+      "sell_price": 1200,
+      "unit_cost": 890,
+      "specs": {
+        "brand": "Panasonic",
+        "category": "aircond",
+        "hp": 1.5,
+        "room_sqft": [
+          150,
+          250
+        ],
+        "best_for": "master bedroom / hall (nanoe-X)",
+        "energy": "5-star inverter",
+        "warranty": "5y compressor, 1y general",
+        "selling_points": [
+          "nanoe-X virus inhibition",
+          "aerowings twin flaps",
+          "inverter power efficiency"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "ACN-MID-10",
+      "name": "Midea 1.0HP Standard Split",
+      "sell_price": 790,
+      "unit_cost": 580,
+      "specs": {
+        "brand": "Midea",
+        "category": "aircond",
+        "hp": 1.0,
+        "room_sqft": [
+          80,
+          150
+        ],
+        "best_for": "budget / rental rooms / shops",
+        "energy": "3-star non-inverter",
+        "warranty": "5y compressor, 2y general",
+        "selling_points": [
+          "affordable price",
+          "durable golden fin",
+          "easy maintenance"
+        ],
+        "pairs_with": [
+          "SVC-INSTALL",
+          "PIP-COP-3M"
+        ]
+      }
+    },
+    {
+      "sku": "SVC-INSTALL",
+      "name": "Standard Installation Labor",
+      "sell_price": 250,
+      "unit_cost": 150,
+      "specs": {
+        "brand": "Sejuk Jaya",
+        "category": "service",
+        "best_for": "standard wall mount installation (up to 10ft copper pipe)",
+        "warranty": "30 days workmanship guarantee"
+      }
+    },
+    {
+      "sku": "GAS-R32",
+      "name": "R32 Refrigerant Gas (3kg)",
+      "sell_price": 180,
+      "unit_cost": 130,
+      "specs": {
+        "brand": "Daikin/Universal",
+        "category": "consumable",
+        "best_for": "refrigerant refill / top-up",
+        "selling_points": [
+          "eco-friendly R32",
+          "zero ozone depletion"
+        ]
+      }
+    },
+    {
+      "sku": "PIP-COP-3M",
+      "name": "Copper Pipe 3m Set",
+      "sell_price": 150,
+      "unit_cost": 96,
+      "specs": {
+        "brand": "Kembla",
+        "category": "part",
+        "best_for": "extended piping run beyond 10ft",
+        "selling_points": [
+          "thick wall seamless copper",
+          "insulated"
+        ]
+      }
+    }
+  ],
+  "reps": [
+    {
+      "name": "Aina",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Ahmad",
+      "commission_pct": 3.0
+    },
+    {
+      "name": "Mei Ling",
+      "commission_pct": 3.0
+    }
+  ],
+  "customers": [
+    {
+      "name": "Tan Bros Trading",
+      "phone": "+60 12-345 6789",
+      "tin": "C2088391020"
+    },
+    {
+      "name": "Wisma Perdana Sdn Bhd",
+      "phone": "+60 12-998 4410",
+      "tin": "C20991820"
+    },
+    {
+      "name": "Syarikat Bina Jaya",
+      "phone": "+60 12-773 8810",
+      "tin": "C21884920"
+    },
+    {
+      "name": "Klinik Dr. Lim",
+      "phone": "+60 16-882 1920",
+      "tin": "C20114892"
+    },
+    {
+      "name": "Restoran Selera Kampung",
+      "phone": "+60 13-551 9022",
+      "tin": "C20449102"
+    },
+    {
+      "name": "Kedai Runcit Ah Seng",
+      "phone": "+60 19-221 0091",
+      "tin": ""
+    },
+    {
+      "name": "Hotel Seri Alam",
+      "phone": "+60 3-5511 2020",
+      "tin": ""
+    },
+    {
+      "name": "Pusat Servis Jaya",
+      "phone": "+60 17-660 3321",
+      "tin": ""
+    },
+    {
+      "name": "Bengkel Maju Motor",
+      "phone": "+60 11-2233 4455",
+      "tin": ""
+    }
+  ],
+  "deals": [
+    {
+      "id": "QT-2026-105",
+      "customer": "Hotel Seri Alam",
+      "rep": "Ahmad",
+      "stage": "INQUIRY",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 3,
+      "notes": "Called the office: wants 2x 1.5HP for guest rooms. Needs a quote."
+    },
+    {
+      "id": "QT-2026-104",
+      "customer": "Klinik Dr. Lim",
+      "rep": "Mei Ling",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 60,
+      "follow_up_in_hours": -12,
+      "paused": true,
+      "notes": "Paused: reported a leaking R32 cylinder from SO-2026-095. Clear once the replacement is sorted."
+    },
+    {
+      "id": "QT-2026-103",
+      "customer": "Wisma Perdana Sdn Bhd",
+      "rep": "Aina",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 26,
+      "follow_up_in_hours": 22
+    },
+    {
+      "id": "QT-2026-102",
+      "customer": "Syarikat Bina Jaya",
+      "rep": "Mei Ling",
+      "stage": "QUOTED",
+      "items": [
+        {
+          "sku": "PIP-COP-3M",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 7,
+      "follow_up_in_hours": 41
+    },
+    {
+      "id": "QT-2026-101",
+      "customer": "Kedai Runcit Ah Seng",
+      "rep": "Ahmad",
+      "stage": "FOLLOW_UP",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 3
+        }
+      ],
+      "created_hours_ago": 50,
+      "follow_up_in_hours": -2,
+      "follow_ups": 1,
+      "notes": "Said 'transfer deposit tomorrow' two days ago."
+    },
+    {
+      "id": "QT-2026-099",
+      "customer": "Tan Bros Trading",
+      "rep": "Aina",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 3
+        },
+        {
+          "sku": "GAS-R32",
+          "qty": 3
+        }
+      ],
+      "discount": 90,
+      "created_hours_ago": 40,
+      "deposit_ref": "DN-20261021-88310",
+      "deposit_amount": 1560,
+      "won_hours_ago": 30,
+      "notes": "Rounded down to RM 3,900."
+    },
+    {
+      "id": "QT-2026-098",
+      "customer": "Restoran Selera Kampung",
+      "rep": "Aina",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 1
+        },
+        {
+          "sku": "PIP-COP-3M",
+          "qty": 2
+        }
+      ],
+      "created_hours_ago": 80,
+      "deposit_ref": "DN-20261020-55190",
+      "deposit_amount": 580,
+      "won_hours_ago": 50
+    },
+    {
+      "id": "QT-2026-097",
+      "customer": "Bengkel Maju Motor",
+      "rep": "Ahmad",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "GAS-R32",
+          "qty": 6
+        }
+      ],
+      "created_hours_ago": 110,
+      "won_hours_ago": 90,
+      "notes": "Cash on delivery."
+    },
+    {
+      "id": "QT-2026-095",
+      "customer": "Klinik Dr. Lim",
+      "rep": "Mei Ling",
+      "stage": "WON",
+      "items": [
+        {
+          "sku": "ACN-DAI-15",
+          "qty": 4
+        },
+        {
+          "sku": "GAS-R32",
+          "qty": 4
+        }
+      ],
+      "created_hours_ago": 200,
+      "deposit_ref": "DN-20261016-44120",
+      "deposit_amount": 2128,
+      "won_hours_ago": 150
+    },
+    {
+      "id": "QT-2026-092",
+      "customer": "Pusat Servis Jaya",
+      "rep": "Ahmad",
+      "stage": "LOST",
+      "items": [
+        {
+          "sku": "GAS-R32",
+          "qty": 5
+        }
+      ],
+      "created_hours_ago": 150,
+      "follow_ups": 3,
+      "loss_reason": "Competitor price"
+    }
+  ],
+  "memories": [
+    {
+      "customer": "Tan Bros Trading",
+      "phone": "+60 12-345 6789",
+      "tier": "VIP_FAST_PAYER",
+      "score": 94,
+      "style_summary": "Friendly Manglish boss style ('Boss, got stock?') \u00b7 Likes fast, itemised quotes",
+      "payment_behavior": "\u2b50\u2b50\u2b50\u2b50\u2b50 Repeat buyer \u00b7 6 past orders (RM 28,400) \u00b7 Usually confirms within 2 hours of a quote",
+      "total_orders": 6,
+      "total_paid_rm": 28400,
+      "last_message": "Boss, got 5 units Daikin 1.5HP and 5 bottles R32 gas? How much ah?",
+      "last_message_hours_ago": 1
+    },
+    {
+      "customer": "Klinik Dr. Lim",
+      "phone": "+60 16-882 1920",
+      "tier": "LONG_TERM_PARTNER",
+      "score": 88,
+      "style_summary": "Polite and professional clinic \u00b7 Values fast aftersales and a respectful tone",
+      "payment_behavior": "\u2b50\u2b50\u2b50\u2b50 Reliable buyer \u00b7 4 past orders (RM 19,200) \u00b7 Open complaint about a leaking R32 cylinder",
+      "total_orders": 4,
+      "total_paid_rm": 19200,
+      "last_message": "One of the R32 gas cylinders you delivered is leaking at the valve.",
+      "last_message_hours_ago": 30
+    },
+    {
+      "customer": "Kedai Runcit Ah Seng",
+      "phone": "+60 19-221 0091",
+      "tier": "SLOW_PAYER_GHOST_RISK",
+      "score": 42,
+      "style_summary": "Short casual messages \u00b7 Often asks for a quote then goes quiet",
+      "payment_behavior": "\u26a0\ufe0f Goes quiet after quotes \u00b7 2 past quotes lost to no reply \u00b7 Follow up early",
+      "total_orders": 1,
+      "total_paid_rm": 1150,
+      "last_message": "Hold 3 units Daikin 1.5HP for me first boss, I transfer deposit tomorrow.",
+      "last_message_hours_ago": 48
+    },
+    {
+      "customer": "Wisma Perdana Sdn Bhd",
+      "phone": "+60 12-998 4410",
+      "tier": "PARTIAL_SHORT_PAYER",
+      "score": 58,
+      "style_summary": "Corporate procurement \u00b7 Often asks for RM 100\u2013200 off before confirming",
+      "payment_behavior": "\u26a0\ufe0f Haggles on most quotes \u00b7 3 past orders (RM 9,600) \u00b7 Check the margin before giving a discount",
+      "total_orders": 3,
+      "total_paid_rm": 9600,
+      "last_message": "Can do better price for 2 units?",
+      "last_message_hours_ago": 26
+    }
+  ],
+  "logs": [
+    "09:00 AM \u00b7 [System] Loaded Sejuk Jaya demo: 3 reps, 10 deals.",
+    "09:51 AM \u00b7 [Mei Ling] Paused follow-ups for Klinik Dr. Lim (leaking R32 cylinder reported).",
+    "10:30 AM \u00b7 [System] Quote #QT-2026-101 (Kedai Runcit Ah Seng) had no reply in time \u2192 follow-up due."
+  ]
+}

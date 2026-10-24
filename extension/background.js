@@ -124,6 +124,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             typeof message.body === "string" ? message.body : JSON.stringify(message.body);
         }
         const res = await fetch(u, fetchOptions);
+        if (message.binary) {
+          // Files (e.g. the quote PDF) go back as a data URL: messages to the page carry only JSON.
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          let bin = "";
+          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+          const type = res.headers.get("content-type") || "application/octet-stream";
+          sendResponse({ ok: res.ok, status: res.status, dataUrl: `data:${type};base64,${btoa(bin)}` });
+          return;
+        }
         const text = await res.text();
         let data = null;
         try {

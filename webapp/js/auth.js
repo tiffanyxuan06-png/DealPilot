@@ -5,8 +5,11 @@
 // Without them it falls back to the demo accounts below.
 // =========================================================================
 const DEMO_ACCOUNTS = {
-  'hafiz@sejukjaya.my': { role: 'OWNER', name: 'Encik Hafiz' },
-  'aina@sejukjaya.my': { role: 'STAFF', name: 'Aina' }
+  // Names shown in the app come from the backend (Staff = the rep linked to the Staff login), not from here.
+  'hafiz@sejukjaya.my': { role: 'OWNER', name: 'Owner' },
+  'aina@sejukjaya.my': { role: 'STAFF', name: 'Staff' },
+  // Predefined admin (Owner rights). Demo only: never used when Supabase login is on.
+  'admin@cashchase.my': { role: 'OWNER', name: 'Admin', password: 'admin1234' }
 };
 const SESSION_KEY = 'cashchase-session';
 let sb = null;  // Supabase client when real login is on
@@ -134,7 +137,8 @@ async function checkLogin(email, password) {
       const account = DEMO_ACCOUNTS[email];
       if (!account) resolve({ error: "We couldn't find an account with that email. Try a demo account below." });
       else if (password.length < 6) resolve({ error: 'That password is too short.' });
-      else resolve({ account });
+      else if (account.password && password !== account.password) resolve({ error: 'Wrong email or password.' });
+      else resolve({ account: { role: account.role, name: account.name } });
     }, 600);
   });
 }
@@ -202,6 +206,7 @@ function applyRole(session) {
   document.getElementById('role-sub').textContent = session.email;
   document.getElementById('role-btn').disabled = true;
   renderAll();
+  if (typeof usesBackend === 'function' && usesBackend()) syncFromBackend();
 }
 
 function hideLoginScreen() {

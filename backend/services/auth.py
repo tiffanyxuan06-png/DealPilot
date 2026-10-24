@@ -1,21 +1,22 @@
 """Supabase login: verifies the access token the WebApp sends and decides the user's role.
 
-Login is on when SUPABASE_URL is set in .env. The role comes from the user's Supabase
+Login is on when SUPABASE_URL is set (backend/config.py). The role comes from the user's Supabase
 `app_metadata.role` (users cannot edit app_metadata themselves); anyone without it is Staff.
 """
-import os
 from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Dict, Optional
 
 import jwt
 
+from backend.config import get_settings
+
 # The signed-in user's role for the request being handled (set by the login middleware in app.py).
 _current_role: ContextVar[Optional[str]] = ContextVar("cashchase_role", default=None)
 
 
 def supabase_url() -> str:
-    return os.getenv("SUPABASE_URL", "").rstrip("/")
+    return get_settings().supabase_url
 
 
 def auth_enabled() -> bool:

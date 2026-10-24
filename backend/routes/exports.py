@@ -1,14 +1,33 @@
+import csv
 import io
+import re
+import zipfile
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
-from typing import Optional
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response
-from backend.database import build_state_payload, get_db, now_time_str
-from backend.services.permissions import DENY, normalize_role, staff_mode
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from backend.config import ROOT
+from backend.db import orm, session_scope
+from backend.models.enums import Role, Stage
+from backend.services.business import load_business
+from backend.services.customers import get_customer
+from backend.services.permissions import OWNER_ONLY, normalize_role
+from backend.services.pipeline import log
 
 router = APIRouter(tags=["Exports"])
+
+DISCLAIMER = "Subject to stock availability - prices valid 7 days from the quote date."
+
+# Export A of docs/05_CSV_Accounting_Bridge_Spec.md, plus the deposit amount the customer said they paid.
+CSV_COLUMNS = [
+    "Order_ID", "Quotation_Ref", "Date", "Customer_Name", "Customer_Phone", "Customer_TIN",
+    "Item_SKU", "Item_Description", "Quantity", "Unit_Price_MYR", "Discount_MYR", "Line_Total_MYR",
+    "Payment_Deposit_Ref", "Payment_Deposit_Amount_MYR", "Sales_Rep", "Notes",
+]
 
 
 def _pdf_escape(text: str) -> str:
@@ -58,190 +77,158 @@ def build_valid_pdf_bytes(lines: List[str]) -> bytes:
     return bytes(out)
 
 
-@router.get("/api/export/xlsx")
-def api_export_xlsx(role: Optional[str] = Query(None), x_cashchase_role: Optional[str] = Header(None)) -> Response:
-    """
-    Generates a real multi-sheet Microsoft Excel (.xlsx) workbook using openpyxl
-    with all live SQLite data: Financial Summary, Warehouse Stock, Invoices & Holds,
-    Client Memories, and Audit Logs.
-    """
-    if normalize_role(role or x_cashchase_role) != "OWNER":
-        conn = get_db()
-        mode = staff_mode(conn, "export.excel")
-        conn.close()
-        if mode == DENY:
-            raise HTTPException(status_code=403, detail="Staff are not allowed to: Export monthly Excel. Ask the Owner.")
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+def _money(v) -> str:
+    return f"{v:.2f}"
 
-    state = build_state_payload()
-    c = state["company"]
 
-    wb = Workbook()
-    header_fill = PatternFill(start_color="042970", end_color="042970", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF")
+def order_rows(session: Session, date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[List[str]]:
+    """Won orders, one line item per row. The deal's discount sits on its first line, so lines add up to the deal."""
+    reps = {r.id: r.name for r in session.scalars(select(orm.Rep))}
+    rows = []
+    for d in session.scalars(select(orm.Deal).where(orm.Deal.stage == Stage.WON.value).order_by(orm.Deal.won_at, orm.Deal.id)):
+        day = (d.won_at or "")[:10]
+        if (date_from and day < date_from) or (date_to and day > date_to):
+            continue
+        cust = get_customer(session, d.customer)
+        for n, item in enumerate(d.items):
+            discount = d.discount if n == 0 else 0
+            rows.append([
+                d.order_no or "", d.id, day, d.customer, d.phone or "", (cust.tin if cust else "") or "",
+                item["sku"], item["name"], str(item["qty"]), _money(item["unitPrice"]), _money(discount),
+                _money(item["qty"] * item["unitPrice"] - discount),
+                d.deposit_ref or "", _money(d.deposit_amount) if d.deposit_amount is not None else "",
+                reps.get(d.rep_id, ""), (d.notes or "").replace("\n", " "),
+            ])
+    return rows
 
-    # Sheet 1: Financial Summary & Stock
-    ws1 = wb.active
-    ws1.title = "1_Summary_and_Stock"
-    ws1.append(["CASHCHASE ORBYTE SMART SME — MASTER FINANCIAL & STOCK LEDGER"])
-    ws1["A1"].font = Font(bold=True, size=13, color="042970")
-    ws1.append(["Company Name", c["name"], "Generated At", now_time_str()])
-    ws1.append(["Core Net Worth (RM)", c["coreNetWorth"], "Verified Cash on Hand (RM)", c["cashOnHand"]])
-    ws1.append(["Physical Stock Value (RM)", c["stockValue"], "Pending Receivables (RM)", c["pendingReceivables"]])
-    ws1.append(["Unpaid Supplier Payables (RM)", c["pendingPayables"], "Projected Full Net Worth (RM)", c["fullNetWorth"]])
-    ws1.append([])
 
-    stock_headers = ["SKU", "Item Name", "Physical On Hand", "On Hold (48h)", "Available to Sell", "Unit Cost (RM)", "Selling Price (RM)", "Total Stock Value (RM)", "Active Quote Holders"]
-    ws1.append(stock_headers)
-    header_row_idx = ws1.max_row
-    for col_idx in range(1, len(stock_headers) + 1):
-        cell = ws1.cell(row=header_row_idx, column=col_idx)
-        cell.fill = header_fill
-        cell.font = header_font
-
-    for s in state["stock"]:
-        ws1.append([
-            s["sku"],
-            s["name"],
-            s["onHand"],
-            s["onHold"],
-            s["available"],
-            s["unitCost"],
-            s["sellPrice"],
-            s["stockValue"],
-            s["holdNote"],
-        ])
-
-    # Sheet 2: All Invoices, Quotes & Supplier Bills
-    ws2 = wb.create_sheet(title="2_Invoices_and_Quotes")
-    inv_headers = ["Doc ID", "Category", "Customer / Supplier", "Phone", "Items & Scope", "SKU", "Qty", "Amount (RM)", "Claimed Receipt (RM)", "Receipt Ref", "Status", "LHDN e-Invoice Status", "Created At"]
-    ws2.append(inv_headers)
-    for col_idx in range(1, len(inv_headers) + 1):
-        cell = ws2.cell(row=1, column=col_idx)
-        cell.fill = header_fill
-        cell.font = header_font
-
-    for inv in state["invoices"]:
-        ws2.append([
-            inv["id"],
-            inv["type"],
-            inv["party"],
-            inv["phone"],
-            inv["itemsText"],
-            inv["sku"],
-            inv["qty"],
-            inv["amount"],
-            inv["claimedAmount"] or "",
-            inv["receiptRef"],
-            inv["status"],
-            inv["lhdn"],
-            inv["createdAt"],
-        ])
-
-    # Sheet 3: Cross-Chat Client Memory
-    ws3 = wb.create_sheet(title="3_AI_Client_Memory")
-    mem_headers = ["Customer Name", "Phone", "Client Tier", "Trust Score (/100)", "Communication Style", "Payment Track Record", "Past Orders", "Total Paid (RM)"]
-    ws3.append(mem_headers)
-    for col_idx in range(1, len(mem_headers) + 1):
-        cell = ws3.cell(row=1, column=col_idx)
-        cell.fill = header_fill
-        cell.font = header_font
-
-    for cust_name, m in state.get("clientMemories", {}).items():
-        ws3.append([
-            m["customer"],
-            m["phone"],
-            m["tier"],
-            m["score"],
-            m["styleSummary"],
-            m["paymentBehavior"],
-            m["totalOrders"],
-            m["totalPaidRm"],
-        ])
-
-    # Sheet 4: Full System Audit Logs
-    ws4 = wb.create_sheet(title="4_Audit_Trail")
-    ws4.append(["Timestamp & Audit Log Event"])
-    ws4.cell(row=1, column=1).fill = header_fill
-    ws4.cell(row=1, column=1).font = header_font
-    for entry in state["logs"]:
-        ws4.append([entry])
-
-    # Sheet 5: Customers & LHDN e-Invoice readiness (for the bookkeeper)
-    ws5 = wb.create_sheet(title="5_Customers_LHDN")
-    ws5.append(["Customer", "Phone", "Buyer TIN", "SSM BRN", "LHDN Ready", "Open Records"])
-    for col in range(1, 7):
-        ws5.cell(row=1, column=col).fill = header_fill
-        ws5.cell(row=1, column=col).font = header_font
-    for cust in state.get("customers", []):
-        ws5.append([cust["name"], cust["phone"], cust["tin"], cust["ssmBrn"], "Yes" if cust["lhdnReady"] else "Missing TIN", cust["openRecords"]])
-
-    for ws in (ws1, ws2, ws3, ws4, ws5):
-        for col in ws.columns:
-            max_len = max((len(str(cell.value or "")) for cell in col), default=12)
-            col_letter = col[0].column_letter
-            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 55)
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    filename = f"CashChase_Master_Ledger_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+@router.get("/api/export/orders.csv", response_class=Response, responses={200: {"content": {"text/csv": {}}, "description": "Won orders, one row per line item"}})
+def api_export_orders_csv(
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+    role: Optional[str] = Query(None),
+    x_cashchase_role: Optional[str] = Header(None),
+) -> Response:
+    """Owner only: won orders for the accountant to import (AutoCount, SQL Account, Bukku or Excel)."""
+    if normalize_role(role or x_cashchase_role) != Role.OWNER.value:
+        raise HTTPException(status_code=403, detail=f"Only the Owner can do this: {OWNER_ONLY['export.csv']}.")
+    for v in (date_from, date_to):
+        if v:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Dates must look like 2026-10-31.")
+    with session_scope() as s:
+        rows = order_rows(s, date_from, date_to)
+        orders = len({r[0] for r in rows})
+        log(s, f"[OWNER] Downloaded the won-orders CSV: {orders} order(s), {len(rows)} line(s)" + (f", {date_from or '…'} to {date_to or '…'}" if date_from or date_to else "") + ".")
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\r\n")
+    writer.writerow(CSV_COLUMNS)
+    writer.writerows(rows)
+    filename = f"Sales_Orders_{datetime.now().strftime('%Y%m%d')}.csv"
     return Response(
-        content=buf.getvalue(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=buf.getvalue().encode("utf-8-sig"),  # the BOM makes Excel read the file as UTF-8
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
-@router.get("/api/invoices/{doc_id}/pdf")
-def api_download_invoice_pdf(doc_id: str) -> Response:
-    """
-    Generates and downloads a real, text-searchable PDF document for any Quotation,
-    Tax Invoice, or Supplier Bill in the system.
-    """
-    state = build_state_payload()
-    c = state["company"]
-    inv = next((i for i in state["invoices"] if i["id"].upper() == doc_id.upper()), None)
-    if not inv:
-        inv = {
-            "id": doc_id.upper(),
-            "type": "QUOTE_HOLD",
-            "party": "Tan Bros Trading",
-            "phone": "+60 12-345 6789",
-            "itemsText": "5x Daikin 1.5HP Inverter Unit + 5x R32 Gas (ON HOLD - 48h timer)",
-            "sku": "ACN-DAI-15",
-            "qty": 5,
-            "amount": 6650,
-            "status": "ON_HOLD_48H",
-            "lhdn": "LHDN TIN: C2088391020",
-            "createdAt": now_time_str(),
-        }
+@router.get("/api/deals/{deal_id}/pdf", response_class=Response, responses={200: {"content": {"application/pdf": {}}, "description": "Quote or sales order PDF"}})
+def api_deal_pdf(deal_id: str) -> Response:
+    """Quote PDF (or sales order once won) with prices from the price list and the availability disclaimer."""
+    return _generate_document_pdf(deal_id)
 
-    doc_title = "OFFICIAL QUOTATION (48H STOCK HOLD)" if inv["type"] == "QUOTE_HOLD" else "OFFICIAL TAX INVOICE / RECEIPT"
-    pdf_lines = [
-        f"{c['name']} - {doc_title}",
-        "======================================================================",
-        f"Document No   : #{inv['id']}",
-        f"Date / Time   : {datetime.now().strftime('%Y-%m-%d')} {inv['createdAt']}",
-        f"Customer/Party: {inv['party']} ({inv.get('phone') or 'Malaysian SME'})",
-        f"Record Status : {inv['status']}",
-        f"LHDN e-Invoice: {inv['lhdn']}",
-        "----------------------------------------------------------------------",
-        "ITEMIZED SCOPE & DESCRIPTION:",
-        f"  {inv['itemsText']}",
-        f"  Primary SKU : {inv['sku']} | Quantity: {inv['qty']} unit(s)",
-        "----------------------------------------------------------------------",
-        f"TOTAL AMOUNT  : RM {inv['amount']:,}.00",
-        f"40% DEPOSIT   : RM {int(round(inv['amount'] * 0.4)):,}.00 (To confirm order & deduct stock)",
-        "======================================================================",
-        "Generated by CashChase Orbyte Smart SME Copilot (LHDN Ready)",
-    ]
 
-    pdf_bytes = build_valid_pdf_bytes(pdf_lines)
-    filename = f"{inv['id']}_{inv['party'].replace(' ', '_')}.pdf"
+@router.get("/api/invoices/{invoice_id}/pdf", response_class=Response, responses={200: {"content": {"application/pdf": {}}, "description": "Quote or tax invoice PDF"}})
+def api_invoice_pdf(invoice_id: str) -> Response:
+    """Invoice or Quote PDF endpoint matching webapp /api/invoices/{id}/pdf requests."""
+    return _generate_document_pdf(invoice_id)
+
+
+def _generate_document_pdf(doc_id: str) -> Response:
+    clean_id = doc_id.strip().replace("#", "")
+    with session_scope() as s:
+        d = s.get(orm.Deal, clean_id)
+        if not d:
+            d = s.scalars(
+                select(orm.Deal).where(
+                    (orm.Deal.order_no == clean_id) | (orm.Deal.id.like(f"%{clean_id}%"))
+                )
+            ).first()
+
+        if not d:
+            raise HTTPException(status_code=404, detail=f"Deal {doc_id} not found")
+
+        biz = load_business(s)
+        company = biz.company_name or "CashChase Trading Sdn Bhd"
+        rep = s.get(orm.Rep, d.rep_id) if d.rep_id is not None else None
+        cust = get_customer(s, d.customer)
+
+        won = d.stage == Stage.WON.value
+        created = (d.created_at or "")[:10] or datetime.now().strftime("%Y-%m-%d")
+        doc_type = "SALES ORDER" if won else "QUOTATION"
+        doc_num = d.order_no if won else d.id
+
+        lines = [
+            f"{company} - {doc_type}",
+            "======================================================================",
+            f"Document No   : {doc_num}" + (f"  (quote {d.id})" if won else ""),
+            f"Quote date    : {created}",
+            f"Customer      : {d.customer} ({d.phone or '-'})",
+            f"Buyer TIN     : {(cust.tin if cust else '') or '-'}",
+            f"Sales rep     : {rep.name if rep else '-'}",
+            "----------------------------------------------------------------------",
+        ]
+
+        for i in d.items:
+            lines.append(f"  {i['qty']} x {i['name']} @ RM {i['unitPrice']:,}.00 = RM {i['qty'] * i['unitPrice']:,}.00")
+
+        if d.discount:
+            lines.append(f"  Discount: -RM {d.discount:,}.00")
+
+        lines += [
+            "----------------------------------------------------------------------",
+            f"TOTAL         : RM {d.amount:,}.00",
+            "======================================================================",
+            "Payment: Maybank 5140-1234-5678 (CashChase Trading) / DuitNow",
+            DISCLAIMER,
+        ]
+        filename = f"{doc_num}_{d.customer.replace(' ', '_')}.pdf"
+        return Response(
+            content=build_valid_pdf_bytes(lines),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+
+EXTENSION_DIR = ROOT / "extension"
+REPLIT_HOSTS = (".replit.app", ".replit.dev", ".repl.co")
+
+
+@router.get(
+    "/download/closiq-extension.zip",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "The Closiq Chrome extension, ready to load unpacked"}},
+)
+def download_extension(request: Request) -> Response:
+    """The WhatsApp Web extension as a zip, built from extension/ on each request so it always matches this server.
+    Downloaded from a Replit address, the extension's default server is set to that address (no typing needed)."""
+    host = (request.headers.get("x-forwarded-host") or request.url.netloc).split(",")[0].strip().lower()
+    hostname = host.split(":")[0]
+    server = f"https://{host}" if hostname.endswith(REPLIT_HOSTS) else None
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(EXTENSION_DIR.rglob("*")):
+            if not path.is_file() or path.name.startswith("."):
+                continue
+            data = path.read_bytes()
+            if server and path.name == "content.js":
+                data = re.sub(rb'const DEFAULT_BACKEND_URL = "[^"]*";',
+                              f'const DEFAULT_BACKEND_URL = "{server}";'.encode(), data, count=1)
+            zf.writestr(f"closiq-extension/{path.relative_to(EXTENSION_DIR).as_posix()}", data)
     return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="closiq-extension.zip"'},
     )

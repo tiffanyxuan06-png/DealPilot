@@ -1,0 +1,15 @@
+run = "python run_server.py"
+modules = ["python-3.12"]
+
+[env]
+# Replit forwards outside traffic to the app, so it must listen on every interface (run_server.py reads HOST and PORT).
+HOST = "0.0.0.0"
+PORT = "8000"
+
+[deployment]
+run = ["python", "run_server.py"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
