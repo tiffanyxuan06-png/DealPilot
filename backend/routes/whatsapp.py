@@ -37,7 +37,7 @@ from backend.services.customers import (
 from backend.services.lmstudio import call_lmstudio_chat, extract_json_from_llm
 from backend.services.memory import clean_customer_name, compute_client_memory_rating, find_memory_by_phone
 from backend.services.permissions import enforce, normalize_role, register_handler
-from backend.services.pipeline import build_state, log, resolve_active_ai_credentials
+from backend.services.pipeline import build_state, log, resolve_active_ai_credentials, staff_rep_id
 from backend.services.sales_flow import (
     build_deal_context,
     next_best_action,
@@ -627,7 +627,8 @@ def api_whatsapp_execute(req: WhatsAppExecuteRequest) -> ActionResponse:
 def api_create_customer(req: CustomerCreateRequest) -> ActionResponse:
     role = normalize_role(req.role)
     with session_scope() as s:
-        upsert_customer(s, req.name, now_time_str(), phone=req.phone or "")
+        # A new customer goes to the default rep, like a new deal (routes/deals.py), so Staff see them before any quote
+        upsert_customer(s, req.name, now_time_str(), phone=req.phone or "", rep_id=staff_rep_id(s))
         log(s, f"[{role}] Added customer {clean_customer_name(req.name)} to directory.")
     return ActionResponse(status="ok", state=build_state(role))
 
