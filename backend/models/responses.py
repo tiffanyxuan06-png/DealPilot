@@ -51,6 +51,7 @@ class WhatsAppAnalyzeResponse(BaseModel):
 
     source: str  # lmstudio | deterministic_fallback
     lmstudio_connected: bool
+    provider: Optional[str] = "lmstudio"
     model_used: Optional[str] = None
     error: Optional[str] = None
     raw_prompt: Optional[str] = ''
@@ -63,6 +64,7 @@ class AgentAnswer(BaseModel):
     """The company agent's answer, with the prompt for checking."""
 
     lmstudio_connected: bool
+    provider: Optional[str] = "lmstudio"
     answer: Optional[str] = None
     model_used: Optional[str] = None
     raw_prompt: Optional[str] = None

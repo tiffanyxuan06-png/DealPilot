@@ -1993,7 +1993,7 @@ function renderAnalysisResult(data, fromCache = false) {
     statusEl.textContent = fromCache
       ? `⚡ Cached (${data.model_used || "Local"})`
       : data.lmstudio_connected
-        ? `🟢 LM Studio (${data.model_used})`
+        ? `🟢 ${(data.provider === "runpod" || (data.model_used && (data.model_used.includes("/") || data.model_used.toLowerCase().includes("runpod")))) ? "RunPod" : "LM Studio"} (${data.model_used})`
         : `🟢 Smart Engine Active`;
   }
 

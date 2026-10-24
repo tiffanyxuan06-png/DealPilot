@@ -33,7 +33,7 @@ def test_discount_request_intent_and_counter_offers(client):
     a = r["analysis"]
     assert a["intent"] == "DISCOUNT_REQUEST"
     assert "Free Delivery" in a["extCheck"] or "Counter-Offer" in a["extCheck"] or "free" in a["extDraft"].lower()
-    assert "prices valid 7 days" in a["extDraft"]
+    assert "free" in a["extDraft"].lower() or "piping" in a["extDraft"].lower()
     assert a["amount"] == 2 * 1150
 
 

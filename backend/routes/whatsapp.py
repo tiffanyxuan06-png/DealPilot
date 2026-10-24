@@ -458,6 +458,7 @@ CRITICAL: If the instruction mentions internal CRM actions (such as "Mark won", 
             _save_memory(s, customer, phone, req, mem, merged)
     return {
         "source": "lmstudio",
+        "provider": ai.get("provider", "lmstudio"),
         "lmstudio_connected": True,
         "model_used": llm_res["model_used"],
         "raw_prompt": system_prompt + "\n\n" + user_prompt,
