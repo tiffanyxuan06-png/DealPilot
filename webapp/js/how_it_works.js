@@ -19,7 +19,7 @@ const HIW_ART = {
     <div style="display:grid;gap:6px"><span>Mark deal won</span><div class="hiw-seg"><span>Allowed</span><span class="on">Needs approval</span><span>Off</span></div></div>
     <div class="hiw-row" style="font-size:12px"><span>Sales rep · own commission rate</span><span class="hiw-pill hiw-blue">Staff</span></div></div>`,
   extension: () => `<div class="hiw-mock"><div class="hiw-lbl">Install in about 1 minute</div><div class="hiw-steps5">
-    <div>Download the .zip from the web app</div><div>Unzip the folder</div><div>Open <code>chrome://extensions</code>, turn on Developer mode</div><div>Load unpacked, pick the folder</div><div>Open web.whatsapp.com and sign in</div></div></div>`,
+    <div><span>Download the .zip from the web app</span></div><div><span>Unzip the folder</span></div><div><span>Open <code>chrome://extensions</code>, turn on Developer mode</span></div><div><span>Load unpacked, pick the folder</span></div><div><span>Open web.whatsapp.com and sign in</span></div></div></div>`,
   stages: () => `<div class="hiw-vstages">
     <div><i class="hiw-dot" style="background:var(--sky)"></i>New inquiry<small>customer asked</small></div>
     <div><i class="hiw-dot" style="background:var(--blue)"></i>Quoted<small>timer starts</small></div>

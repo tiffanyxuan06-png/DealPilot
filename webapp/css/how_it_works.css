@@ -41,8 +41,14 @@
 .hiw-where { margin-top: 0.75rem; display: inline-flex; font-size: 0.8125rem; color: var(--navy); background: #E3F6FF; border-radius: 10px; padding: 0.375rem 0.75rem; font-weight: 600; }
 
 /* Common situations */
-.hiw-sit td q { color: var(--ink-soft); font-style: italic; }
-.hiw-sit td { vertical-align: top; }
+.hiw-sit { table-layout: fixed; min-width: 640px; }
+.hiw-sit thead th, .hiw-sit tbody td { padding: 0.875rem 1.25rem; vertical-align: top; line-height: 1.5; }
+.hiw-sit th:nth-child(1) { width: 28%; }
+.hiw-sit th:nth-child(2) { width: 40%; }
+.hiw-sit th:nth-child(3) { width: 32%; }
+.hiw-sit tbody tr + tr td { border-top: 1px solid var(--line-soft); }
+.hiw-sit td b { color: var(--navy); }
+.hiw-sit td q { display: block; margin-top: 0.125rem; color: var(--ink-soft); font-style: italic; }
 
 /* What stays in your control */
 .hiw-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; }
@@ -141,4 +147,4 @@
 }
 
 /* style.css keeps a table's first column on one line; these cells hold a quote, so let them wrap */
-.hiw-sit tbody td:first-child { white-space: normal; min-width: 200px; }
+.hiw-sit tbody td:first-child { white-space: normal; }
