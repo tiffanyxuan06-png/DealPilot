@@ -403,7 +403,7 @@ Spec for what each person sees: **doc 08 §2–3**. Keep the existing look (`web
 
 | # | Decision | Suggestion | Owner of the decision |
 |---|---|---|---|
-| 1 | Product name (SalesKaki, QuoteBoss, Kejar, keep CashChase) | Decide this week, or keep CashChase for the hackathon | Team |
+| 1 | Product name (SalesKaki, QuoteBoss, Kejar, keep DealPilot) | Decide this week, or keep DealPilot for the hackathon | Team |
 | 2 | Can Staff see the leaderboard? | Own rank only | Team |
 | 3 | Monthly sales targets on "My day"? | Later | Team |
 | 4 | Real WhatsApp segment in the demo? | 30 s + backup video | P4 |

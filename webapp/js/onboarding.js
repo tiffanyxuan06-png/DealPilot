@@ -70,7 +70,7 @@
             <p class="text-xs text-[#5B6B85]">A discount that takes the margin below this goes to the Owner for approval.</p>
             <div class="flex flex-wrap justify-end gap-2 pt-1">
               <button onclick="onboardingItems = []; onboardingWarnings = []; renderOnboarding();" class="cc-btn cc-btn-ghost">Start over</button>
-              <button onclick="applyOnboarding()" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-check"/></svg>Start CashChase for my business</button>
+              <button onclick="applyOnboarding()" class="cc-btn cc-btn-primary"><svg aria-hidden="true"><use href="#i-check"/></svg>Start DealPilot for my business</button>
             </div>
           </div>
         ` : ''}
@@ -128,7 +128,7 @@
         }))
       };
       askUserConfirm(
-        'Start CashChase for Your Business',
+        'Start DealPilot for Your Business',
         `${company}: ${setup.items.length} products, follow up after ${setup.followUpHours ?? 'the default'}${setup.followUpHours ? 'h' : ''}, lowest margin ${setup.marginFloorPct ?? 'the default'}${setup.marginFloorPct != null ? '%' : ''}.
 
 This configures the price list and CRM pipeline.`,

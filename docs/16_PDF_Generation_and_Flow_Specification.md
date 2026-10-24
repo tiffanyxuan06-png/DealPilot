@@ -85,7 +85,7 @@ sequenceDiagram
 
 > [!IMPORTANT]
 > **Zero-Dependency PDF Generator vs. Heavy Libraries**:
-> CashChase uses a self-contained, high-performance binary PDF 1.4 stream builder. We deliberately **do not** install heavy, external dependencies like `weasyprint` (which requires GTK+/Pango C-libraries that fail on Windows) or `reportlab`.
+> DealPilot uses a self-contained, high-performance binary PDF 1.4 stream builder. We deliberately **do not** install heavy, external dependencies like `weasyprint` (which requires GTK+/Pango C-libraries that fail on Windows) or `reportlab`.
 > We will upgrade the built-in PDF generator to draw clean tabular borders, right-aligned currency columns, and professional Malaysian SME branding blocks directly in the PDF stream.
 
 > [!NOTE]
@@ -110,7 +110,7 @@ sequenceDiagram
      ```
      Payment Details:
      Bank Name    : Maybank Berhad
-     Account Name : CashChase Trading Sdn Bhd
+     Account Name : DealPilot Trading Sdn Bhd
      Account No   : 5140-1234-5678
      DuitNow ID   : 202601009988 (SSM)
      ```

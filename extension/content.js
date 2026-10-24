@@ -1,7 +1,7 @@
 /**
- * Closiq (CashChase Orbyte SME Copilot) — Chrome/Edge Content Script for WhatsApp Web
+ * DealPilot (DealPilot Orbyte SME Copilot) — Chrome/Edge Content Script for WhatsApp Web
  * Combines the best of WA_extension (auto-detects active chat + pre-caches unread sidebar chats
- * via MutationObserver + 1s heartbeat, synthetic InputEvent insertion) with CashChase's
+ * via MutationObserver + 1s heartbeat, synthetic InputEvent insertion) with DealPilot's
  * ultra-clean 1-Page Copilot (Zero tab/menu bloat, Cross-Chat Client Memory, Auto PDF/Receipt OCR).
  */
 
@@ -306,14 +306,14 @@ function updateAddCustomerBtn(title) {
     btn.style.color = "#15803D";
     btn.style.border = "1px solid #86EFAC";
     btn.style.cursor = "default";
-    btn.title = "This contact is a registered Closiq customer";
+    btn.title = "This contact is a registered DealPilot customer";
   } else {
     btn.textContent = "➕ Add Customer";
     btn.style.background = "#10B981";
     btn.style.color = "#ffffff";
     btn.style.border = "none";
     btn.style.cursor = "pointer";
-    btn.title = "Add this contact as a Closiq customer so messages can be read";
+    btn.title = "Add this contact as a DealPilot customer so messages can be read";
   }
 }
 
@@ -336,8 +336,8 @@ function renderNotCustomer(title) {
   set("cc-ext-title", offline ? "⚠️ Can't check the customer list (backend offline)" : "🚫 Not a customer");
   set("cc-intent-badge", offline ? "Offline" : "Not a customer");
   set("cc-ext-check", offline
-    ? "Nothing is sent until the customer list loads. Start the backend, then tap 🔄 Rescan."
-    : "Closiq only reads chats from your customers, so nothing was sent. Add this contact to start quoting.");
+    ? "Nothing is sent until the customer list loads. Start the backend, then tap ↻ Rescan."
+    : "DealPilot only reads chats from your customers, so nothing was sent. Add this contact to start quoting.");
   set("cc-msg-snippet", "Messages are not read for this contact.");
   set("cc-deal-ctx", "");
   set("cc-big-action-btn", offline ? "⚠️ Backend offline" : "➕ Add as customer");
@@ -357,10 +357,10 @@ function renderNotCustomer(title) {
   updateAddCustomerBtn(title);
   setMascot(offline ? "COMPLAINT" : "CASUAL_CHAT");
   const say = document.getElementById("cc-mascot-say");
-  if (say) say.textContent = offline ? "Can't reach Closiq" : "Not a customer yet";
+  if (say) say.textContent = offline ? "Can't reach DealPilot" : "Not a customer yet";
   const check = document.getElementById("cc-ext-check");
   if (check && offline) check.textContent += " Run python run_server.py on this computer.";
-  renderPaymentCheck(null);
+  renderStage(null);
   setPanelMode("blocked");
 }
 
@@ -409,7 +409,7 @@ async function addCurrentAsCustomer() {
     // Success re-reads the open chat as a customer (normal idle state, nothing analysed). If the refresh failed, Rescan retries it.
     if (!(await refreshStateFromBackend())) {
       const checkEl = document.getElementById("cc-ext-check");
-      if (checkEl) checkEl.textContent = "Added. Tap 🔄 Rescan to reload the customer list.";
+      if (checkEl) checkEl.textContent = "Added. Tap ↻ Rescan to reload the customer list.";
     } else {
       reevaluateChat();
     }
@@ -495,7 +495,7 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
         intent: "BUYING_INQUIRY",
         badge: "1. Price & Quote Info",
         extTitle: "📋 Customer is asking about price",
-        extCheck: "No price yet. Tap 🔄 Rescan to quote from your price list.",
+        extCheck: "No price yet. Tap ↻ Rescan to quote from your price list.",
         extActionDesc: "Insert a holding reply, then Rescan for the price-list quote.",
         extDraft: wait,
         replyOptions: [
@@ -530,7 +530,7 @@ function buildLocalSmartAnalysis(customer, message, userInstruction = "") {
         lines.map((l) => `${l.qty} × RM ${l.price.toLocaleString()} ${l.name}`).join("\n") + "\n" +
         `💰 Quote Total: RM ${total.toLocaleString()}\n` +
         `${disclaimer}\n` +
-        `ℹ️ Rough estimate only. Tap 🔄 Rescan for the price-list quote.`,
+        `ℹ️ Rough estimate only. Tap ↻ Rescan for the price-list quote.`,
       extActionDesc: "Insert the quotation reply below. Rescan for the exact price-list quote before sending.",
       extDraft: opt1,
       replyOptions: [
@@ -936,7 +936,7 @@ function refreshClientMemoryPill(customer, lookup = false) {
     memPill.style.background = "#E6EEFF";
     memPill.style.color = "#0152FC";
     memPill.style.border = "";
-    memPill.title = "Tap Rescan to check this client's history.";
+    memPill.title = "Tap ↻ Rescan to check this client's history.";
     return;
   }
 
@@ -1125,7 +1125,7 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         const bigBtn = document.getElementById("cc-big-action-btn");
         if (bigBtn) bigBtn.textContent = "✅ Insert Selected Reply";
         const checkEl = document.getElementById("cc-ext-check");
-        if (checkEl) checkEl.textContent = pdf ? "Type the items to quote, or tap 🔄 Rescan." : "Tap 📷 Quote from photo to price it, or 🔄 Rescan to reply to the text.";
+        if (checkEl) checkEl.textContent = pdf ? "Type the items to quote, or tap ↻ Rescan." : "Tap 📷 Quote from photo to price it, or ↻ Rescan to reply to the text.";
         return;
       }
       if (!forceRun && isAnalyzing) {
@@ -1137,7 +1137,7 @@ async function scanActiveWhatsAppChat(forceRun = false) {
         if (titleEl) titleEl.textContent = `💬 New message from ${activeTitle}`;
         if (badgeEl) badgeEl.textContent = "Needs Reply";
         const checkEl = document.getElementById("cc-ext-check");
-        if (checkEl) checkEl.textContent = "New message. Your typed reply is kept; tap 🔄 Rescan for a new suggestion.";
+        if (checkEl) checkEl.textContent = "New message. Your typed reply is kept; tap ↻ Rescan for a new suggestion.";
         return;
       }
 
@@ -1197,7 +1197,7 @@ function renderIdleStateForContact(customer) {
   refreshClientMemoryPill(safeName);
   setMascot("CASUAL_CHAT");
   setPanelMode(customer && customer !== "Client" ? "reply" : "empty");
-  renderPaymentCheck(null);
+  renderStage(null);
 
   if (tabsContainer) {
     const greetings = [["Greeting", greeting1], ["Bahasa Melayu", greeting2], ["Service", greeting3]];
@@ -1261,7 +1261,7 @@ async function quoteFromPhoto(customer, attachment) {
     renderAnalysisResult(data, false);
     say("");
   } catch (e) {
-    say("Couldn't reach Closiq. Please type the items.");
+    say("Couldn't reach DealPilot. Please type the items.");
   } finally {
     btn.disabled = false;
   }
@@ -1321,7 +1321,7 @@ function applyWhatsAppLayoutResize(isCollapsed) {
     setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
     setTimeout(() => window.dispatchEvent(new Event("resize")), 500);
   } catch (err) {
-    console.warn("[CashChase] Layout resize warning:", err);
+    console.warn("[DealPilot] Layout resize warning:", err);
   }
 }
 
@@ -1394,7 +1394,7 @@ function renderRating(customer, mem) {
   if (!mem) {
     set("cc-score-num", "–");
     if (scoreEl) { scoreEl.style.setProperty("--score", "0deg"); scoreEl.setAttribute("aria-label", "Customer score not checked yet"); }
-    set("cc-rating-sub", "Tap Rescan to check this customer's history.");
+    set("cc-rating-sub", "Tap ↻ Rescan to check this customer's history.");
     if (aiEl) aiEl.hidden = true;
     return;
   }
@@ -1407,7 +1407,7 @@ function renderRating(customer, mem) {
     scoreEl.style.setProperty("--score-color", tone);
     scoreEl.setAttribute("aria-label", isNew ? "New customer" : `Customer score ${score} out of 100`);
   }
-  const tier = String(mem.tier || "").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  const tier = String(mem.tier || "").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()).replace(/\bVip\b/, "VIP");
   const orders = mem.totalOrders ? `${mem.totalOrders} order${mem.totalOrders === 1 ? "" : "s"}` : "";
   const paid = mem.totalPaidRm || mem.totalPaidRM ? `${fmtRm(mem.totalPaidRm || mem.totalPaidRM)} paid` : "";
   set("cc-rating-sub", isNew ? "No past orders yet. Ask for a deposit to confirm." : [tier, orders, paid].filter(Boolean).join(" · "));
@@ -1443,38 +1443,21 @@ function renderCheckLines(text) {
   }).join("");
 }
 
-// Payment check: a won order needs the money seen in the bank first
-function renderPaymentCheck(a) {
-  const box = document.getElementById("cc-payment");
-  if (!box) return;
-  const needed = !!(a && a.extActionType === "MARK_WON");
-  box.hidden = !needed;
-  const seen = document.getElementById("cc-payment-seen");
-  if (seen) seen.checked = false;
-  if (needed) {
-    const amt = a.depositAmount ? fmtRm(a.depositAmount) : "this amount";
-    const claim = document.getElementById("cc-payment-claim");
-    if (claim) claim.textContent = [a.depositAmount ? `Customer says ${amt} paid` : "", a.depositRef ? `Ref ${a.depositRef}` : ""].filter(Boolean).join(" · ");
-    const label = document.getElementById("cc-payment-label");
-    if (label) label.textContent = `I can see ${amt} in our bank account`;
-  }
-  updatePaymentGate();
+// Sales stage row: done steps ticked, the current one filled, the rest muted
+function renderStage(a) {
+  const el = document.getElementById("cc-stage");
+  if (!el) return;
+  const steps = a && Array.isArray(a.stageSteps) && a.stageSteps.length ? a.stageSteps : null;
+  el.hidden = !steps;
+  if (!steps) { el.innerHTML = ""; return; }
+  const cur = typeof a.stageIndex === "number" ? a.stageIndex : 0;
+  el.innerHTML = steps.map((step, i) => {
+    const state = i < cur ? "is-done" : i === cur ? "is-current" : "";
+    return `<span class="cc-step ${state}"${i === cur ? ' aria-current="step"' : ""}>${escapeHtml(step)}</span>`;
+  }).join("");
 }
 
-function paymentBlocked() {
-  const box = document.getElementById("cc-payment");
-  const seen = document.getElementById("cc-payment-seen");
-  return !!(box && !box.hidden && seen && !seen.checked);
-}
-
-function updatePaymentGate() {
-  const box = document.getElementById("cc-payment");
-  if (box) box.classList.toggle("is-ok", !paymentBlocked() && !box.hidden);
-  const sub = document.getElementById("cc-big-sub");
-  if (sub) sub.textContent = paymentBlocked() ? "Tick the payment check first" : "Nothing sends until you press Enter in WhatsApp";
-}
-
-// Reading state: what Closiq is doing while the AI answers
+// Reading state: what DealPilot is doing while the AI answers
 function renderReading(customer, count) {
   const title = document.getElementById("cc-reading-title");
   if (title) title.textContent = `Reading ${cleanCustomerName(customer)}`;
@@ -1499,7 +1482,7 @@ function updateBubble() {
   const btn = document.getElementById("cc-bubble");
   if (count) { count.hidden = !n; count.textContent = String(n); }
   if (pill) { pill.hidden = !n; pill.textContent = `${n} need${n === 1 ? "s" : ""} you`; }
-  if (btn) btn.setAttribute("aria-label", n ? `Open Closiq, ${n} customer${n === 1 ? "" : "s"} need you` : "Open Closiq");
+  if (btn) btn.setAttribute("aria-label", n ? `Open DealPilot, ${n} customer${n === 1 ? "" : "s"} need you` : "Open DealPilot");
 }
 
 // Drag the closed circle anywhere; it sticks to the nearest side and remembers where it was left
@@ -1562,11 +1545,14 @@ function createSidebar() {
     <div class="cc-header">
       <img class="cc-logo" src="${ccAsset("logo.png")}" alt="" width="28" height="28" />
       <div class="cc-head-text">
-        <div class="cc-title">Closiq</div>
+        <div class="cc-title">DealPilot</div>
         <div class="cc-sub"><span id="cc-lm-status">Sales helper for WhatsApp</span></div>
       </div>
       <span class="cc-badge" id="cc-intent-badge" hidden>Ready</span>
-      <button id="cc-collapse-btn" class="cc-icon-btn" aria-label="Hide Closiq (Alt+C)" title="Hide (Alt+C)">
+      <button id="cc-read-dom-btn" class="cc-icon-btn" aria-label="Rescan: read this chat again" title="Rescan: read this chat again">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <button id="cc-collapse-btn" class="cc-icon-btn" aria-label="Hide DealPilot (Alt+C)" title="Hide (Alt+C)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
       </button>
     </div>
@@ -1605,9 +1591,8 @@ function createSidebar() {
       <div class="cc-contact" id="cc-contact">
         <span id="cc-customer-display" class="cc-contact-name">No chat open</span>
         <button id="cc-add-cust-btn" class="cc-chip-btn" style="display:none;" title="Add this contact as a customer">Add customer</button>
-        <button id="cc-read-dom-btn" class="cc-ghost-btn" title="Read this chat and suggest replies">Rescan</button>
       </div>
-      <div id="cc-msg-snippet" class="cc-snippet cc-chat-only">Open a customer's chat, then tap Rescan.</div>
+      <div id="cc-msg-snippet" class="cc-snippet cc-chat-only">Open a customer's chat, then tap ↻ Rescan.</div>
       <input type="hidden" id="cc-customer-input" value="" />
       <input type="hidden" id="cc-message-input" value="" />
       <!-- Customer photo / PDF banner (hidden unless one arrives) -->
@@ -1619,11 +1604,14 @@ function createSidebar() {
           <span id="cc-score" class="cc-score" role="img" aria-label="Customer score not checked yet"><span id="cc-score-num">–</span></span>
           <span class="cc-rating-main">
             <span class="cc-rating-name-row"><span id="cc-rating-name" class="cc-sr">Customer</span><span id="cc-mem-pill" class="cc-pill">Client Ready</span></span>
-            <span id="cc-rating-sub" class="cc-rating-sub">Tap Rescan to check this customer's history.</span>
+            <span id="cc-rating-sub" class="cc-rating-sub">Tap ↻ Rescan to check this customer's history.</span>
           </span>
         </div>
         <p id="cc-rating-ai" class="cc-rating-ai" hidden></p>
       </div>
+
+      <!-- Sales stage, from the analysis (stageSteps / stageIndex) -->
+      <div id="cc-stage" class="cc-stage" aria-label="Sales stage" hidden></div>
 
       <!-- Reading the chat -->
       <div id="cc-reading" class="cc-reading" role="status" aria-live="polite" hidden>
@@ -1645,16 +1633,9 @@ function createSidebar() {
             <div id="cc-ext-title" class="cc-happening-title">Ready for WhatsApp Message</div>
           </div>
         </div>
-        <div id="cc-ext-check" class="cc-check">Tap Rescan to analyse this chat.</div>
+        <div id="cc-ext-check" class="cc-check">Tap ↻ Rescan to analyse this chat.</div>
         <div id="cc-deal-ctx" class="cc-deal"></div>
         <div id="cc-ext-desc" hidden></div>
-
-        <!-- Check payment before an order is marked won -->
-        <div id="cc-payment" class="cc-payment" hidden>
-          <div class="cc-payment-title">Check payment</div>
-          <div id="cc-payment-claim" class="cc-payment-claim"></div>
-          <label class="cc-check-row"><input id="cc-payment-seen" type="checkbox" /> <span id="cc-payment-label">I can see this amount in our bank account</span></label>
-        </div>
       </div>
 
       <!-- Pick a reply: cards; the draft below is what goes into WhatsApp -->
@@ -1724,7 +1705,7 @@ function createSidebar() {
     reopenBtn.id = "cc-floating-reopen-btn";
     reopenBtn.innerHTML = `
       <span id="cc-bubble-pill" class="cc-bubble-pill" hidden></span>
-      <button id="cc-bubble" class="cc-bubble" aria-label="Open Closiq" title="Tap to open, drag to move">
+      <button id="cc-bubble" class="cc-bubble" aria-label="Open DealPilot" title="Tap to open, drag to move">
         <img src="${ccAsset("logo.png")}" alt="" width="32" height="32" draggable="false" />
         <span id="cc-bubble-count" class="cc-bubble-count" hidden></span>
       </button>`;
@@ -1829,8 +1810,6 @@ function createSidebar() {
       askAi(prompt);
     });
   });
-  const paySeen = document.getElementById("cc-payment-seen");
-  if (paySeen) paySeen.addEventListener("change", () => updatePaymentGate());
 
   // Render clean idle state on sidebar load
   renderIdleStateForContact(currentActiveChat || "Client");
@@ -2005,7 +1984,7 @@ function renderAnalysisResult(data, fromCache = false) {
     renderCheckLines(checkText);
   }
   renderDealContext(lastAnalysis);
-  renderPaymentCheck(lastAnalysis);
+  renderStage(lastAnalysis);
   const draftEl = document.getElementById("cc-draft-output");
   if (draftEl) {
     draftEl.disabled = false;
@@ -2174,7 +2153,7 @@ function renderPriceList() {
       </div>
       <input id="cc-pl-qty-${i}" type="number" min="0" value="${plQty[p.sku] || 0}" aria-label="Quantity of ${escapeHtml(p.name)}" class="cc-input" style="width:54px; padding:3px 4px;" />
     </div>`).join("")
-    : `<div style="color:#64748B;">${knownProducts.length ? "No item matches." : "Price list not loaded yet. Tap 🔄 Rescan."}</div>`;
+    : `<div style="color:#64748B;">${knownProducts.length ? "No item matches." : "Price list not loaded yet. Tap ↻ Rescan."}</div>`;
   shown.forEach((p, i) => {
     const input = document.getElementById(`cc-pl-qty-${i}`);
     const update = () => {
@@ -2215,7 +2194,7 @@ function quoteMessage(deal) {
 
 async function createPriceListQuote() {
   const customer = document.getElementById("cc-customer-input")?.value.trim() || currentActiveChat;
-  if (gateState === "offline") return plSay("Backend offline. Start it, then tap 🔄 Rescan.");
+  if (gateState === "offline") return plSay("Backend offline. Start it, then tap ↻ Rescan.");
   if (gateState || !customer) return plSay("Open a customer's chat first.");
   const items = plItems();
   if (!items.length) return plSay("Set a quantity for at least one item.");
@@ -2286,6 +2265,10 @@ async function executePrimaryAction() {
   const btnEl = document.getElementById("cc-big-action-btn");
   const originalBtnText = btnEl ? btnEl.textContent : "✅ Insert Selected Reply";
 
+  if (!draft && !lastAnalysis && currentActiveChat && !gateState) {
+    scanActiveWhatsAppChat(true);   // nothing to insert yet: read the chat and suggest replies
+    return;
+  }
   if (!draft) {
     if (btnEl) {
       btnEl.textContent = "⚠️ Please select or type a reply first";
@@ -2297,9 +2280,7 @@ async function executePrimaryAction() {
   // Nothing to record yet: say what is missing instead of inserting a reply or posting a blind action.
   const a = lastAnalysis;
   const items = a ? analysisItems(a) : null;
-  const missing = a && a.extActionType === "CREATE_QUOTE" && !items ? "⚠️ Type the items to quote first"
-    : a && a.extActionType === "MARK_WON" && !a.depositRef ? "⚠️ Add the slip reference first"
-      : a && a.extActionType === "MARK_WON" && paymentBlocked() ? "⚠️ Tick the payment check first" : "";
+  const missing = a && a.extActionType === "CREATE_QUOTE" && !items ? "⚠️ Type the items to quote first" : "";
   if (missing) {
     if (btnEl) {
       btnEl.textContent = missing;

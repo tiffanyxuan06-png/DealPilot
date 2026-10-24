@@ -1,4 +1,4 @@
-"""Which AI server CashChase talks to: LM Studio on the laptop, or a RunPod serverless vLLM endpoint.
+"""Which AI server DealPilot talks to: LM Studio on the laptop, or a RunPod serverless vLLM endpoint.
 
 Both speak the OpenAI chat API, so only the address, key and model change. Chosen with AI_PROVIDER in .env:
   lmstudio (default) · runpod · auto (RunPod when its key and endpoint are filled in, else LM Studio)

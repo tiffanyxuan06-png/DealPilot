@@ -530,7 +530,7 @@ def test_offline_guess_for_casual_chat_has_no_quote_and_no_stock_wording():
     ({"extActionType": "SEND_COUNTER_OFFER", "discount": 300, "amount": 6350, "sku": "ACN-DAI-15", "qty": 5, "extraSku": "GAS-R32",
       "extraQty": 5, "quotePreview": {"items": [{"sku": "OLD", "qty": 9}]}},
      {"actionType": "SEND_COUNTER_OFFER", "dealId": "QT-1", "items": [{"sku": "ACN-DAI-15", "qty": 5}], "discount": 300}),
-    # slip reference box
+    # won: the slip reference and amount go along when the message has them
     ({"extActionType": "MARK_WON", "depositRef": "DN-123", "depositAmount": 2000},
      {"actionType": "MARK_WON", "dealId": "QT-1", "items": [{"sku": "ACN-DAI-15", "qty": 5}], "discount": 0,
       "depositRef": "DN-123", "depositAmount": 2000}),
@@ -649,24 +649,19 @@ def test_create_quote_items_fall_back_to_the_preview_then_the_analysis_sku_and_q
     assert sent[0]["body"]["actionType"] == "CREATE_QUOTE"
 
 
-def test_mark_won_waits_for_the_payment_check():
-    analysis = quote_analysis(extActionType="MARK_WON", depositRef="DN-20261023-55190", depositAmount=920)
-    out = run_scenario("sales_execute", state=STATE_STUB, unticked=1, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
+@pytest.mark.parametrize("extra", [
+    {"depositRef": "DN-20261023-55190", "depositAmount": 920},
+    {},  # no slip reference or amount in the message: still marked won, nothing made up
+])
+def test_mark_won_goes_straight_through_with_the_thank_you(extra):
+    analysis = quote_analysis(extActionType="MARK_WON", **extra)
+    out = run_scenario("sales_execute", state=STATE_STUB, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
     result = out["result"]
     assert out["errors"] == []
-    assert result["paymentShown"] is True
-    assert posts(result["sent"], EXECUTE) == [] and result["boxText"] == ""  # nothing recorded or inserted
-    assert "Tick the payment check first" in result["button"]
-    ticked = run_scenario("sales_execute", state=STATE_STUB, responses={ANALYZE: analysis, EXECUTE: {"ok": True, "data": {"status": "ok"}}})
-    assert len(posts(ticked["result"]["sent"], EXECUTE)) == 1
-
-
-def test_mark_won_without_a_slip_reference_posts_nothing_and_says_so():
-    out = run_scenario("sales_execute", state=STATE_STUB, responses={
-        ANALYZE: quote_analysis(extActionType="MARK_WON"), EXECUTE: {"ok": True, "data": {"status": "ok"}}})
-    result = out["result"]
-    assert posts(result["sent"], EXECUTE) == []
-    assert "Add the slip reference first" in result["button"]
+    sent = posts(result["sent"], EXECUTE)
+    assert len(sent) == 1 and sent[0]["body"]["actionType"] == "MARK_WON"
+    assert sent[0]["body"].get("depositRef") == extra.get("depositRef")
+    assert result["boxText"]  # the thank-you reply went into WhatsApp
 
 
 # ---- re-review: the quantity must be a clear whole number, else no RM total (the rep Rescans)

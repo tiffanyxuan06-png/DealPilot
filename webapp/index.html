@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CashChase for Orbyte</title>
+  <title>DealPilot for Orbyte</title>
   <link rel="icon" type="image/png" href="img/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,7 +32,7 @@
   </script>
   <!-- Tailwind ships with the app so privacy blockers (e.g. Edge tracking prevention) cannot strip the styling -->
   <script src="js/vendor/tailwindcss-browser-4.1.11.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261023_15" />
+  <link rel="stylesheet" href="css/style.css?v=20261024_2" />
 </head>
 <body class="min-h-screen flex flex-col md:flex-row antialiased">
 
@@ -42,20 +42,20 @@
   <div id="login-screen" class="login-screen" role="dialog" aria-modal="true" aria-labelledby="login-title">
     <div class="login-shell">
 
-      <!-- Brand side: what CashChase does, shown with a small live preview -->
+      <!-- Brand side: what DealPilot does, shown with a small live preview -->
       <section class="login-brand" aria-hidden="true">
         <span class="login-glow g1"></span><span class="login-glow g2"></span><span class="login-glow g3"></span>
 
         <div class="relative flex items-center gap-3">
           <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto bg-white rounded-xl p-1" />
           <div>
-            <div class="font-bold text-lg leading-tight text-white">CashChase</div>
+            <div class="font-bold text-lg leading-tight text-white">DealPilot</div>
             <div class="text-xs text-[#01E3FB]">for Orbyte SME</div>
           </div>
         </div>
 
         <div class="relative">
-          <h2 class="text-[28px] lg:text-[32px] font-bold text-white leading-tight" style="text-wrap: balance">Know who owes you,<br />before you chase.</h2>
+          <h2 class="text-[24px] lg:text-[27px] font-bold text-white leading-tight tracking-[-0.01em]">Answer every customer,<br />close more deals.</h2>
           <p class="text-sm text-white/75 mt-2 max-w-xs">Quotes, follow-ups and your sales pipeline from WhatsApp. AI suggests, you decide.</p>
 
           <!-- Product preview -->
@@ -80,8 +80,8 @@
         </div>
 
         <ul class="relative flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-white/70">
-          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>LHDN e-Invoice ready</li>
-          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>48h stock holds</li>
+          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>Follow-up reminders</li>
+          <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>Quotes from your price list</li>
           <li class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-[#01E3FB]"><use href="#i-check"/></svg>Owner approvals</li>
         </ul>
       </section>
@@ -91,12 +91,12 @@
         <div class="w-full max-w-sm">
           <div class="flex items-center gap-3 md:hidden mb-6">
             <img src="img/logo.png" alt="" width="40" height="41" class="w-10 h-auto" />
-            <span class="font-bold text-lg text-[#042970]">CashChase</span>
+            <span class="font-bold text-lg text-[#042970]">DealPilot</span>
             <img src="img/mascot-wave.png" alt="" width="295" height="320" class="w-14 h-auto ml-auto m-wave" aria-hidden="true" />
           </div>
 
           <h1 id="login-title" class="text-[26px] font-bold text-[#042970] leading-tight">Welcome back</h1>
-          <p class="cc-sub mt-1">Sign in to your CashChase workspace.</p>
+          <p class="cc-sub mt-1">Sign in to your DealPilot workspace.</p>
 
           <form id="login-form" class="mt-7 space-y-4" novalidate onsubmit="handleLogin(event)">
             <div>
@@ -221,14 +221,14 @@
   <!-- ===================================================================== -->
   <!-- SIDEBAR                                                               -->
   <!-- ===================================================================== -->
-  <aside class="cc-sidebar w-full md:w-64 md:sticky md:top-0 md:h-screen flex flex-col shrink-0 select-none">
+  <aside class="cc-sidebar w-full md:w-64 md:sticky md:top-0 md:h-screen md:overflow-y-auto flex flex-col shrink-0 select-none">
     <div class="p-4 md:p-5 flex md:flex-col gap-4 md:gap-6 items-center md:items-stretch">
 
       <!-- Brand -->
-      <a href="#" onclick="switchPage('overview'); return false;" class="cc-brand flex items-center gap-3 shrink-0" aria-label="CashChase home">
+      <a href="#" onclick="switchPage('overview'); return false;" class="cc-brand flex items-center gap-3 shrink-0" aria-label="DealPilot home">
         <img src="img/logo.png" alt="" width="40" height="41" class="cc-logo w-10 h-auto" />
         <div class="hidden sm:block">
-          <div class="font-bold text-lg leading-tight text-[#042970]">CashChase</div>
+          <div class="font-bold text-lg leading-tight text-[#042970]">DealPilot</div>
           <div class="text-xs text-[#5B6B85]">for Orbyte SME</div>
         </div>
       </a>
@@ -268,22 +268,22 @@
     </div>
 
     <!-- Mascot helper card + settings -->
-    <div class="hidden md:flex flex-col gap-3 mt-auto p-5">
+    <div class="hidden md:flex flex-col gap-3 mt-auto px-5 pt-3 pb-4">
       <div class="cc-card p-4 relative overflow-hidden">
         <img src="img/mascot-idea.png" alt="" width="233" height="231" class="m-idea absolute right-1 -bottom-3 w-20 h-auto" aria-hidden="true" />
         <div class="text-sm font-semibold text-[#042970] pr-16">Need a hand?</div>
-        <p class="text-xs text-[#5B6B85] pr-16 mt-0.5">Ask which deals to chase, or who won the most.</p>
+        <p class="text-xs text-[#5B6B85] pr-16 mt-0.5 [@media(max-height:780px)]:hidden">Ask which deals to follow up, or who won the most.</p>
         <button onclick="openCompanyAgentModal()" class="cc-btn cc-btn-primary mt-3 !min-h-[34px] !px-3">Ask AI</button>
       </div>
 
       <button onclick="openSettingsModal()" class="nav-item i-spin !bg-white/70 border border-[#DCE4F2]">
         <svg><use href="#i-gear"/></svg>
-        <span class="nav-text leading-tight">
+        <span class="nav-text min-w-0 leading-tight">
           <span class="block text-xs text-[#5B6B85]">Settings</span>
-          <span class="block text-sm font-semibold text-[#042970] truncate" id="sidebar-sme-label">—</span>
+          <span class="block text-sm font-semibold text-[#042970] break-words" id="sidebar-sme-label">—</span>
         </span>
       </button>
-      <a href="/static/privacy.html" target="_blank" rel="noopener" class="nav-text block text-center text-xs text-[#5B6B85] underline hover:text-[#0152FC] mt-2">Privacy Notice</a>
+      <a href="/static/privacy.html" target="_blank" rel="noopener" class="nav-text block text-center text-xs text-[#5B6B85] underline hover:text-[#0152FC]">Privacy Notice</a>
     </div>
   </aside>
 
@@ -648,7 +648,7 @@
             <div class="min-w-0">
               <span class="cc-pill !bg-emerald-50 !text-emerald-800">Demo</span>
               <h1 class="cc-h1 mt-2">AI suggests. Rules check. You decide.</h1>
-              <p class="cc-sub mt-1">The CashChase extension sits beside WhatsApp Web and helps your reps close deals. Tap a job to see it.</p>
+              <p class="cc-sub mt-1">The DealPilot extension sits beside WhatsApp Web and helps your reps close deals. Tap a job to see it.</p>
             </div>
             <img src="img/mascot-question.png" alt="" width="240" height="246" class="w-20 md:w-24 h-auto m-float shrink-0 hidden sm:block" aria-hidden="true" />
           </div>
@@ -769,12 +769,12 @@
             </div>
           </section>
 
-          <!-- CashChase extension, docked beside WhatsApp -->
-          <section class="lg:col-span-4 cc-card !border-[#0152FC]/40" style="box-shadow: var(--shadow-md)" aria-label="CashChase extension">
+          <!-- DealPilot extension, docked beside WhatsApp -->
+          <section class="lg:col-span-4 cc-card !border-[#0152FC]/40" style="box-shadow: var(--shadow-md)" aria-label="DealPilot extension">
             <div class="bg-[#042970] text-white px-4 py-3 flex items-center gap-3 rounded-t-2xl">
               <img src="img/logo.png" alt="" width="28" height="29" class="w-7 h-auto bg-white rounded-lg p-0.5" />
               <div>
-                <div class="font-semibold text-sm">CashChase extension</div>
+                <div class="font-semibold text-sm">DealPilot extension</div>
                 <div class="text-xs text-[#01E3FB]">Sits beside web.whatsapp.com</div>
               </div>
             </div>
@@ -1176,20 +1176,20 @@
     </form>
   </div>
 
-  <!-- CashChase modules -->
+  <!-- DealPilot modules -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="js/demo_chats.js?v=20261023_15"></script>
-  <script src="js/state.js?v=20261023_15"></script>
-  <script src="js/inspector.js?v=20261023_15"></script>
-  <script src="js/dashboard.js?v=20261023_15"></script>
-  <script src="js/copilot.js?v=20261023_15"></script>
-  <script src="js/company_ai.js?v=20261023_15"></script>
-  <script src="js/pdf_export.js?v=20261023_15"></script>
-  <script src="js/team.js?v=20261023_15"></script>
-  <script src="js/onboarding.js?v=20261023_15"></script>
-  <script src="js/main.js?v=20261023_15"></script>
-  <script src="js/ui.js?v=20261023_15"></script>
-  <script src="js/auth.js?v=20261023_15"></script>
+  <script src="js/demo_chats.js?v=20261024_2"></script>
+  <script src="js/state.js?v=20261024_2"></script>
+  <script src="js/inspector.js?v=20261024_2"></script>
+  <script src="js/dashboard.js?v=20261024_2"></script>
+  <script src="js/copilot.js?v=20261024_2"></script>
+  <script src="js/company_ai.js?v=20261024_2"></script>
+  <script src="js/pdf_export.js?v=20261024_2"></script>
+  <script src="js/team.js?v=20261024_2"></script>
+  <script src="js/onboarding.js?v=20261024_2"></script>
+  <script src="js/main.js?v=20261024_2"></script>
+  <script src="js/ui.js?v=20261024_2"></script>
+  <script src="js/auth.js?v=20261024_2"></script>
 
   <!-- ===================================================================== -->
   <!-- PHOTO-TO-QUOTE EDITABLE DRAFT MODAL                                  -->

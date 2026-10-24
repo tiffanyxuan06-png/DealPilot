@@ -1,4 +1,4 @@
-# CashChase for Orbyte SME
+# DealPilot for Orbyte SME
 
 Intelligent WhatsApp Copilot and Real-Time Net Worth Engine for SMEs powered by local LLM / VLM (LM Studio).
 
@@ -18,7 +18,7 @@ Intelligent WhatsApp Copilot and Real-Time Net Worth Engine for SMEs powered by 
 
 ---
 
-### Step 2: Run CashChase
+### Step 2: Run DealPilot
 Simply double-click:
 ```text
 start_cashchase.bat
@@ -26,13 +26,13 @@ start_cashchase.bat
 *(or run `.\start_cashchase.bat` in your PowerShell / Command Prompt)*
 
 This will:
-- Start the CashChase backend server on `http://localhost:8000`
+- Start the DealPilot backend server on `http://localhost:8000`
 - Automatically open the interactive web dashboard in your browser
 
 ---
 
 ### Step 3: Install the WhatsApp Web Chrome Extension (Optional)
-To use CashChase directly inside live [WhatsApp Web](https://web.whatsapp.com/):
+To use DealPilot directly inside live [WhatsApp Web](https://web.whatsapp.com/):
 
 1. Open Google Chrome, Brave, or Microsoft Edge.
 2. Navigate to:
@@ -42,7 +42,7 @@ To use CashChase directly inside live [WhatsApp Web](https://web.whatsapp.com/):
 4. Click **Load unpacked** (top-left button).
 5. Select the **`extension/`** folder inside this project directory (`cashchase/extension`).
 6. Open [web.whatsapp.com](https://web.whatsapp.com/) in your browser.
-7. Click any conversation — the CashChase Copilot sidebar appears on the right side with live stock checks, customer memory, and 1-click quote holds.
+7. Click any conversation — the DealPilot Copilot sidebar appears on the right side with live stock checks, customer memory, and 1-click quote holds.
 
 ---
 
@@ -54,7 +54,7 @@ To use CashChase directly inside live [WhatsApp Web](https://web.whatsapp.com/):
 - **Multi-SME Profiles**: Seamlessly switch between Aircond Contractor, Software Studio, and Wholesale F&B.
 - **Owner-Controlled Team Permissions**: In ⚙️ Settings → Team & Permissions the Owner sets each Staff action to Allowed, Needs Owner approval, or Off. Requests show up under **Owner Approvals** on the Dashboard. Everything is checked by the backend and logged.
 - **Real 48h Quote Holds**: Quotes hold stock with a live countdown and release it automatically when they expire (Owner-only ⏩ demo clock in Settings).
-- **Safety Checks**: Receipts with the wrong payee, a reused reference, or the wrong amount go to the Owner; every RM amount in an AI reply must match an amount CashChase calculated.
+- **Safety Checks**: Receipts with the wrong payee, a reused reference, or the wrong amount go to the Owner; every RM amount in an AI reply must match an amount DealPilot calculated.
 
 ---
 
@@ -63,7 +63,7 @@ Copy `.env.example` to `.env`. It is loaded automatically when the server starts
 - `DATABASE_URL`: any SQLAlchemy URL. Default `sqlite:///backend/cashchase.db` (local testing). Postgres is planned later; it needs its own migrations in `backend/schema/migrations/postgresql/`. Tables come only from the SQL files in `backend/schema/migrations/<database>/`, and demo data from `backend/schema/seeds/*.json` (see `docs/12_Data_Layer_Refactor_Plan.md`).
 - `LMSTUDIO_URL`, `LMSTUDIO_API_KEY`, `LMSTUDIO_MODEL`: your LM Studio server (default `http://127.0.0.1:1234/v1`).
 - `PORT`: server port (default `8000`).
-- `AI_PROVIDER`: `lmstudio` (default), `runpod`, or `auto`. For RunPod fill in `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` and `RUNPOD_MODEL` (and optionally `RUNPOD_VISION_MODEL` for receipt photos). The key stays on the server. If RunPod is cold-starting or offline, CashChase answers with its built-in replies until it wakes up.
+- `AI_PROVIDER`: `lmstudio` (default), `runpod`, or `auto`. For RunPod fill in `RUNPOD_ENDPOINT_ID`, `RUNPOD_API_KEY` and `RUNPOD_MODEL` (and optionally `RUNPOD_VISION_MODEL` for receipt photos). The key stays on the server. If RunPod is cold-starting or offline, DealPilot answers with its built-in replies until it wakes up.
 
 ---
 

@@ -27,7 +27,7 @@ WEBAPP_DIR = BASE_DIR / "webapp"
 init_database()
 
 app = FastAPI(
-    title="CashChase Orbyte API",
+    title="DealPilot Orbyte API",
     description="WhatsApp sales agent for Malaysian SMEs: quotes, follow-ups, pipeline and a won-orders CSV",
     version="2.0.0",
 )
@@ -122,4 +122,4 @@ def root() -> HTMLResponse:
     index_file = WEBAPP_DIR / "index.html"
     if index_file.exists():
         return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
-    return HTMLResponse(content="<h1>CashChase Orbyte Backend Online</h1><p>Webapp directory not found.</p>")
+    return HTMLResponse(content="<h1>DealPilot Orbyte Backend Online</h1><p>Webapp directory not found.</p>")

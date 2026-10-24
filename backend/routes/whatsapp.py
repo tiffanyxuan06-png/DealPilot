@@ -458,7 +458,7 @@ You MUST adjust the quotation items, quantities, installation labor, discounts a
             for k in ("intent", "extActionType", "extBtnLabel", "tin", "ssmBrn", "extCheck"):
                 merged[k] = fallback.get(k)
 
-        # Every RM amount in an AI reply must be one CashChase calculated; pressure wording is blocked.
+        # Every RM amount in an AI reply must be one DealPilot calculated; pressure wording is blocked.
         merged = check_ai_replies(merged, fallback, state, customer)
         _add_tin_request(s, merged, customer)
         if merged.get("intent") != "CASUAL_CHAT":

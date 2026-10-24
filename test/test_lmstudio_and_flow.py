@@ -1,11 +1,11 @@
 """
-CashChase End-to-End Flow & LM Studio Local API Test Script
+DealPilot End-to-End Flow & LM Studio Local API Test Script
 ============================================================
 Location: /test/test_lmstudio_and_flow.py
 
 What this script tests:
 1. Checks LM Studio Local API connectivity (default: http://127.0.0.1:1234/v1/models)
-2. Resets & initializes the CashChase SQLite backend state
+2. Resets & initializes the DealPilot SQLite backend state
 3. Step 1: WhatsApp Buying Inquiry -> Calls /api/whatsapp/analyze (LM Studio) -> Executes 48h Stock Hold
 4. Step 2: Verifies "Who Is Holding Stock" breakdown on each SKU (Customer name, Quote #, Qty, Timer)
 5. Step 3: WhatsApp Deposit Paid -> Calls /api/whatsapp/analyze -> Deducts Physical Stock & adds Cash

@@ -1,8 +1,8 @@
-# CashChase — User Flows, WebApp UI & Local LLM Agent Spec
+# DealPilot — User Flows, WebApp UI & Local LLM Agent Spec
 
 **Architecture Rule:** Strictly **2 user-facing interfaces** backed by **1 FastAPI backend (`backend/`) & 1 SQLite database (`backend/cashchase.db`)**:
 1. **Chrome Extension Sidebar on `web.whatsapp.com`** (`extension/`: `content.js` injects the sidebar, `background.js` calls the API)
-2. **ONE CashChase WebApp (`http://localhost:8000/`)** with a left sidebar: *Overview & Net Worth*, *Invoices & Quotes*, *Stock & 48h Holds*, *Ledger*, and a built-in *WhatsApp Simulator* (backup for the extension), plus the *SME Profile & AI Labor Rules* settings.
+2. **ONE DealPilot WebApp (`http://localhost:8000/`)** with a left sidebar: *Overview & Net Worth*, *Invoices & Quotes*, *Stock & 48h Holds*, *Ledger*, and a built-in *WhatsApp Simulator* (backup for the extension), plus the *SME Profile & AI Labor Rules* settings.
 
 ---
 
@@ -16,7 +16,7 @@ flowchart TB
         DOM <--> SIDE
     end
 
-    subgraph ONE_PAGE["Interface 2: CashChase WebApp (localhost:8000, webapp/)"]
+    subgraph ONE_PAGE["Interface 2: DealPilot WebApp (localhost:8000, webapp/)"]
         NW["Section 1: Live Company Net Worth Banner\n• Core Net Worth = Cash on Hand + Stock Value\n• Full Net Position = Core + Pending In - Pending Out"]
         INP["Section 2: Zero-Friction Input Row\n• Drag & Drop Invoice OCR (Supplier / Cost / Customer)\n• 1-Line Phone Call Quick Key-In Bar"]
         STK["Section 3A: Live Stock Count Table\n• Physical On Hand | On Hold (48h) | Available | Value"]
@@ -89,7 +89,7 @@ Located on the **Invoices & Quotes** page of the WebApp (`POST /api/ocr/extract`
 
 ### Flow 5: Money-First Aftersales (Right on the Invoice Row)
 1. **Trigger:** Customer complains on WhatsApp (*"Boss, 1 bottle R32 from INV-201 valve leaking, I hold the RM 4,800 balance until you replace or discount"*).
-2. **Automatic Guardrail:** CashChase immediately sets `INV-201` to **`AFTERSALES_PAUSED`** so payment reminders are blocked.
+2. **Automatic Guardrail:** DealPilot immediately sets `INV-201` to **`AFTERSALES_PAUSED`** so payment reminders are blocked.
 3. **Owner Resolution (1 Click in Extension or on the WebApp Invoice Row):**
    - **Option A — `📦 -1 Stock Replace`:** Deducts `1 unit` from `Physical Stock On Hand` as a warranty replacement cost (reducing Stock Value by `RM 130` so Company Net Worth stays accurate) and drafts the apology reply.
    - **Option B — `💸 -RM Discount`:** Reduces the `INV-201` balance (e.g., `-RM 180`) and drafts the updated invoice balance reply.

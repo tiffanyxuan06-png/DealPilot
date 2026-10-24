@@ -1,8 +1,8 @@
-# CashChase CRM System Audit & Hackathon Guide
+# DealPilot CRM System Audit & Hackathon Guide
 
-> **Executive Summary:** CashChase is **not** broken or unusable garbage. Approximately **85–90% of the core system is fully built and operational**, backed by automated SQLite schema migrations, 90+ unit tests, a complete FastAPI backend, a responsive 6-screen WebApp, and a WhatsApp Web Chrome extension.
+> **Executive Summary:** DealPilot is **not** broken or unusable garbage. Approximately **85–90% of the core system is fully built and operational**, backed by automated SQLite schema migrations, 90+ unit tests, a complete FastAPI backend, a responsive 6-screen WebApp, and a WhatsApp Web Chrome extension.
 >
-> The perceived chaos stems from an architectural pivot: transitioning from an inventory/cashflow hold tracker ("Old CashChase") to a **WhatsApp Sales CRM & Pipeline** ("New CashChase"). This audit clarifies what is done, what is pending, what makes it compelling as a CRM, and exactly how to test and demo it for the hackathon.
+> The perceived chaos stems from an architectural pivot: transitioning from an inventory/cashflow hold tracker ("Old DealPilot") to a **WhatsApp Sales CRM & Pipeline** ("New DealPilot"). This audit clarifies what is done, what is pending, what makes it compelling as a CRM, and exactly how to test and demo it for the hackathon.
 
 ---
 
@@ -104,7 +104,7 @@ python -m pytest test/unit/test_dashboard_numbers.py test/unit/test_deals.py tes
 ```
 *Expected: 57 tests pass in ~10 seconds with zero external dependencies.*
 
-### Step 2: Launch the CashChase Server
+### Step 2: Launch the DealPilot Server
 Start the local server:
 ```powershell
 python run_server.py
@@ -134,7 +134,7 @@ python run_server.py
 ## 6. Recommended Hackathon Pitch Narrative
 
 1. **The Problem:** Micro-SMEs in Southeast Asia manage millions of Ringgit in business over WhatsApp and Excel. Traditional CRMs (Salesforce, HubSpot) are too complex, expensive, and require tedious manual data entry.
-2. **The Solution:** CashChase is a **WhatsApp Sales Sidekick & Pipeline Hub**. It gives sales reps 10-second quotation shortcuts inside WhatsApp while giving business owners margin protection, overdue follow-up alerts, and automated commission tracking.
+2. **The Solution:** DealPilot is a **WhatsApp Sales Sidekick & Pipeline Hub**. It gives sales reps 10-second quotation shortcuts inside WhatsApp while giving business owners margin protection, overdue follow-up alerts, and automated commission tracking.
 3. **The AI Secret Sauce (Layered Architecture):**
    - **Layer A (Understand):** Understands messy Manglish customer chats.
    - **Layer B (Execute):** Deterministic pricing engine that **never** hallucinates amounts.

@@ -1,4 +1,4 @@
-/* Closiq sidebar for WhatsApp Web (brand tokens match the CashChase web app) */
+/* DealPilot sidebar for WhatsApp Web (brand tokens match the DealPilot web app) */
 
 :root {
   --cc-sidebar-width: 360px;
@@ -226,6 +226,10 @@ html.cashchase-collapsed .app-wrapper-web {
   flex-shrink: 0;
 }
 .cc-icon-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.cc-icon-btn + .cc-icon-btn { margin-left: -4px; }
+#cc-read-dom-btn:active svg { transform: rotate(180deg); transition: transform 0.3s; }
+#cashchase-wa-ext-root[data-mode="empty"] #cc-read-dom-btn,
+#cashchase-wa-ext-root[data-auth="out"] #cc-read-dom-btn { display: none; }
 .cc-user-row {
   display: flex;
   align-items: center;
@@ -285,6 +289,18 @@ html.cashchase-collapsed .app-wrapper-web {
 .cc-rating-ai { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--cc-text-2); }
 .cc-rating-ai b { color: var(--cc-navy); }
 
+/* sales stage row */
+.cc-stage { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border-radius: 12px; background: #EEF2F8; }
+.cc-step { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--cc-muted); opacity: 0.75; }
+.cc-step.is-done { color: #065F46; background: var(--cc-green-bg); opacity: 1; }
+.cc-step.is-done::before { content: ""; width: 5px; height: 9px; margin: -2px 2px 0 0; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.cc-step.is-current { color: #FFFFFF; background: var(--cc-blue); opacity: 1; box-shadow: 0 1px 3px rgba(1, 82, 252, 0.3); }
+#cashchase-wa-ext-root[data-mode="empty"] #cc-stage,
+#cashchase-wa-ext-root[data-mode="reading"] #cc-stage,
+#cashchase-wa-ext-root[data-mode="blocked"] #cc-stage { display: none !important; }
+/* the stage row shows it, so the stage line in the notes is for screen readers only */
+.cc-line-stage { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* what's happening */
 .cc-mascot-row { display: flex; align-items: center; gap: 12px; }
 .cc-mascot { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 6px 10px rgba(4, 41, 112, 0.12)); }
@@ -305,12 +321,6 @@ html.cashchase-collapsed .app-wrapper-web {
 .cc-deal:empty { display: none; }
 
 /* payment check */
-.cc-payment { margin-top: 12px; padding: 14px; border-radius: 14px; background: #FAF5FF; border: 1px solid #E9D5FF; transition: background-color 0.2s, border-color 0.2s; }
-.cc-payment.is-ok { background: var(--cc-green-bg); border-color: #A7F3D0; }
-.cc-payment-title { font-size: 14px; font-weight: 600; color: var(--cc-navy); }
-.cc-payment-claim { font-size: 12px; color: var(--cc-text-2); margin-top: 4px; }
-.cc-check-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; min-height: 32px; font-size: 14px; color: var(--cc-navy); cursor: pointer; }
-.cc-check-row input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--cc-blue); }
 
 /* reply cards */
 .cc-section-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; color: var(--cc-muted); }
@@ -367,8 +377,8 @@ html.cashchase-collapsed .app-wrapper-web {
 .cc-chip:hover, .cc-ghost-btn:hover, .cc-chip-btn:hover { border-color: var(--cc-blue); }
 
 /* buttons */
-.cc-ghost-btn { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid #C3D3F0; background: #FFFFFF; color: var(--cc-navy); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
-.cc-chip-btn { min-height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid #C3D3F0; background: #FFFFFF; color: var(--cc-navy); font-weight: 600; font-size: 12px; cursor: pointer; }
+.cc-ghost-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid #C3D3F0; background: #FFFFFF; color: var(--cc-navy); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.cc-chip-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; align-self: center; line-height: 1; white-space: nowrap; min-height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid #C3D3F0; background: #FFFFFF; color: var(--cc-navy); font-weight: 600; font-size: 12px; cursor: pointer; }
 .cc-wide { width: 100%; }
 .cc-big-btn {
   width: 100%;

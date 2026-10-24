@@ -1,4 +1,4 @@
-"""The AI reply check: every RM amount in an AI reply must be one CashChase calculated; threats are blocked.
+"""The AI reply check: every RM amount in an AI reply must be one DealPilot calculated; threats are blocked.
 
 (Receipt checks were removed with the cash features; this file now covers only the reply check.)
 """

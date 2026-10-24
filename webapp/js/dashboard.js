@@ -113,9 +113,9 @@ function renderPipelineView() {
 
   // Update header text
   const navText = document.getElementById('nav-text-pipeline');
-  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My Day';
+  if (navText) navText.textContent = isOwner ? 'Pipeline' : 'My day';
   const navDeals = document.getElementById('nav-text-deals');
-  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals & Quotes';
+  if (navDeals) navDeals.textContent = isOwner ? 'All deals' : 'Deals';
 
   const badgePipeline = document.getElementById('badge-pipeline');
   if (badgePipeline) {

@@ -1,10 +1,10 @@
-# CashChase UI Redesign: Prompts, Techniques and Images
+# DealPilot UI Redesign: Prompts, Techniques and Images
 
-This document records the CashChase web app redesign, so anyone can rebuild, extend or hand it over. It covers:
+This document records the DealPilot web app redesign, so anyone can rebuild, extend or hand it over. It covers:
 
 1. The prompts used for each part of the work, rewritten so you can reuse them.
 2. Every technique used: design tokens, components, layout, motion and accessibility.
-3. How the WhatsApp demo shows what the CashChase extension does.
+3. How the WhatsApp demo shows what the DealPilot extension does.
 4. Every image, with where it is used, its motion and a prompt to recreate it.
 
 The design follows `DESIGN-GUIDE.md`: IBM Plex Sans, the Orbyte colours, a soft ocean glow and frosted cards, with motion in plain CSS.
@@ -18,7 +18,7 @@ Each prompt below is written to stand alone. Paste it into a new session togethe
 ### 1.1 Full web app redesign
 
 ```text
-Redesign the CashChase web app (webapp/index.html, css/style.css, js/*.js) so it is
+Redesign the DealPilot web app (webapp/index.html, css/style.css, js/*.js) so it is
 clean, friendly, consistent and easy to use. Show me a prototype; do not push.
 
 Follow DESIGN-GUIDE.md:
@@ -41,10 +41,10 @@ depends on. Replace emoji in the static HTML with SVG icons and give every form
 field a visible label.
 ```
 
-### 1.2 CashChase extension panel
+### 1.2 DealPilot extension panel
 
 ```text
-The CashChase extension panel on the WhatsApp Demo page (rendered by
+The DealPilot extension panel on the WhatsApp Demo page (rendered by
 renderWhatsAppView() in webapp/js/copilot.js into #ext-panel-body) is awkward:
 the main button is buried under the customer history, boxes sit inside boxes,
 text is 10-11px with emoji icons, and labels use system words.
@@ -91,7 +91,7 @@ no script errors and no broken images, then zip it for Netlify Drop or
 ```text
 The WhatsApp Demo page (#page-wa in webapp/index.html, rendered by
 renderWhatsAppView() in webapp/js/copilot.js) is not user friendly. Redesign it
-a bit so it clearly shows what the CashChase extension does. It is still a demo;
+a bit so it clearly shows what the DealPilot extension does. It is still a demo;
 it will become a real agent later.
 
 The extension does five jobs:
@@ -224,7 +224,7 @@ All tokens live on `:root` in `style.css`.
 
 ## 5. WhatsApp demo page
 
-The page shows WhatsApp Web on the left and the CashChase extension docked on the right. WhatsApp is kept neutral (greys, white and green bubbles) so the blue extension stands out as the product.
+The page shows WhatsApp Web on the left and the DealPilot extension docked on the right. WhatsApp is kept neutral (greys, white and green bubbles) so the blue extension stands out as the product.
 
 ### 5.1 The five jobs and where each one shows
 
@@ -364,7 +364,7 @@ Each icon reacts in its own way when its button is hovered. Each lasts about hal
 
 Use this base description in every pose prompt below, so the poses stay consistent:
 
-> A cute chibi 3D mascot built from the CashChase logo shapes: a glossy, soft-plastic toy look with a rounded white face and body. A thick navy (#042970) C-shaped block wraps over the top and left of the head like a helmet. A rounded royal blue (#0152FC) block sits on the right side like an ear. Small square sky-blue (#01AAFC) to cyan (#01E3FB) jelly gems sit on the forehead, the left cheek and the chest. It has black oval eyes, a small curved smile and light blue blush. The arms and legs are navy, with royal blue mitten hands. Soft studio lighting, gentle shadows, a transparent background, centred, with no text.
+> A cute chibi 3D mascot built from the DealPilot logo shapes: a glossy, soft-plastic toy look with a rounded white face and body. A thick navy (#042970) C-shaped block wraps over the top and left of the head like a helmet. A rounded royal blue (#0152FC) block sits on the right side like an ear. Small square sky-blue (#01AAFC) to cyan (#01E3FB) jelly gems sit on the forehead, the left cheek and the chest. It has black oval eyes, a small curved smile and light blue blush. The arms and legs are navy, with royal blue mitten hands. Soft studio lighting, gentle shadows, a transparent background, centred, with no text.
 
 ### 9.3 Image catalogue
 
@@ -391,7 +391,7 @@ Use this base description in every pose prompt below, so the poses stay consiste
 
 - **Used on:** Invoices hero, Settings dialog, extension "Writing a reply…". Motion: `.m-laptop` typing bounce.
 - **Prompt:**
-  > [Shared character description]. Sitting and typing on a grey silver laptop with a small CashChase logo on the lid, a focused happy face, and small sky-blue motion marks near the hands. Upper body.
+  > [Shared character description]. Sitting and typing on a grey silver laptop with a small DealPilot logo on the lid, a focused happy face, and small sky-blue motion marks near the hands. Upper body.
 
 #### Cheering: `mascot-cheer.png`
 

@@ -158,7 +158,7 @@ def _generate_document_pdf(doc_id: str) -> Response:
             raise HTTPException(status_code=404, detail=f"Deal {doc_id} not found")
 
         biz = load_business(s)
-        company = biz.company_name or "CashChase Trading Sdn Bhd"
+        company = biz.company_name or "DealPilot Trading Sdn Bhd"
         rep = s.get(orm.Rep, d.rep_id) if d.rep_id is not None else None
         cust = get_customer(s, d.customer)
 
@@ -188,7 +188,7 @@ def _generate_document_pdf(doc_id: str) -> Response:
             "----------------------------------------------------------------------",
             f"TOTAL         : RM {d.amount:,}.00",
             "======================================================================",
-            "Payment: Maybank 5140-1234-5678 (CashChase Trading) / DuitNow",
+            "Payment: Maybank 5140-1234-5678 (DealPilot Trading) / DuitNow",
             DISCLAIMER,
         ]
         filename = f"{doc_num}_{d.customer.replace(' ', '_')}.pdf"

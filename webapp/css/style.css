@@ -1,5 +1,5 @@
 /* =========================================================================
-   CashChase Design System
+   DealPilot Design System
    Follows DESIGN-GUIDE.md: IBM Plex Sans, Orbyte palette, ocean glow,
    frosted cards, plain-CSS motion, reduced-motion switch.
    ========================================================================= */
@@ -412,7 +412,7 @@ main span.rounded-full, main span.rounded, .cc-pill { white-space: nowrap; }
 .cc-table tbody td:first-child { white-space: nowrap; }
 
 /* -------------------------------------------------------------------------
-   CashChase extension panel
+   DealPilot extension panel
    ------------------------------------------------------------------------- */
 .ext-customer summary::-webkit-details-marker,
 .ext-adjust summary::-webkit-details-marker { display: none; }
@@ -474,7 +474,7 @@ body[data-page="wa"] .cc-fab { display: none; }
   background: var(--navy); color: #fff; font-size: 0.75rem; font-weight: 600;
 }
 
-/* WhatsApp Web window, kept neutral so the CashChase panel stands out */
+/* WhatsApp Web window, kept neutral so the DealPilot panel stands out */
 .wa-window {
   background: #fff;
   border: 1px solid #E3E8EF;

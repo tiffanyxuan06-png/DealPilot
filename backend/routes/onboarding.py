@@ -27,7 +27,7 @@ def api_onboarding_preview(req: OnboardingPreviewRequest) -> PriceListPreview:
 
 @router.post("/api/onboarding/apply", response_model=ActionResponse)
 def api_onboarding_apply(req: OnboardingApplyRequest) -> ActionResponse:
-    """Starts CashChase for a new business with its own price list (replaces the demo data)."""
+    """Starts DealPilot for a new business with its own price list (replaces the demo data)."""
     require_owner(req.role, "business.setup")
     name = req.company_name.strip()
     if not name:
