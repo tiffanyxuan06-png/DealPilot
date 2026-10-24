@@ -1,4 +1,4 @@
-# DealPilot for Orbyte SME
+<h1><img src="docs/dealpilot-mascot.jpeg" alt="DealPilot mascot" width="120" align="absmiddle"> DealPilot for Orbyte SME</h1>
 
 Intelligent WhatsApp Copilot and Real-Time Net Worth Engine for SMEs powered by local LLM / VLM (LM Studio).
 
